@@ -9,10 +9,11 @@ import RegisterPage from './pages/RegisterPage';
 import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import AffiliateDashboard from './pages/AffiliateDashboard';
+import AffiliateReferrals from './pages/AffiliateReferrals';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
-  const isDashboard = location.pathname === '/dashboard';
+  const isDashboard = location.pathname.startsWith('/dashboard');
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -25,6 +26,7 @@ const AppContent: React.FC = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/dashboard" element={<AffiliateDashboard />} />
+          <Route path="/dashboard/referrals" element={<AffiliateReferrals />} />
         </Routes>
       </main>
       {!isDashboard && <Footer />}
