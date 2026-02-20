@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, ArrowRight } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
+    const navigate = useNavigate();
     const [formData, setFormData] = useState({
         email: '',
         senha: ''
@@ -11,8 +12,13 @@ const LoginPage: React.FC = () => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        alert('Tentativa de login realizada! (Funcionalidade de backend não implementada)');
         console.log('Dados de login:', formData);
+        // Simulating redirect to dashboard
+        navigate('/dashboard');
+    };
+
+    const handleQuickAccess = () => {
+        navigate('/dashboard');
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -34,6 +40,20 @@ const LoginPage: React.FC = () => {
 
                 {/* Login Card */}
                 <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 p-10 border border-slate-100">
+                    <button
+                        onClick={handleQuickAccess}
+                        className="w-full mb-8 bg-[#FBC02D] hover:bg-[#ffc947] text-[#0B1221] font-black py-5 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#FBC02D]/20 group"
+                    >
+                        ACESSAR ESCRITÓRIO VIRTUAL (DIRETO)
+                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    </button>
+
+                    <div className="relative flex items-center py-4 mb-2">
+                        <div className="flex-grow border-t border-slate-100"></div>
+                        <span className="flex-shrink mx-4 text-xs font-black text-slate-300 uppercase tracking-widest">ou use seu login</span>
+                        <div className="flex-grow border-t border-slate-100"></div>
+                    </div>
+
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
                             <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">E-mail ou Usuário</label>
@@ -42,7 +62,6 @@ const LoginPage: React.FC = () => {
                                 <input
                                     type="text"
                                     name="email"
-                                    required
                                     value={formData.email}
                                     onChange={handleChange}
                                     placeholder="seu@email.com"
@@ -61,7 +80,6 @@ const LoginPage: React.FC = () => {
                                 <input
                                     type="password"
                                     name="senha"
-                                    required
                                     value={formData.senha}
                                     onChange={handleChange}
                                     placeholder="••••••••"

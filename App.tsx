@@ -8,6 +8,7 @@ import ShopPage from './pages/ShopPage';
 import RegisterPage from './pages/RegisterPage';
 import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import AffiliateDashboard from './pages/AffiliateDashboard';
 
 const App: React.FC = () => {
   return (
@@ -21,6 +22,7 @@ const App: React.FC = () => {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/dashboard" element={<AffiliateDashboard />} />
           </Routes>
         </main>
         <Footer />
