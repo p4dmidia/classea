@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import AffiliateDashboard from './pages/AffiliateDashboard';
 import AffiliateReferrals from './pages/AffiliateReferrals';
+import AffiliateFinancial from './pages/AffiliateFinancial';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
@@ -27,6 +28,7 @@ const AppContent: React.FC = () => {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/dashboard" element={<AffiliateDashboard />} />
           <Route path="/dashboard/referrals" element={<AffiliateReferrals />} />
+          <Route path="/dashboard/financial" element={<AffiliateFinancial />} />
         </Routes>
       </main>
       {!isDashboard && <Footer />}

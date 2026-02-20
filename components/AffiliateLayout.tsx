@@ -19,7 +19,7 @@ const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
     const menuItems = [
         { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
         { label: 'Indicações', icon: Users, path: '/dashboard/referrals' },
-        { label: 'Financeiro', icon: Wallet, path: '#' },
+        { label: 'Financeiro', icon: Wallet, path: '/dashboard/financial' },
         { label: 'Relatórios', icon: TrendingUp, path: '#' },
     ];
 
@@ -41,8 +41,8 @@ const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
                                 key={item.label}
                                 to={item.path}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all group ${isActive
-                                        ? 'bg-[#FBC02D]/10 text-[#FBC02D]'
-                                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                    ? 'bg-[#FBC02D]/10 text-[#FBC02D]'
+                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
                                     }`}
                             >
                                 <item.icon className={`w-5 h-5 ${isActive ? 'text-[#FBC02D]' : 'group-hover:text-[#FBC02D]'}`} />
