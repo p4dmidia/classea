@@ -38,9 +38,9 @@ const Header: React.FC = () => {
           <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
         </div>
 
-        <Link to="/dashboard" className="bg-[#FBC02D] hover:bg-[#f9b100] transition-colors rounded-lg py-2 px-5 flex items-center gap-2 text-sm font-bold text-[#0B1221]">
+        <Link to="/login" className="bg-[#FBC02D] hover:bg-[#f9b100] transition-colors rounded-lg py-2 px-5 flex items-center gap-2 text-sm font-bold text-[#0B1221]">
           <User className="w-4 h-4" />
-          Escritório Virtual
+          Minha Conta
         </Link>
       </div>
 

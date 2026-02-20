@@ -17,10 +17,6 @@ const LoginPage: React.FC = () => {
         navigate('/dashboard');
     };
 
-    const handleQuickAccess = () => {
-        navigate('/dashboard');
-    };
-
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -40,20 +36,6 @@ const LoginPage: React.FC = () => {
 
                 {/* Login Card */}
                 <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/60 p-10 border border-slate-100">
-                    <button
-                        onClick={handleQuickAccess}
-                        className="w-full mb-8 bg-[#FBC02D] hover:bg-[#ffc947] text-[#0B1221] font-black py-5 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#FBC02D]/20 group"
-                    >
-                        ACESSAR ESCRITÓRIO VIRTUAL (DIRETO)
-                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                    </button>
-
-                    <div className="relative flex items-center py-4 mb-2">
-                        <div className="flex-grow border-t border-slate-100"></div>
-                        <span className="flex-shrink mx-4 text-xs font-black text-slate-300 uppercase tracking-widest">ou use seu login</span>
-                        <div className="flex-grow border-t border-slate-100"></div>
-                    </div>
-
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
                             <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">E-mail ou Usuário</label>
