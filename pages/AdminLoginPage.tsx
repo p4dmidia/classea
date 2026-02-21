@@ -1,16 +1,21 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, Lock, User, Eye, EyeOff, ArrowRight, ShieldCheck } from 'lucide-react';
 
 const AdminLoginPage: React.FC = () => {
+    const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
-        // Em um cenário real, aqui seria a chamada para a API
-        setTimeout(() => setIsLoading(false), 2000);
+        // Simulação de login - Permite qualquer credencial
+        setTimeout(() => {
+            setIsLoading(false);
+            navigate('/admin/dashboard');
+        }, 1500);
     };
 
     return (

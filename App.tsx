@@ -13,6 +13,10 @@ import AffiliateReferrals from './pages/AffiliateReferrals';
 import AffiliateFinancial from './pages/AffiliateFinancial';
 import AffiliateReports from './pages/AffiliateReports';
 import AdminLoginPage from './pages/AdminLoginPage';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminAffiliates from './pages/AdminAffiliates';
+import AdminProducts from './pages/AdminProducts';
+import AdminOrders from './pages/AdminOrders';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
@@ -33,6 +37,10 @@ const AppContent: React.FC = () => {
           <Route path="/dashboard/financial" element={<AffiliateFinancial />} />
           <Route path="/dashboard/reports" element={<AffiliateReports />} />
           <Route path="/admin/login" element={<AdminLoginPage />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/affiliates" element={<AdminAffiliates />} />
+          <Route path="/admin/products" element={<AdminProducts />} />
+          <Route path="/admin/orders" element={<AdminOrders />} />
         </Routes>
       </main>
       {!isDashboard && <Footer />}
