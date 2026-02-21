@@ -20,7 +20,7 @@ const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
         { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
         { label: 'Indicações', icon: Users, path: '/dashboard/referrals' },
         { label: 'Financeiro', icon: Wallet, path: '/dashboard/financial' },
-        { label: 'Relatórios', icon: TrendingUp, path: '#' },
+        { label: 'Relatórios', icon: TrendingUp, path: '/dashboard/reports' },
     ];
 
     return (
