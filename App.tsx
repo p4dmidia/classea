@@ -12,10 +12,11 @@ import AffiliateDashboard from './pages/AffiliateDashboard';
 import AffiliateReferrals from './pages/AffiliateReferrals';
 import AffiliateFinancial from './pages/AffiliateFinancial';
 import AffiliateReports from './pages/AffiliateReports';
+import AdminLoginPage from './pages/AdminLoginPage';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
-  const isDashboard = location.pathname.startsWith('/dashboard');
+  const isDashboard = location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/admin');
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -31,6 +32,7 @@ const AppContent: React.FC = () => {
           <Route path="/dashboard/referrals" element={<AffiliateReferrals />} />
           <Route path="/dashboard/financial" element={<AffiliateFinancial />} />
           <Route path="/dashboard/reports" element={<AffiliateReports />} />
+          <Route path="/admin/login" element={<AdminLoginPage />} />
         </Routes>
       </main>
       {!isDashboard && <Footer />}
