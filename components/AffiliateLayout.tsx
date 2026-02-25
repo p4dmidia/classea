@@ -6,7 +6,8 @@ import {
     Users,
     Wallet,
     TrendingUp,
-    ExternalLink
+    ExternalLink,
+    Library
 } from 'lucide-react';
 
 interface AffiliateLayoutProps {
@@ -21,6 +22,7 @@ const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
         { label: 'Indicações', icon: Users, path: '/dashboard/referrals' },
         { label: 'Financeiro', icon: Wallet, path: '/dashboard/financial' },
         { label: 'Relatórios', icon: TrendingUp, path: '/dashboard/reports' },
+        { label: 'Materiais', icon: Library, path: '/dashboard/materials' },
     ];
 
     return (

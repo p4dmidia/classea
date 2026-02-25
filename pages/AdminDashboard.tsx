@@ -1,5 +1,5 @@
-
 import React from 'react';
+import { Link } from 'react-router-dom';
 import {
     Users,
     ShoppingCart,
@@ -108,7 +108,7 @@ const AdminDashboard: React.FC = () => {
                                     <div className="text-right">
                                         <p className="text-[10px] font-black text-[#FBC02D] uppercase tracking-widest">{aff.plan}</p>
                                         <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${aff.status === 'Ativo' ? 'bg-emerald-50 text-emerald-600' :
-                                                aff.status === 'Pendente' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
+                                            aff.status === 'Pendente' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
                                             }`}>
                                             {aff.status}
                                         </span>
@@ -116,9 +116,12 @@ const AdminDashboard: React.FC = () => {
                                 </div>
                             ))}
                         </div>
-                        <button className="w-full mt-8 py-4 bg-[#05080F] text-white rounded-2xl font-black text-sm hover:bg-[#1a2436] transition-all shadow-xl shadow-[#05080F]/10">
+                        <Link
+                            to="/admin/affiliates"
+                            className="w-full mt-8 py-4 bg-[#05080F] text-white rounded-2xl font-black text-sm hover:bg-[#1a2436] transition-all shadow-xl shadow-[#05080F]/10 flex items-center justify-center"
+                        >
                             GERENCIAR AFILIADOS
-                        </button>
+                        </Link>
                     </div>
                 </div>
 

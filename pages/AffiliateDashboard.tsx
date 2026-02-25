@@ -16,10 +16,12 @@ import AffiliateLayout from '../components/AffiliateLayout';
 
 const AffiliateDashboard: React.FC = () => {
     const [copied, setCopied] = useState(false);
-    const affiliateLink = "https://classea.com.br/ref/afiliado123";
+    // Em um cenário real, o login viria do AuthContext
+    const userLogin = "FELIX2024";
+    const affiliateLink = `classea.com.br/ref/${userLogin.toLowerCase()}`;
 
     const handleCopyLink = () => {
-        navigator.clipboard.writeText(affiliateLink);
+        navigator.clipboard.writeText(`https://${affiliateLink}`);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -148,7 +150,7 @@ const AffiliateDashboard: React.FC = () => {
                                             <td className="py-5 px-2 font-black text-[#0B1221]">{item.value}</td>
                                             <td className="py-5 px-2 text-right">
                                                 <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${item.status === 'Confirmado' ? 'bg-emerald-50 text-emerald-600' :
-                                                        item.status === 'Pendente' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
+                                                    item.status === 'Pendente' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
                                                     }`}>
                                                     {item.status}
                                                 </span>

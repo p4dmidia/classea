@@ -12,11 +12,16 @@ import AffiliateDashboard from './pages/AffiliateDashboard';
 import AffiliateReferrals from './pages/AffiliateReferrals';
 import AffiliateFinancial from './pages/AffiliateFinancial';
 import AffiliateReports from './pages/AffiliateReports';
+import AffiliateMaterials from './pages/AffiliateMaterials';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminAffiliates from './pages/AdminAffiliates';
 import AdminProducts from './pages/AdminProducts';
 import AdminOrders from './pages/AdminOrders';
+import AdminSecurity from './pages/AdminSecurity';
+import AdminCommissions from './pages/AdminCommissions';
+import CheckoutPage from './pages/CheckoutPage';
+import AdminFinancial from './pages/AdminFinancial';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
@@ -29,6 +34,7 @@ const AppContent: React.FC = () => {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/shop" element={<ShopPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -36,11 +42,15 @@ const AppContent: React.FC = () => {
           <Route path="/dashboard/referrals" element={<AffiliateReferrals />} />
           <Route path="/dashboard/financial" element={<AffiliateFinancial />} />
           <Route path="/dashboard/reports" element={<AffiliateReports />} />
+          <Route path="/dashboard/materials" element={<AffiliateMaterials />} />
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/affiliates" element={<AdminAffiliates />} />
           <Route path="/admin/products" element={<AdminProducts />} />
           <Route path="/admin/orders" element={<AdminOrders />} />
+          <Route path="/admin/financial" element={<AdminFinancial />} />
+          <Route path="/admin/security" element={<AdminSecurity />} />
+          <Route path="/admin/commissions" element={<AdminCommissions />} />
         </Routes>
       </main>
       {!isDashboard && <Footer />}

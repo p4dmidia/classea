@@ -10,7 +10,9 @@ import {
     LogOut,
     Bell,
     Search,
-    ChevronRight
+    ChevronRight,
+    Percent,
+    Wallet
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -25,7 +27,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         { label: 'Afiliados', icon: Users, path: '/admin/affiliates' },
         { label: 'Produtos', icon: Package, path: '/admin/products' },
         { label: 'Pedidos', icon: ShoppingCart, path: '/admin/orders' },
-        { label: 'Segurança', icon: ShieldAlert, path: '#' },
+        { label: 'Comissões', icon: Percent, path: '/admin/commissions' },
+        { label: 'Financeiro', icon: Wallet, path: '/admin/financial' },
+        { label: 'Segurança', icon: ShieldAlert, path: '/admin/security' },
     ];
 
     return (

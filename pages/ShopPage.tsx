@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Search, Filter, ChevronDown, Grid, List, Star, ShoppingCart } from 'lucide-react';
+import { Search, Filter, ChevronDown, Grid, List, Star, ShoppingCart, Link, Check } from 'lucide-react';
 
 const ShopPage: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -16,6 +16,17 @@ const ShopPage: React.FC = () => {
         { id: 5, name: 'Kit Relaxamento Bio-Magnético', category: 'Acessórios', price: 1200, rating: 5, image: 'https://images.unsplash.com/photo-1544161515-4af6b1d4640d?q=80&w=600&auto=format&fit=crop' },
         { id: 6, name: 'Bolsa Feminina Elegance', category: 'Feminino', price: 350, rating: 4, image: 'https://images.unsplash.com/photo-1584917033904-493bb3c3cc08?q=80&w=600&auto=format&fit=crop' },
     ];
+
+    const [copiedId, setCopiedId] = useState<number | null>(null);
+    const userLogin = "felix2024";
+
+    const handleCopyAffiliateLink = (e: React.MouseEvent, productId: number) => {
+        e.stopPropagation();
+        const link = `https://classea.com.br/p/${productId}?ref=${userLogin}`;
+        navigator.clipboard.writeText(link);
+        setCopiedId(productId);
+        setTimeout(() => setCopiedId(null), 2000);
+    };
 
     const filteredProducts = products.filter(p =>
         (activeCategory === 'Todos' || p.category === activeCategory) &&
@@ -128,8 +139,19 @@ const ShopPage: React.FC = () => {
                                             alt={product.name}
                                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                         />
-                                        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full p-2 text-[#0B1221] shadow-md -translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all">
-                                            <ShoppingCart className="w-4 h-4" />
+                                        <div className="absolute top-4 right-4 flex flex-col gap-2">
+                                            <div className="bg-white/90 backdrop-blur-sm rounded-full p-2 text-[#0B1221] shadow-md -translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all cursor-pointer hover:bg-white">
+                                                <ShoppingCart className="w-4 h-4" />
+                                            </div>
+                                            <div
+                                                onClick={(e) => handleCopyAffiliateLink(e, product.id)}
+                                                className={`bg-white shadow-md rounded-full p-2 -translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all delay-75 cursor-pointer relative ${copiedId === product.id ? 'text-emerald-500' : 'text-[#0B1221] hover:text-[#FBC02D]'}`}
+                                            >
+                                                {copiedId === product.id ? <Check className="w-4 h-4" /> : <Link className="w-4 h-4" />}
+                                                {copiedId === product.id && (
+                                                    <span className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-[#0B1221] text-white text-[8px] font-black py-1 px-2 rounded uppercase tracking-wider whitespace-nowrap">Link Copiado!</span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="p-6 space-y-3">
