@@ -1,6 +1,6 @@
-
 import React from 'react';
 import { ArrowRight, Settings } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const ConsorcioSection: React.FC = () => {
   return (
@@ -18,10 +18,13 @@ const ConsorcioSection: React.FC = () => {
             <p className="text-slate-600 text-lg max-w-lg">
               Adquira nossos colchões magnéticos premium e outros itens de alto valor com parcelas que cabem no seu bolso, sem juros abusivos.
             </p>
-            <button className="bg-[#0B1221] hover:bg-slate-800 text-white font-bold py-4 px-10 rounded-lg flex items-center gap-3 transition-all">
+            <Link
+              to="/consorcio"
+              className="bg-[#0B1221] hover:bg-slate-800 text-white font-bold py-4 px-10 rounded-lg flex items-center gap-3 transition-all inline-flex w-fit"
+            >
               SIMULAR CONSÓRCIO
               <ArrowRight className="w-5 h-5" />
-            </button>
+            </Link>
           </div>
 
           <div className="flex-1 relative flex justify-center">

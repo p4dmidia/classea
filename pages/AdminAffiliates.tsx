@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
     Users,
@@ -20,8 +19,8 @@ import {
 import AdminLayout from '../components/AdminLayout';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-
-// No need for separate interface if using standalone autoTable function
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 const AdminAffiliates: React.FC = () => {
     // States
@@ -30,25 +29,134 @@ const AdminAffiliates: React.FC = () => {
     const [filterPlan, setFilterPlan] = useState('Todos');
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
-    const [showToast, setShowToast] = useState(false);
-    const [toastMessage, setToastMessage] = useState('');
+    const [affiliates, setAffiliates] = useState<any[]>([]);
+    const [totalStats, setTotalStats] = useState({ total: 0, pending: 0, newThisMonth: 0 });
 
-    const itemsPerPage = 5;
+    const itemsPerPage = 8;
 
-    const allAffiliates = [
-        { id: 1, name: 'Ricardo Santos', email: 'ricardo@email.com', phone: '(11) 98765-4321', plan: 'Diamante', status: 'Ativo', referrals: 158, earnings: 'R$ 12.450', joined: '15 Jan 2024' },
-        { id: 2, name: 'Letícia Barros', email: 'leticia@email.com', phone: '(21) 97654-3210', plan: 'Ouro', status: 'Pendente', referrals: 42, earnings: 'R$ 4.250', joined: '02 Fev 2024' },
-        { id: 3, name: 'Marcos Oliveira', email: 'marcos@email.com', phone: '(31) 96543-2109', plan: 'Prata', status: 'Ativo', referrals: 85, earnings: 'R$ 6.800', joined: '20 Dez 2023' },
-        { id: 4, name: 'Fernanda Lima', email: 'fernanda@email.com', phone: '(41) 95432-1098', plan: 'Bronze', status: 'Bloqueado', referrals: 12, earnings: 'R$ 850', joined: '10 Jan 2024' },
-        { id: 5, name: 'Paulo Silva', email: 'paulo@email.com', phone: '(51) 94321-0987', plan: 'Diamante', status: 'Ativo', referrals: 210, earnings: 'R$ 18.200', joined: '05 Nov 2023' },
-        { id: 6, name: 'Ana Costa', email: 'ana@email.com', phone: '(11) 91234-5678', plan: 'Ouro', status: 'Ativo', referrals: 65, earnings: 'R$ 5.900', joined: '12 Dez 2023' },
-        { id: 7, name: 'Bruno Mendes', email: 'bruno@email.com', phone: '(21) 92345-6789', plan: 'Prata', status: 'Pendente', referrals: 15, earnings: 'R$ 1.200', joined: '05 Jan 2024' },
-        { id: 8, name: 'Carla Dias', email: 'carla@email.com', phone: '(31) 93456-7890', plan: 'Diamante', status: 'Ativo', referrals: 312, earnings: 'R$ 24.500', joined: '20 Out 2023' },
-    ];
+    useEffect(() => {
+        fetchAffiliates();
+    }, []);
 
-    // Filter Logic
-    const filteredAffiliates = allAffiliates.filter(aff => {
+    const fetchAffiliates = async () => {
+        setIsLoading(true);
+        try {
+            // 1. Fetch Affiliates separately
+            const { data: affData, error: affError } = await supabase
+                .from('affiliates')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (affError) throw affError;
+
+            // 2. Fetch User Settings for all relevant user_ids
+            const userIds = affData.map(aff => aff.user_id).filter(id => id);
+            const { data: settingsData, error: settingsError } = await supabase
+                .from('user_settings')
+                .select('user_id, total_earnings')
+                .in('user_id', userIds);
+
+            if (settingsError) throw settingsError;
+
+            // Create a lookup map for settings
+            const settingsMap = new Map();
+            settingsData?.forEach(s => settingsMap.set(s.user_id, s));
+
+            const formattedAffs = affData.map(aff => {
+                const settings = settingsMap.get(aff.user_id);
+                return {
+                    id: aff.id,
+                    name: aff.full_name || 'Sem Nome',
+                    email: aff.email,
+                    phone: aff.whatsapp || 'Não informado',
+                    plan: aff.position_slot ? `Slot ${aff.position_slot}` : 'Membro',
+                    status: aff.is_active ? (aff.is_verified ? 'Ativo' : 'Pendente') : 'Bloqueado',
+                    referrals: 0,
+                    earnings: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+                        .format(settings?.total_earnings || 0),
+                    joined: new Date(aff.created_at).toLocaleDateString('pt-BR'),
+                    raw_status: aff.is_active,
+                    raw_verified: aff.is_verified,
+                    user_id: aff.user_id,
+                    created_at: aff.created_at
+                };
+            });
+
+            setAffiliates(formattedAffs);
+
+            const now = new Date();
+            const startOfMonthValue = new Date(now.getFullYear(), now.getMonth(), 1);
+
+            const newCount = affData.filter(d => d.created_at && new Date(d.created_at) >= startOfMonthValue).length;
+            const pendingCount = formattedAffs.filter(a => a.status === 'Pendente').length;
+
+            setTotalStats({
+                total: formattedAffs.length,
+                pending: pendingCount,
+                newThisMonth: newCount
+            });
+
+        } catch (error: any) {
+            console.error('Error fetching affiliates:', error);
+            toast.error('Falha ao carregar lista de afiliados.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const toggleStatus = async (id: string, currentStatus: boolean) => {
+        try {
+            const { error } = await supabase
+                .from('affiliates')
+                .update({ is_active: !currentStatus })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            toast.success(`Afiliado ${!currentStatus ? 'ativado' : 'bloqueado'} com sucesso!`);
+            fetchAffiliates();
+        } catch (error) {
+            toast.error('Erro ao atualizar status.');
+        }
+    };
+
+    const verifyAffiliate = async (id: string) => {
+        try {
+            const { error } = await supabase
+                .from('affiliates')
+                .update({ is_verified: true, is_active: true })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            toast.success('Afiliado verificado com sucesso!');
+            fetchAffiliates();
+        } catch (error) {
+            toast.error('Erro ao verificar afiliado.');
+        }
+    };
+
+    const deleteAffiliate = async (id: string) => {
+        if (!window.confirm('Tem certeza que deseja excluir este afiliado? Esta ação não pode ser desfeita.')) return;
+
+        try {
+            const { error } = await supabase
+                .from('affiliates')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            toast.success('Afiliado removido com sucesso!');
+            fetchAffiliates();
+        } catch (error) {
+            toast.error('Erro ao remover afiliado. Ele pode ter dados vinculados.');
+        }
+    };
+
+    const filteredAffiliates = affiliates.filter(aff => {
         const matchesSearch = aff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             aff.email.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = filterStatus === 'Todos' || aff.status === filterStatus;
@@ -64,69 +172,38 @@ const AdminAffiliates: React.FC = () => {
         setIsExporting(true);
         setTimeout(() => {
             const doc = new jsPDF();
-
-            // PDF Header
             doc.setFontSize(22);
-            doc.setTextColor(5, 8, 15); // #05080F
+            doc.setTextColor(5, 8, 15);
             doc.text('CLASSE A - PREMIUM LIFESTYLE', 14, 20);
-
             doc.setFontSize(14);
             doc.setTextColor(100, 100, 100);
             doc.text('Relatório de Afiliados', 14, 30);
-
             doc.setFontSize(10);
             doc.text(`Data do Relatório: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, 14, 38);
 
-            // Search criteria if any
-            let yPos = 46;
-            if (searchTerm || filterStatus !== 'Todos' || filterPlan !== 'Todos') {
-                doc.setFontSize(10);
-                doc.setTextColor(100, 100, 100);
-                let filterStr = 'Filtros aplicados: ';
-                if (searchTerm) filterStr += `Busca: "${searchTerm}" | `;
-                if (filterStatus !== 'Todos') filterStr += `Status: ${filterStatus} | `;
-                if (filterPlan !== 'Todos') filterStr += `Plano: ${filterPlan}`;
-                doc.text(filterStr, 14, yPos);
-                yPos += 8;
-            }
-
-            // Table
-            const tableColumn = ["ID", "Nome", "E-mail", "Plano", "Status", "Ganhos", "Indicações"];
+            const tableColumn = ["ID", "Nome", "E-mail", "Plano", "Status", "Ganhos"];
             const tableRows = filteredAffiliates.map(aff => [
-                aff.id,
+                aff.id.substring(0, 8),
                 aff.name,
                 aff.email,
                 aff.plan,
                 aff.status,
-                aff.earnings,
-                aff.referrals
+                aff.earnings
             ]);
 
             autoTable(doc, {
                 head: [tableColumn],
                 body: tableRows,
-                startY: yPos,
+                startY: 45,
                 theme: 'grid',
-                headStyles: { fillColor: [5, 8, 15], textColor: [251, 192, 45], fontStyle: 'bold' }, // #05080F and #FBC02D
-                alternateRowStyles: { fillColor: [248, 250, 252] }, // slate-50
-                margin: { top: yPos },
-                styles: { fontSize: 9, cellPadding: 4 }
+                headStyles: { fillColor: [5, 8, 15], textColor: [251, 192, 45], fontStyle: 'bold' }
             });
 
             doc.save('Relatorio_Afiliados_ClasseA.pdf');
-
             setIsExporting(false);
-            setToastMessage('Relatório PDF baixado com sucesso!');
-            setShowToast(true);
+            toast.success('Relatório PDF baixado com sucesso!');
         }, 1500);
     };
-
-    useEffect(() => {
-        if (showToast) {
-            const timer = setTimeout(() => setShowToast(false), 3000);
-            return () => clearTimeout(timer);
-        }
-    }, [showToast]);
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -138,13 +215,8 @@ const AdminAffiliates: React.FC = () => {
     };
 
     const getPlanColor = (plan: string) => {
-        switch (plan) {
-            case 'Diamante': return 'text-blue-600';
-            case 'Ouro': return 'text-amber-500';
-            case 'Prata': return 'text-slate-400';
-            case 'Bronze': return 'text-orange-600';
-            default: return 'text-slate-600';
-        }
+        if (plan.includes('Slot')) return 'text-blue-600';
+        return 'text-slate-600';
     };
 
     return (
@@ -233,14 +305,14 @@ const AdminAffiliates: React.FC = () => {
                                         }}
                                     >
                                         <option>Todos</option>
-                                        <option>Diamante</option>
-                                        <option>Ouro</option>
-                                        <option>Prata</option>
-                                        <option>Bronze</option>
+                                        <option>Membro</option>
+                                        <option>Slot 1</option>
+                                        <option>Slot 2</option>
+                                        <option>Slot 3</option>
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Ações de Filtro</label>
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Ações</label>
                                     <button
                                         onClick={() => {
                                             setFilterStatus('Todos');
@@ -265,65 +337,92 @@ const AdminAffiliates: React.FC = () => {
                             <thead className="bg-slate-50/50">
                                 <tr>
                                     <th className="text-left py-6 px-8 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">
-                                        <div className="flex items-center gap-2 cursor-pointer hover:text-[#05080F] transition-colors">
-                                            Afiliado <ArrowUpDown className="w-3 h-3" />
-                                        </div>
+                                        Afiliado
                                     </th>
                                     <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Plano</th>
-                                    <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Indicações</th>
-                                    <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Ganhos Totais</th>
+                                    <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Ganhos</th>
                                     <th className="text-center py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Status</th>
                                     <th className="text-right py-6 px-8 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Ações</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                                {currentData.length > 0 ? currentData.map((aff) => (
-                                    <tr key={aff.id} className="group hover:bg-slate-50/50 transition-colors">
-                                        <td className="py-6 px-8">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-[#05080F] overflow-hidden">
-                                                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${aff.name}`} alt={aff.name} />
-                                                </div>
-                                                <div>
-                                                    <p className="font-black text-[#05080F]">{aff.name}</p>
-                                                    <div className="flex flex-col sm:flex-row sm:gap-4 mt-0.5">
-                                                        <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wider">
-                                                            <Mail className="w-3 h-3 text-[#FBC02D]" /> {aff.email}
-                                                        </span>
-                                                        <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wider">
-                                                            <Phone className="w-3 h-3 text-[#FBC02D]" /> {aff.phone}
-                                                        </span>
+                                {isLoading ? (
+                                    [1, 2, 3, 4, 5].map(i => (
+                                        <tr key={i} className="animate-pulse">
+                                            <td className="py-6 px-8"><div className="h-12 w-full bg-slate-100 rounded-2xl"></div></td>
+                                            <td className="py-6 px-4"><div className="h-6 w-16 bg-slate-100 rounded-full"></div></td>
+                                            <td className="py-6 px-4"><div className="h-6 w-24 bg-slate-100 rounded-lg"></div></td>
+                                            <td className="py-6 px-4"><div className="h-8 w-24 bg-slate-100 rounded-full mx-auto"></div></td>
+                                            <td className="py-6 px-8 text-right"><div className="h-10 w-24 bg-slate-100 rounded-xl ml-auto"></div></td>
+                                        </tr>
+                                    ))
+                                ) : currentData.length > 0 ? (
+                                    currentData.map((aff) => (
+                                        <tr key={aff.id} className="group hover:bg-slate-50/50 transition-colors">
+                                            <td className="py-6 px-8">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-12 rounded-2xl bg-[#05080F] flex items-center justify-center font-black text-[#FBC02D]">
+                                                        {aff.name.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-black text-[#05080F]">{aff.name}</p>
+                                                        <div className="flex flex-col sm:flex-row sm:gap-4 mt-0.5">
+                                                            <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wider">
+                                                                <Mail className="w-3 h-3 text-[#FBC02D]" /> {aff.email}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="py-6 px-4">
-                                            <span className={`text-sm font-black uppercase tracking-tight ${getPlanColor(aff.plan)}`}>
-                                                {aff.plan}
-                                            </span>
-                                        </td>
-                                        <td className="py-6 px-4 font-bold text-[#05080F]">{aff.referrals}</td>
-                                        <td className="py-6 px-4 font-black text-emerald-600">{aff.earnings}</td>
-                                        <td className="py-6 px-4 text-center">
-                                            <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${getStatusColor(aff.status)}`}>
-                                                {aff.status === 'Ativo' && <CheckCircle className="w-3 h-3" />}
-                                                {aff.status === 'Pendente' && <AlertCircle className="w-3 h-3" />}
-                                                {aff.status === 'Bloqueado' && <XCircle className="w-3 h-3" />}
-                                                {aff.status}
-                                            </span>
-                                        </td>
-                                        <td className="py-6 px-8 text-right">
-                                            <button className="p-2 text-slate-300 hover:text-[#05080F] hover:bg-slate-100 rounded-xl transition-all">
-                                                <MoreVertical className="w-5 h-5" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                )) : (
+                                            </td>
+                                            <td className="py-6 px-4">
+                                                <span className={`text-sm font-black uppercase tracking-tight ${getPlanColor(aff.plan)}`}>
+                                                    {aff.plan}
+                                                </span>
+                                            </td>
+                                            <td className="py-6 px-4 font-black text-emerald-600">{aff.earnings}</td>
+                                            <td className="py-6 px-4 text-center">
+                                                <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${getStatusColor(aff.status)}`}>
+                                                    {aff.status === 'Ativo' && <CheckCircle className="w-3 h-3" />}
+                                                    {aff.status === 'Pendente' && <AlertCircle className="w-3 h-3" />}
+                                                    {aff.status === 'Bloqueado' && <XCircle className="w-3 h-3" />}
+                                                    {aff.status}
+                                                </span>
+                                            </td>
+                                            <td className="py-6 px-8 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {aff.status === 'Pendente' && (
+                                                        <button
+                                                            onClick={() => verifyAffiliate(aff.id)}
+                                                            className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
+                                                            title="Verificar"
+                                                        >
+                                                            <CheckCircle className="w-5 h-5" />
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => toggleStatus(aff.id, aff.raw_status)}
+                                                        className={`p-2 rounded-xl transition-all ${aff.raw_status ? 'text-amber-500 hover:bg-amber-50' : 'text-emerald-500 hover:bg-emerald-50'}`}
+                                                        title={aff.raw_status ? 'Bloquear' : 'Ativar'}
+                                                    >
+                                                        {aff.raw_status ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteAffiliate(aff.id)}
+                                                        className="p-2 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                        title="Excluir"
+                                                    >
+                                                        <X className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
                                     <tr>
-                                        <td colSpan={6} className="py-20 text-center">
+                                        <td colSpan={5} className="py-20 text-center">
                                             <div className="flex flex-col items-center gap-3 text-slate-400">
                                                 <Search className="w-12 h-12 opacity-20" />
-                                                <p className="font-bold">Nenhum afiliado encontrado com estes filtros.</p>
+                                                <p className="font-bold">Nenhum afiliado encontrado.</p>
                                             </div>
                                         </td>
                                     </tr>
@@ -333,36 +432,17 @@ const AdminAffiliates: React.FC = () => {
                     </div>
 
                     {/* Pagination */}
-                    {totalPages > 0 && (
-                        <div className="p-8 border-t border-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4">
-                            <p className="text-sm text-slate-400 font-medium">
-                                Mostrando {currentData.length} de {filteredAffiliates.length} afiliados
-                            </p>
-                            <div className="flex gap-2">
+                    {totalPages > 1 && (
+                        <div className="p-8 border-t border-slate-50 flex justify-center gap-2">
+                            {[...Array(totalPages)].map((_, i) => (
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                    disabled={currentPage === 1}
-                                    className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-400 hover:bg-slate-50 transition-all disabled:opacity-30 disabled:hover:bg-transparent"
+                                    key={i}
+                                    onClick={() => setCurrentPage(i + 1)}
+                                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${currentPage === i + 1 ? 'bg-[#05080F] text-white' : 'hover:bg-slate-100 text-[#05080F]'}`}
                                 >
-                                    Anterior
+                                    {i + 1}
                                 </button>
-                                {[...Array(totalPages)].map((_, i) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => setCurrentPage(i + 1)}
-                                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${currentPage === i + 1 ? 'bg-[#05080F] text-white shadow-lg shadow-[#05080F]/10' : 'hover:bg-slate-100 text-[#05080F]'}`}
-                                    >
-                                        {i + 1}
-                                    </button>
-                                ))}
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                    disabled={currentPage === totalPages}
-                                    className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-[#05080F] hover:bg-slate-50 transition-all disabled:opacity-30 disabled:hover:bg-transparent"
-                                >
-                                    Próximo
-                                </button>
-                            </div>
+                            ))}
                         </div>
                     )}
                 </div>
@@ -375,7 +455,7 @@ const AdminAffiliates: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total de Afiliados</p>
-                            <h4 className="text-2xl font-black">{allAffiliates.length}</h4>
+                            <h4 className="text-2xl font-black">{totalStats.total}</h4>
                         </div>
                     </div>
                     <div className="bg-white rounded-[2rem] p-6 border border-slate-100 flex items-center gap-5 shadow-sm">
@@ -384,7 +464,7 @@ const AdminAffiliates: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Solicitações Pendentes</p>
-                            <h4 className="text-2xl font-black text-[#05080F]">12</h4>
+                            <h4 className="text-2xl font-black text-[#05080F]">{totalStats.pending}</h4>
                         </div>
                     </div>
                     <div className="bg-white rounded-[2rem] p-6 border border-slate-100 flex items-center gap-5 shadow-sm">
@@ -393,19 +473,11 @@ const AdminAffiliates: React.FC = () => {
                         </div>
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Novos este Mês</p>
-                            <h4 className="text-2xl font-black text-[#05080F]">+248</h4>
+                            <h4 className="text-2xl font-black text-[#05080F]">+{totalStats.newThisMonth}</h4>
                         </div>
                     </div>
                 </div>
             </div>
-
-            {/* Toast Notification */}
-            {showToast && (
-                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 bg-[#05080F] text-[#FBC02D] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 font-black text-sm">
-                    <CheckCircle className="w-5 h-5 border-2 border-[#FBC02D] rounded-full" />
-                    {toastMessage}
-                </div>
-            )}
         </AdminLayout>
     );
 };

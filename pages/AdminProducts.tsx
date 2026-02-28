@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
     Package,
@@ -20,9 +19,36 @@ import {
     Upload,
     DollarSign,
     Box,
-    ChevronRight
+    ChevronRight,
+    Loader2
 } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
+
+interface Product {
+    id: string;
+    name: string;
+    description: string;
+    category_id: number;
+    price: number;
+    stock_quantity: number;
+    image_url: string;
+    is_active: boolean;
+    sales_count: number;
+    created_at: string;
+    product_categories?: {
+        name: string;
+    };
+}
+
+interface Category {
+    id: number;
+    name: string;
+    _count?: {
+        products: number;
+    };
+}
 
 const AdminProducts: React.FC = () => {
     // States
@@ -33,39 +59,262 @@ const AdminProducts: React.FC = () => {
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
     const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
-    const [showToast, setShowToast] = useState(false);
-    const [toastMessage, setToastMessage] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [isSaving, setIsSaving] = useState(false);
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [isCategorySaving, setIsCategorySaving] = useState(false);
+
+    // Form States
+    const [formData, setFormData] = useState({
+        name: '',
+        category_id: '',
+        price: '',
+        stock_quantity: '',
+        description: ''
+    });
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-    const itemsPerPage = 5;
+    const itemsPerPage = 8;
 
-    const allProducts = [
-        { id: 1, name: 'Colchão Classe A Gold', category: 'Colchões', price: 'R$ 4.590', stock: 24, status: 'Ativo', sales: 158 },
-        { id: 2, name: 'Acessório Magnético Premium', category: 'Acessórios', price: 'R$ 290', stock: 156, status: 'Ativo', sales: 342 },
-        { id: 3, name: 'Pillow Top Visco', category: 'Conforto', price: 'R$ 890', stock: 8, status: 'Estoque Baixo', sales: 45 },
-        { id: 4, name: 'Colchão Smart Sleep', category: 'Colchões', price: 'R$ 3.850', stock: 0, status: 'Sem Estoque', sales: 112 },
-        { id: 5, name: 'Travesseiro Cervical', category: 'Acessórios', price: 'R$ 150', stock: 85, status: 'Ativo', sales: 210 },
-        { id: 6, name: 'Base Articulada Elite', category: 'Camas', price: 'R$ 5.200', stock: 15, status: 'Ativo', sales: 28 },
-        { id: 7, name: 'Protetor de Colchão Impermeável', category: 'Acessórios', price: 'R$ 180', stock: 200, status: 'Ativo', sales: 520 },
-        { id: 8, name: 'Lençol de Fios Egípcios', category: 'Enxoval', price: 'R$ 450', stock: 12, status: 'Estoque Baixo', sales: 89 },
-    ];
+    useEffect(() => {
+        fetchInitialData();
+    }, []);
 
-    const categoriesList = [
-        { name: 'Colchões', count: 12 },
-        { name: 'Acessórios', count: 24 },
-        { name: 'Conforto', count: 8 },
-        { name: 'Camas', count: 5 },
-        { name: 'Enxoval', count: 15 },
-    ];
+    const fetchInitialData = async () => {
+        setIsLoading(true);
+        try {
+            await Promise.all([fetchProducts(), fetchCategories()]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const fetchProducts = async () => {
+        const { data, error } = await supabase
+            .from('products')
+            .select(`
+                *,
+                product_categories (name)
+            `)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            toast.error('Erro ao carregar produtos');
+            console.error(error);
+        } else {
+            setProducts(data || []);
+        }
+    };
+
+    const fetchCategories = async () => {
+        const { data, error } = await supabase
+            .from('product_categories')
+            .select(`
+                *,
+                products (id)
+            `);
+
+        if (error) {
+            toast.error('Erro ao carregar categorias');
+        } else {
+            const formatted = data.map((cat: any) => ({
+                ...cat,
+                count: cat.products?.length || 0
+            }));
+            setCategories(formatted);
+        }
+    };
+
+    const handleAddCategory = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newCategoryName.trim()) return;
+        setIsCategorySaving(true);
+
+        try {
+            const { error } = await supabase
+                .from('product_categories')
+                .insert([{ name: newCategoryName }]);
+
+            if (error) throw error;
+
+            toast.success('Categoria adicionada!');
+            setNewCategoryName('');
+            fetchCategories();
+        } catch (error) {
+            toast.error('Erro ao adicionar categoria');
+            console.error(error);
+        } finally {
+            setIsCategorySaving(false);
+        }
+    };
+
+    const handleDeleteCategory = async (id: number) => {
+        if (!window.confirm('Tem certeza? Isso pode afetar produtos vinculados.')) return;
+
+        try {
+            const { error } = await supabase
+                .from('product_categories')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            toast.success('Categoria removida');
+            fetchCategories();
+            fetchProducts();
+        } catch (error) {
+            toast.error('Erro ao excluir categoria');
+        }
+    };
+
+    const handleOpenEdit = (prod: Product) => {
+        setEditingProduct(prod);
+        setFormData({
+            name: prod.name,
+            category_id: prod.category_id.toString(),
+            price: prod.price.toString(),
+            stock_quantity: prod.stock_quantity.toString(),
+            description: prod.description || ''
+        });
+        setImagePreview(prod.image_url);
+        setIsNewModalOpen(true);
+    };
+
+    const handleSaveProduct = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSaving(true);
+
+        try {
+            let imageUrl = editingProduct?.image_url || '';
+
+            if (selectedImage) {
+                const fileExt = selectedImage.name.split('.').pop();
+                const fileName = `${Math.random()}.${fileExt}`;
+                const { error: uploadError, data } = await supabase.storage
+                    .from('product-images')
+                    .upload(`products/${fileName}`, selectedImage);
+
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('product-images')
+                    .getPublicUrl(data.path);
+
+                imageUrl = publicUrl;
+            }
+
+            // Cleanup price: remove R$, dots and replace comma with dot
+            const rawPrice = formData.price.toString().replace(/[R$\s.]/g, '').replace(',', '.');
+            const parsedPrice = parseFloat(rawPrice);
+
+            if (isNaN(parsedPrice)) {
+                toast.error('Preço inválido');
+                setIsSaving(false);
+                return;
+            }
+
+            const productData = {
+                name: formData.name,
+                category_id: parseInt(formData.category_id),
+                price: parsedPrice,
+                stock_quantity: parseInt(formData.stock_quantity),
+                description: formData.description,
+                image_url: imageUrl,
+                is_active: true
+            };
+
+            if (editingProduct) {
+                const { error } = await supabase
+                    .from('products')
+                    .update(productData)
+                    .eq('id', editingProduct.id);
+                if (error) throw error;
+                toast.success('Produto atualizado com sucesso!');
+            } else {
+                const { error } = await supabase
+                    .from('products')
+                    .insert([productData]);
+                if (error) throw error;
+                toast.success('Produto cadastrado com sucesso!');
+            }
+
+            setIsNewModalOpen(false);
+            resetForm();
+            fetchProducts();
+            fetchCategories();
+        } catch (error: any) {
+            toast.error(editingProduct ? 'Erro ao atualizar produto' : 'Erro ao cadastrar produto');
+            console.error(error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleDeleteProduct = async (id: string) => {
+        if (!window.confirm('Tem certeza que deseja excluir este produto?')) return;
+
+        try {
+            const { error } = await supabase
+                .from('products')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            toast.success('Produto removido');
+            fetchProducts();
+            fetchCategories();
+        } catch (error) {
+            toast.error('Erro ao excluir produto');
+        }
+    };
+
+    const toggleProductStatus = async (id: string, currentStatus: boolean) => {
+        try {
+            const { error } = await supabase
+                .from('products')
+                .update({ is_active: !currentStatus })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            toast.success(`Produto ${!currentStatus ? 'ativado' : 'desativado'}`);
+            fetchProducts();
+        } catch (error) {
+            toast.error('Erro ao atualizar status');
+        }
+    };
+
+    const resetForm = () => {
+        setFormData({
+            name: '',
+            category_id: '',
+            price: '',
+            stock_quantity: '',
+            description: ''
+        });
+        setEditingProduct(null);
+        setSelectedImage(null);
+        setImagePreview(null);
+    };
 
     // Filter Logic
-    const filteredProducts = allProducts.filter(prod => {
-        const matchesSearch = prod.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            prod.category.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesCategory = filterCategory === 'Todas' || prod.category === filterCategory;
-        const matchesStatus = filterStatus === 'Todos' || prod.status === filterStatus;
+    const filteredProducts = products.filter(prod => {
+        const matchesSearch = prod.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const categoryName = prod.product_categories?.name || 'Sem Categoria';
+        const matchesCategory = filterCategory === 'Todas' || categoryName === filterCategory;
+
+        let statusText = 'Ativo';
+        if (!prod.is_active) statusText = 'Inativo';
+        else if (prod.stock_quantity === 0) statusText = 'Sem Estoque';
+        else if (prod.stock_quantity <= 10) statusText = 'Estoque Baixo';
+
+        const matchesStatus = filterStatus === 'Todos' || statusText === filterStatus;
 
         return matchesSearch && matchesCategory && matchesStatus;
     });
@@ -73,32 +322,18 @@ const AdminProducts: React.FC = () => {
     const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
     const currentData = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-    useEffect(() => {
-        if (showToast) {
-            const timer = setTimeout(() => setShowToast(false), 3000);
-            return () => clearTimeout(timer);
-        }
-    }, [showToast]);
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'Ativo': return 'bg-emerald-50 text-emerald-600';
-            case 'Estoque Baixo': return 'bg-amber-50 text-amber-600';
-            case 'Sem Estoque': return 'bg-red-50 text-red-600';
-            default: return 'bg-slate-50 text-slate-600';
-        }
-    };
-
-    const handleToast = (message: string) => {
-        setToastMessage(message);
-        setShowToast(true);
+    const getStatusInfo = (prod: Product) => {
+        if (!prod.is_active) return { text: 'Inativo', color: 'bg-slate-50 text-slate-600' };
+        if (prod.stock_quantity === 0) return { text: 'Sem Estoque', color: 'bg-red-50 text-red-600' };
+        if (prod.stock_quantity <= 10) return { text: 'Estoque Baixo', color: 'bg-amber-50 text-amber-600' };
+        return { text: 'Ativo', color: 'bg-emerald-50 text-emerald-600' };
     };
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             if (file.size > 5 * 1024 * 1024) {
-                handleToast('A imagem deve ter no máximo 5MB');
+                toast.error('A imagem deve ter no máximo 5MB');
                 return;
             }
             setSelectedImage(file);
@@ -107,15 +342,6 @@ const AdminProducts: React.FC = () => {
                 setImagePreview(reader.result as string);
             };
             reader.readAsDataURL(file);
-        }
-    };
-
-    const removeImage = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setSelectedImage(null);
-        setImagePreview(null);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
         }
     };
 
@@ -137,7 +363,10 @@ const AdminProducts: React.FC = () => {
                             Categorias
                         </button>
                         <button
-                            onClick={() => setIsNewModalOpen(true)}
+                            onClick={() => {
+                                resetForm();
+                                setIsNewModalOpen(true);
+                            }}
                             className="bg-[#05080F] text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-xl shadow-[#05080F]/10 hover:bg-[#1a2436] transition-all whitespace-nowrap"
                         >
                             <Plus className="w-4 h-4 text-[#FBC02D]" />
@@ -152,7 +381,7 @@ const AdminProducts: React.FC = () => {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Buscar por nome ou categoria..."
+                            placeholder="Buscar por nome..."
                             className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 pl-12 pr-4 text-sm outline-none focus:border-[#FBC02D] transition-all font-medium"
                             value={searchTerm}
                             onChange={(e) => {
@@ -189,6 +418,7 @@ const AdminProducts: React.FC = () => {
                                         <option>Ativo</option>
                                         <option>Estoque Baixo</option>
                                         <option>Sem Estoque</option>
+                                        <option>Inativo</option>
                                     </select>
                                 </div>
                                 <div className="space-y-2">
@@ -202,8 +432,8 @@ const AdminProducts: React.FC = () => {
                                         }}
                                     >
                                         <option>Todas</option>
-                                        {categoriesList.map(cat => (
-                                            <option key={cat.name}>{cat.name}</option>
+                                        {categories.map(cat => (
+                                            <option key={cat.id}>{cat.name}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -226,17 +456,13 @@ const AdminProducts: React.FC = () => {
                     )}
                 </div>
 
-                {/* Products Grid/List */}
+                {/* Products Table */}
                 <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-slate-50/50">
                                 <tr>
-                                    <th className="text-left py-6 px-8 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">
-                                        <div className="flex items-center gap-2 cursor-pointer hover:text-[#05080F] transition-colors">
-                                            Produto <ArrowUpDown className="w-3 h-3" />
-                                        </div>
-                                    </th>
+                                    <th className="text-left py-6 px-8 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Produto</th>
                                     <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Categoria</th>
                                     <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Preço</th>
                                     <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Estoque</th>
@@ -245,66 +471,80 @@ const AdminProducts: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                                {currentData.length > 0 ? currentData.map((prod) => (
-                                    <tr key={prod.id} className="group hover:bg-slate-50/50 transition-colors">
-                                        <td className="py-6 px-8">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-[#05080F] overflow-hidden group-hover:scale-105 transition-transform">
-                                                    <img src={`https://api.dicebear.com/7.x/shapes/svg?seed=${prod.name}`} alt={prod.name} />
+                                {isLoading ? (
+                                    [1, 2, 3, 4, 5].map(i => (
+                                        <tr key={i} className="animate-pulse">
+                                            <td className="py-6 px-8"><div className="h-14 w-full bg-slate-100 rounded-2xl"></div></td>
+                                            <td className="py-6 px-4"><div className="h-6 w-24 bg-slate-100 rounded-full"></div></td>
+                                            <td className="py-6 px-4"><div className="h-6 w-20 bg-slate-100 rounded-lg"></div></td>
+                                            <td className="py-6 px-4"><div className="h-6 w-16 bg-slate-100 rounded-lg"></div></td>
+                                            <td className="py-6 px-4"><div className="h-8 w-24 bg-slate-100 rounded-full mx-auto"></div></td>
+                                            <td className="py-6 px-8"><div className="h-10 w-24 bg-slate-100 rounded-xl ml-auto"></div></td>
+                                        </tr>
+                                    ))
+                                ) : currentData.length > 0 ? currentData.map((prod) => {
+                                    const statusInfo = getStatusInfo(prod);
+                                    return (
+                                        <tr key={prod.id} className="group hover:bg-slate-50/50 transition-colors">
+                                            <td className="py-6 px-8">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-[#05080F] overflow-hidden">
+                                                        {prod.image_url ? (
+                                                            <img src={prod.image_url} alt={prod.name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <Package className="w-6 h-6 text-[#FBC02D]" />
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-black text-[#05080F]">{prod.name}</p>
+                                                        <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wider mt-0.5">
+                                                            <BarChart className="w-3 h-3 text-[#FBC02D]" /> {prod.sales_count} vendas
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="font-black text-[#05080F]">{prod.name}</p>
-                                                    <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wider mt-0.5">
-                                                        <BarChart className="w-3 h-3" /> {prod.sales} vendas realizadas
-                                                    </span>
+                                            </td>
+                                            <td className="py-6 px-4">
+                                                <span className="text-sm font-bold text-slate-600">{prod.product_categories?.name || 'Sem Categoria'}</span>
+                                            </td>
+                                            <td className="py-6 px-4 font-black text-[#05080F]">
+                                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.price)}
+                                            </td>
+                                            <td className="py-6 px-4 font-bold text-[#05080F]">
+                                                {prod.stock_quantity} un.
+                                            </td>
+                                            <td className="py-6 px-4 text-center">
+                                                <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${statusInfo.color}`}>
+                                                    {statusInfo.text}
+                                                </span>
+                                            </td>
+                                            <td className="py-6 px-8 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button
+                                                        onClick={() => handleOpenEdit(prod)}
+                                                        className="p-2 text-slate-300 hover:text-[#FBC02D] hover:bg-[#FBC02D]/10 rounded-xl transition-all"
+                                                        title="Editar"
+                                                    >
+                                                        <Edit className="w-5 h-5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => toggleProductStatus(prod.id, prod.is_active)}
+                                                        className={`p-2 rounded-xl transition-all ${prod.is_active ? 'text-amber-500 hover:bg-amber-50' : 'text-emerald-500 hover:bg-emerald-50'}`}
+                                                        title={prod.is_active ? 'Desativar' : 'Ativar'}
+                                                    >
+                                                        {prod.is_active ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteProduct(prod.id)}
+                                                        className="p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                        title="Excluir"
+                                                    >
+                                                        <Trash2 className="w-5 h-5" />
+                                                    </button>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="py-6 px-4">
-                                            <div className="flex items-center gap-2">
-                                                <Tag className="w-3 h-3 text-[#FBC02D]" />
-                                                <span className="text-sm font-bold text-slate-600">{prod.category}</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-6 px-4 font-black text-[#05080F]">{prod.price}</td>
-                                        <td className="py-6 px-4 font-bold text-[#05080F]">
-                                            <div className="flex items-center gap-2">
-                                                {prod.stock} un.
-                                                {prod.stock <= 10 && <AlertCircle className="w-3 h-3 text-amber-500" />}
-                                            </div>
-                                        </td>
-                                        <td className="py-6 px-4 text-center">
-                                            <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${getStatusColor(prod.status)}`}>
-                                                {prod.status === 'Ativo' && <CheckCircle className="w-3 h-3" />}
-                                                {prod.status === 'Estoque Baixo' && <AlertCircle className="w-3 h-3" />}
-                                                {prod.status === 'Sem Estoque' && <XCircle className="w-3 h-3" />}
-                                                {prod.status}
-                                            </span>
-                                        </td>
-                                        <td className="py-6 px-8 text-right">
-                                            <div className="flex items-center justify-end gap-2 px-2">
-                                                <button className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all" title="Ver Detalhes">
-                                                    <Eye className="w-5 h-5" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleToast('Funcionalidade de edição em desenvolvimento.')}
-                                                    className="p-2 text-slate-300 hover:text-[#FBC02D] hover:bg-[#FBC02D]/10 rounded-xl transition-all" title="Editar"
-                                                >
-                                                    <Edit className="w-5 h-5" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleToast('Funcionalidade de exclusão em desenvolvimento.')}
-                                                    className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Excluir"
-                                                >
-                                                    <Trash2 className="w-5 h-5" />
-                                                </button>
-                                                <button className="p-2 text-slate-300 hover:text-[#05080F] hover:bg-slate-100 rounded-xl transition-all">
-                                                    <MoreVertical className="w-5 h-5" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )) : (
+                                            </td>
+                                        </tr>
+                                    );
+                                }) : (
                                     <tr>
                                         <td colSpan={6} className="py-20 text-center">
                                             <div className="flex flex-col items-center gap-3 text-slate-400">
@@ -319,240 +559,183 @@ const AdminProducts: React.FC = () => {
                     </div>
 
                     {/* Pagination */}
-                    {totalPages > 0 && (
-                        <div className="p-8 border-t border-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4">
-                            <p className="text-sm text-slate-400 font-medium">Mostrando {currentData.length} de {filteredProducts.length} produtos</p>
-                            <div className="flex gap-2">
+                    {totalPages > 1 && (
+                        <div className="p-8 border-t border-slate-50 flex justify-center gap-2">
+                            {[...Array(totalPages)].map((_, i) => (
                                 <button
-                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                    disabled={currentPage === 1}
-                                    className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-400 hover:bg-slate-50 transition-all disabled:opacity-30 disabled:hover:bg-transparent"
+                                    key={i}
+                                    onClick={() => setCurrentPage(i + 1)}
+                                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${currentPage === i + 1 ? 'bg-[#05080F] text-white shadow-lg shadow-[#05080F]/10' : 'hover:bg-slate-100 text-[#05080F]'}`}
                                 >
-                                    Anterior
+                                    {i + 1}
                                 </button>
-                                {[...Array(totalPages)].map((_, i) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => setCurrentPage(i + 1)}
-                                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${currentPage === i + 1 ? 'bg-[#05080F] text-white shadow-lg shadow-[#05080F]/10' : 'hover:bg-slate-100 text-[#05080F]'}`}
-                                    >
-                                        {i + 1}
-                                    </button>
-                                ))}
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                    disabled={currentPage === totalPages}
-                                    className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold text-[#05080F] hover:bg-slate-50 transition-all disabled:opacity-30 disabled:hover:bg-transparent"
-                                >
-                                    Próximo
-                                </button>
-                            </div>
+                            ))}
                         </div>
                     )}
                 </div>
-
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-[#05080F] rounded-[2rem] p-6 text-white flex items-center gap-5 shadow-xl shadow-[#05080F]/10">
-                        <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-[#FBC02D]">
-                            <Package className="w-8 h-8" />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Produtos Ativos</p>
-                            <h4 className="text-2xl font-black">{allProducts.filter(p => p.status === 'Ativo').length}</h4>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-[2rem] p-6 border border-slate-100 flex items-center gap-5 shadow-sm">
-                        <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center text-red-600">
-                            <XCircle className="w-8 h-8" />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Produtos Esgotados</p>
-                            <h4 className="text-2xl font-black text-[#05080F]">{allProducts.filter(p => p.status === 'Sem Estoque').length}</h4>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-[2rem] p-6 border border-slate-100 flex items-center gap-5 shadow-sm">
-                        <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-                            <Layers className="w-8 h-8" />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Categorias Únicas</p>
-                            <h4 className="text-2xl font-black text-[#05080F]">{categoriesList.length}</h4>
-                        </div>
-                    </div>
-                </div>
             </div>
 
-            {/* Novo Produto Modal */}
+            {/* Novo/Editar Produto Modal */}
             {isNewModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-[#05080F]/80 backdrop-blur-sm" onClick={() => setIsNewModalOpen(false)}></div>
                     <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
-                        <div className="p-8 md:p-12">
+                        <form className="p-8 md:p-12 mb-0" onSubmit={handleSaveProduct}>
                             <div className="flex justify-between items-center mb-10">
                                 <div>
-                                    <h2 className="text-3xl font-black text-[#05080F]">Novo Produto</h2>
-                                    <p className="text-slate-400 font-bold mt-1 uppercase text-xs tracking-widest">Adicionar ao catálogo</p>
+                                    <h2 className="text-3xl font-black text-[#05080F]">{editingProduct ? 'Editar Produto' : 'Novo Produto'}</h2>
+                                    <p className="text-slate-400 font-bold mt-1 uppercase text-xs tracking-widest">{editingProduct ? 'Atualizar catálogo' : 'Adicionar ao catálogo'}</p>
                                 </div>
-                                <button onClick={() => setIsNewModalOpen(false)} className="p-4 bg-slate-50 text-slate-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all">
+                                <button type="button" onClick={() => setIsNewModalOpen(false)} className="p-4 bg-slate-50 text-slate-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all">
                                     <X className="w-6 h-6" />
                                 </button>
                             </div>
 
-                            <form className="space-y-6" onSubmit={(e) => {
-                                e.preventDefault();
-                                setIsNewModalOpen(false);
-                                setSelectedImage(null);
-                                setImagePreview(null);
-                                handleToast('Produto cadastrado com sucesso!');
-                            }}>
+                            <div className="space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Nome do Produto</label>
-                                        <div className="relative">
-                                            <Package className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FBC02D]" />
-                                            <input type="text" required className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D]" placeholder="Ex: Colchão Elite" />
-                                        </div>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D]"
+                                            placeholder="Ex: Colchão Elite"
+                                        />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Categoria</label>
-                                        <div className="relative">
-                                            <Tag className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FBC02D]" />
-                                            <select className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D]">
-                                                {categoriesList.map(cat => (
-                                                    <option key={cat.name}>{cat.name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
+                                        <select
+                                            required
+                                            value={formData.category_id}
+                                            onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D]"
+                                        >
+                                            <option value="">Selecionar...</option>
+                                            {categories.map(cat => (
+                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Preço Sugerido</label>
-                                        <div className="relative">
-                                            <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FBC02D]" />
-                                            <input type="text" required className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D]" placeholder="R$ 0,00" />
-                                        </div>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Preço</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={formData.price}
+                                            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D]"
+                                            placeholder="R$ 0,00"
+                                        />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Estoque Inicial</label>
-                                        <div className="relative">
-                                            <Box className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FBC02D]" />
-                                            <input type="number" required className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D]" placeholder="0" />
-                                        </div>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Estoque</label>
+                                        <input
+                                            type="number"
+                                            required
+                                            value={formData.stock_quantity}
+                                            onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D]"
+                                            placeholder="0"
+                                        />
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Imagem do Produto</label>
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        onChange={handleImageChange}
-                                        accept="image/png, image/jpeg, image/webp"
-                                        className="hidden"
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Descrição</label>
+                                    <textarea
+                                        value={formData.description}
+                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] min-h-[100px]"
+                                        placeholder="Detalhes do produto..."
                                     />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Imagem</label>
                                     <div
                                         onClick={() => fileInputRef.current?.click()}
-                                        className={`border-2 border-dashed rounded-3xl p-8 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer overflow-hidden min-h-[200px] relative group ${imagePreview ? 'border-emerald-500/30 bg-emerald-50/5' : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-[#FBC02D]/50 hover:bg-slate-50/50'}`}
+                                        className={`border-2 border-dashed rounded-3xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${imagePreview ? 'border-[#FBC02D]/30 bg-amber-50/5' : 'border-slate-100 bg-slate-50 hover:border-[#FBC02D]/50'}`}
                                     >
                                         {imagePreview ? (
-                                            <>
-                                                <img src={imagePreview} alt="Preview" className="absolute inset-0 w-full h-full object-cover animate-in fade-in zoom-in-95 duration-500" />
-                                                <div className="absolute inset-0 bg-[#05080F]/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                    <div className="flex gap-2">
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                fileInputRef.current?.click();
-                                                            }}
-                                                            className="p-3 bg-white text-[#05080F] rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-[#FBC02D] transition-all"
-                                                        >
-                                                            <Upload className="w-4 h-4" /> Alterar
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={removeImage}
-                                                            className="p-3 bg-red-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-red-600 transition-all"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" /> Remover
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </>
+                                            <img src={imagePreview} alt="Preview" className="h-32 rounded-xl object-cover" />
                                         ) : (
                                             <>
-                                                <Upload className="w-10 h-10 text-[#FBC02D]" />
-                                                <p className="font-bold text-sm text-slate-500">Arraste a imagem ou clique para selecionar</p>
-                                                <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400">PNG, JPG ou WEBP (Max 5MB)</p>
+                                                <Upload className="w-8 h-8 text-[#FBC02D]" />
+                                                <p className="text-xs font-bold text-slate-400">Clique para subir imagem</p>
                                             </>
                                         )}
+                                        <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/*" />
                                     </div>
                                 </div>
 
-                                <button type="submit" className="w-full py-5 bg-[#05080F] text-white rounded-2xl font-black text-sm mt-6 shadow-2xl shadow-[#05080F]/20 hover:bg-[#1a2436] transition-all flex items-center justify-center gap-3">
-                                    CADASTRAR PRODUTO NO CATÁLOGO
+                                <button
+                                    type="submit"
+                                    disabled={isSaving}
+                                    className="w-full py-5 bg-[#05080F] text-white rounded-2xl font-black text-sm shadow-xl hover:bg-[#1a2436] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                                >
+                                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : editingProduct ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR PRODUTO'}
                                 </button>
-                            </form>
-                        </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
-
-            {/* Categorias Modal */}
+            {/* Modal de Gestão de Categorias */}
             {isCategoriesModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-[#05080F]/80 backdrop-blur-sm" onClick={() => setIsCategoriesModalOpen(false)}></div>
-                    <div className="bg-white w-full max-w-xl rounded-[3rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
-                        <div className="p-8 md:p-12">
-                            <div className="flex justify-between items-center mb-10">
+                    <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
+                        <div className="p-8 md:p-10">
+                            <div className="flex justify-between items-center mb-8">
                                 <div>
-                                    <h2 className="text-3xl font-black text-[#05080F]">Categorias</h2>
-                                    <p className="text-slate-400 font-bold mt-1 uppercase text-xs tracking-widest">Organização do catálogo</p>
+                                    <h2 className="text-2xl font-black text-[#05080F]">Categorias</h2>
+                                    <p className="text-slate-400 font-bold mt-1 uppercase text-[10px] tracking-widest">Gerenciar classificações</p>
                                 </div>
-                                <button onClick={() => setIsCategoriesModalOpen(false)} className="p-4 bg-slate-50 text-slate-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all">
-                                    <X className="w-6 h-6" />
+                                <button onClick={() => setIsCategoriesModalOpen(false)} className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-red-50 hover:text-red-500 transition-all">
+                                    <X className="w-5 h-5" />
                                 </button>
                             </div>
 
-                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                {categoriesList.map((cat, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-5 bg-slate-50 border border-slate-100 rounded-3xl group hover:border-[#FBC02D] transition-all cursor-pointer">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#FBC02D] shadow-sm">
-                                                <Tag className="w-5 h-5" />
+                            <form onSubmit={handleAddCategory} className="mb-8 flex gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Nova categoria..."
+                                    className="flex-grow bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
+                                    value={newCategoryName}
+                                    onChange={(e) => setNewCategoryName(e.target.value)}
+                                    required
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={isCategorySaving}
+                                    className="bg-[#05080F] text-white p-3 rounded-xl font-bold hover:bg-[#1a2436] transition-all disabled:opacity-50"
+                                >
+                                    {isCategorySaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-5 h-5" />}
+                                </button>
+                            </form>
+
+                            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                {categories.map((cat) => (
+                                    <div key={cat.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group border border-transparent hover:border-slate-100 transition-all">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-white border border-slate-100 flex items-center justify-center">
+                                                <Tag className="w-4 h-4 text-[#FBC02D]" />
                                             </div>
-                                            <div>
-                                                <p className="font-black text-[#05080F]">{cat.name}</p>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{cat.count} produtos</p>
-                                            </div>
+                                            <span className="font-bold text-[#05080F]">{cat.name}</span>
                                         </div>
-                                        <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-[#FBC02D] group-hover:translate-x-1 transition-all" />
+                                        <button
+                                            onClick={() => handleDeleteCategory(cat.id)}
+                                            className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
                                     </div>
                                 ))}
                             </div>
-
-                            <div className="mt-8 pt-8 border-t border-slate-50">
-                                <button
-                                    onClick={() => {
-                                        setIsCategoriesModalOpen(false);
-                                        handleToast('Funcionalidade de nova categoria em desenvolvimento.');
-                                    }}
-                                    className="w-full py-5 border-2 border-[#05080F] text-[#05080F] rounded-2xl font-black text-sm hover:bg-[#05080F] hover:text-white transition-all flex items-center justify-center gap-3"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    ADICIONAR NOVA CATEGORIA
-                                </button>
-                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-
-            {/* Toast Notification */}
-            {showToast && (
-                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] bg-[#05080F] text-[#FBC02D] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 font-black text-sm">
-                    <CheckCircle className="w-5 h-5 border-2 border-[#FBC02D] rounded-full" />
-                    {toastMessage}
                 </div>
             )}
         </AdminLayout>

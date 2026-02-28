@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { CheckCircle2, Users, TrendingUp, Award, FileText } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const BusinessOpportunity: React.FC = () => {
   return (
@@ -14,7 +15,7 @@ const BusinessOpportunity: React.FC = () => {
           <p className="text-slate-400 text-lg">
             O Negócio Classe A permite que você se torne um parceiro e lucre com a venda de produtos de alta qualidade. Faça parte de uma rede que cresce com você.
           </p>
-          
+
           <ul className="space-y-4">
             <li className="flex items-center gap-3">
               <CheckCircle2 className="w-5 h-5 text-[#FBC02D]" />
@@ -30,9 +31,9 @@ const BusinessOpportunity: React.FC = () => {
             </li>
           </ul>
 
-          <button className="bg-[#FBC02D] hover:bg-[#f9b100] text-[#0B1221] font-bold py-4 px-10 rounded-lg shadow-lg shadow-[#FBC02D]/20 transition-all">
+          <Link to="/register" className="inline-block bg-[#FBC02D] hover:bg-[#f9b100] text-[#0B1221] font-bold py-4 px-10 rounded-lg shadow-lg shadow-[#FBC02D]/20 transition-all text-center">
             QUERO SER UM AFILIADO
-          </button>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

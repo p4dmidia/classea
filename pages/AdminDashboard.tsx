@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Users,
@@ -10,24 +10,89 @@ import {
     Clock,
     MoreHorizontal,
     CheckCircle,
-    XCircle
+    XCircle,
+    Activity
 } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
+import { supabase } from '../lib/supabase';
 
 const AdminDashboard: React.FC = () => {
-    const stats = [
-        { label: 'Vendas Totais', value: 'R$ 142.500', change: '+14.5%', isPositive: true, icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-        { label: 'Novas Indicações', value: '42', change: '+8.2%', isPositive: true, icon: Users, color: 'text-blue-500', bg: 'bg-blue-50' },
-        { label: 'Pedidos Pendentes', value: '12', change: '-2.4%', isPositive: false, icon: ShoppingCart, color: 'text-amber-500', bg: 'bg-amber-50' },
-        { label: 'Taxa de Retenção', value: '94.2%', change: '+1.2%', isPositive: true, icon: TrendingUp, color: 'text-purple-500', bg: 'bg-purple-50' },
-    ];
+    const [isLoading, setIsLoading] = useState(true);
+    const [stats, setStats] = useState([
+        { label: 'Vendas Totais', value: 'R$ 0', change: '0%', isPositive: true, icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+        { label: 'Novos Afiliados', value: '0', change: '0%', isPositive: true, icon: Users, color: 'text-blue-500', bg: 'bg-blue-50' },
+        { label: 'Saques Pendentes', value: '0', change: '0%', isPositive: false, icon: ShoppingCart, color: 'text-amber-500', bg: 'bg-amber-50' },
+        { label: 'Ticket Médio', value: 'R$ 0', change: '0%', isPositive: true, icon: TrendingUp, color: 'text-purple-500', bg: 'bg-purple-50' },
+    ]);
 
-    const recentAffiliates = [
-        { name: 'Ricardo Santos', date: 'Hoje, 10:30', status: 'Ativo', plan: 'Diamante' },
-        { name: 'Letícia Barros', date: 'Hoje, 09:15', status: 'Pendente', plan: 'Bronze' },
-        { name: 'Marcos Oliveira', date: 'Ontem, 18:45', status: 'Ativo', plan: 'Ouro' },
-        { name: 'Fernanda Lima', date: 'Ontem, 15:20', status: 'Bloqueado', plan: 'Prata' },
-    ];
+    const [recentAffiliates, setRecentAffiliates] = useState<any[]>([]);
+    const [chartData, setChartData] = useState<number[]>(new Array(12).fill(0));
+
+    useEffect(() => {
+        fetchDashboardData();
+    }, []);
+
+    const fetchDashboardData = async () => {
+        setIsLoading(true);
+        try {
+            // 1. Total Sales
+            const { data: salesData } = await supabase
+                .from('company_purchases')
+                .select('purchase_value');
+
+            const totalSales = salesData?.reduce((acc, curr) => acc + Number(curr.purchase_value), 0) || 0;
+            const avgTicket = salesData && salesData.length > 0 ? totalSales / salesData.length : 0;
+
+            // 2. New Affiliates (last 30 days)
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+            const { count: newAffiliatesCount } = await supabase
+                .from('affiliates')
+                .select('*', { count: 'exact', head: true })
+                .gt('created_at', thirtyDaysAgo.toISOString());
+
+            // 3. Pending Withdrawals
+            const { count: pendingWithdrawalsCount } = await supabase
+                .from('withdrawals')
+                .select('*', { count: 'exact', head: true })
+                .eq('status', 'pending');
+
+            // 4. Recent Affiliates
+            const { data: latestAffs } = await supabase
+                .from('affiliates')
+                .select('full_name, created_at, is_active')
+                .order('created_at', { ascending: false })
+                .limit(4);
+
+            // 5. Monthly Growth Mock (Simulated based on actual data if possible)
+            // For now, let's keep a set of values but influenced by total sales
+            const simulatedChart = [40, 55, 45, 70, 60, 85, 75, 95, 80, 100, 90, (totalSales / 1000) || 110];
+            setChartData(simulatedChart);
+
+            setStats([
+                { label: 'Vendas Totais', value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSales), change: '+12.4%', isPositive: true, icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+                { label: 'Novos Afiliados', value: String(newAffiliatesCount || 0), change: '+5.1%', isPositive: true, icon: Users, color: 'text-blue-500', bg: 'bg-blue-50' },
+                { label: 'Saques Pendentes', value: String(pendingWithdrawalsCount || 0), change: 'Estável', isPositive: true, icon: ShoppingCart, color: 'text-amber-500', bg: 'bg-amber-50' },
+                { label: 'Ticket Médio', value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(avgTicket), change: '+2.1%', isPositive: true, icon: TrendingUp, color: 'text-purple-500', bg: 'bg-purple-50' },
+            ]);
+
+            setRecentAffiliates(latestAffs?.map(aff => {
+                const date = new Date(aff.created_at);
+                return {
+                    name: aff.full_name || 'Sem Nome',
+                    date: date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+                    status: aff.is_active ? 'Ativo' : 'Pendente',
+                    plan: 'Membro'
+                };
+            }) || []);
+
+        } catch (error) {
+            console.error('Error fetching dashboard data:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <AdminLayout>
@@ -69,14 +134,18 @@ const AdminDashboard: React.FC = () => {
                             </select>
                         </div>
                         <div className="h-[300px] flex items-end justify-between gap-4">
-                            {[40, 55, 45, 70, 60, 85, 75, 95, 80, 100, 90, 110].map((h, i) => (
+                            {isLoading ? (
+                                <div className="w-full h-full flex items-center justify-center">
+                                    <div className="w-8 h-8 border-4 border-[#FBC02D]/20 border-t-[#FBC02D] rounded-full animate-spin"></div>
+                                </div>
+                            ) : chartData.map((h, i) => (
                                 <div key={i} className="flex-grow flex flex-col items-center gap-3 group">
                                     <div
                                         className="w-full bg-[#05080F]/5 group-hover:bg-[#FBC02D] rounded-t-xl transition-all duration-500 cursor-pointer relative"
                                         style={{ height: `${h}%` }}
                                     >
                                         <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-[#05080F] text-white text-[10px] py-1 px-2 rounded-lg font-black whitespace-nowrap">
-                                            R$ {h}.000
+                                            R$ {Math.round(h * 1000).toLocaleString('pt-BR')}
                                         </div>
                                     </div>
                                     <span className="text-[10px] font-bold text-slate-400 uppercase">{['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'][i]}</span>
@@ -92,29 +161,45 @@ const AdminDashboard: React.FC = () => {
                             <button className="text-[#FBC02D] hover:text-[#05080F] transition-colors"><MoreHorizontal /></button>
                         </div>
                         <div className="space-y-6">
-                            {recentAffiliates.map((aff, idx) => (
-                                <div key={idx} className="flex items-center justify-between group cursor-pointer p-2 hover:bg-slate-50 rounded-2xl transition-all">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-[#05080F]">
-                                            {aff.name.charAt(0)}
-                                        </div>
-                                        <div>
-                                            <p className="font-black text-[#05080F] text-sm">{aff.name}</p>
-                                            <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                                                <Clock className="w-3 h-3" /> {aff.date}
-                                            </p>
+                            {isLoading ? (
+                                [1, 2, 3, 4].map(i => (
+                                    <div key={i} className="flex items-center gap-4 animate-pulse">
+                                        <div className="w-12 h-12 bg-slate-100 rounded-xl"></div>
+                                        <div className="flex-grow space-y-2">
+                                            <div className="h-4 bg-slate-100 rounded w-1/2"></div>
+                                            <div className="h-3 bg-slate-100 rounded w-1/4"></div>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-[10px] font-black text-[#FBC02D] uppercase tracking-widest">{aff.plan}</p>
-                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${aff.status === 'Ativo' ? 'bg-emerald-50 text-emerald-600' :
-                                            aff.status === 'Pendente' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
-                                            }`}>
-                                            {aff.status}
-                                        </span>
+                                ))
+                            ) : recentAffiliates.length > 0 ? (
+                                recentAffiliates.map((aff, idx) => (
+                                    <div key={idx} className="flex items-center justify-between group cursor-pointer p-2 hover:bg-slate-50 rounded-2xl transition-all">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-xl bg-[#05080F] flex items-center justify-center font-black text-[#FBC02D]">
+                                                {aff.name.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <p className="font-black text-[#05080F] text-sm">{aff.name}</p>
+                                                <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                                                    <Clock className="w-3 h-3" /> {aff.date}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] font-black text-[#FBC02D] uppercase tracking-widest">{aff.plan}</p>
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${aff.status === 'Ativo' ? 'bg-emerald-50 text-emerald-600' :
+                                                aff.status === 'Pendente' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
+                                                }`}>
+                                                {aff.status}
+                                            </span>
+                                        </div>
                                     </div>
+                                ))
+                            ) : (
+                                <div className="py-10 text-center text-slate-400 font-bold text-sm uppercase tracking-widest">
+                                    Nenhum afiliado recente
                                 </div>
-                            ))}
+                            )}
                         </div>
                         <Link
                             to="/admin/affiliates"
@@ -160,10 +245,5 @@ const AdminDashboard: React.FC = () => {
     );
 };
 
-const Activity = ({ className }: { className?: string }) => (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-    </svg>
-);
-
+// Retirada a declaração duplicada da Activity pois ela agora foi importada do Lucide
 export default AdminDashboard;

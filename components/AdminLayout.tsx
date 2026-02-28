@@ -12,8 +12,12 @@ import {
     Search,
     ChevronRight,
     Percent,
-    Wallet
+    Wallet,
+    Trophy
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface AdminLayoutProps {
     children: React.ReactNode;
@@ -21,12 +25,26 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     const location = useLocation();
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        try {
+            const { error } = await supabase.auth.signOut();
+            if (error) throw error;
+            toast.success('Sessão encerrada com sucesso!');
+            navigate('/admin/login');
+        } catch (error) {
+            console.error('Error logging out:', error);
+            toast.error('Erro ao sair do painel.');
+        }
+    };
 
     const menuItems = [
         { label: 'Visão Geral', icon: LayoutDashboard, path: '/admin/dashboard' },
         { label: 'Afiliados', icon: Users, path: '/admin/affiliates' },
         { label: 'Produtos', icon: Package, path: '/admin/products' },
         { label: 'Pedidos', icon: ShoppingCart, path: '/admin/orders' },
+        { label: 'Consórcio', icon: Trophy, path: '/admin/consorcio' },
         { label: 'Comissões', icon: Percent, path: '/admin/commissions' },
         { label: 'Financeiro', icon: Wallet, path: '/admin/financial' },
         { label: 'Segurança', icon: ShieldAlert, path: '/admin/security' },
@@ -64,7 +82,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                 </nav>
 
                 <div className="mt-auto pt-6 border-t border-white/10">
-                    <button className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-red-400 hover:bg-red-400/10 transition-all w-full">
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-red-400 hover:bg-red-400/10 transition-all w-full"
+                    >
                         <LogOut className="w-5 h-5" />
                         Sair do Painel
                     </button>

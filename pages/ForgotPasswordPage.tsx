@@ -2,15 +2,30 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, Send, CheckCircle2 } from 'lucide-react';
+import { useAuth } from '../components/AuthContext';
+import { toast } from 'react-hot-toast';
 
 const ForgotPasswordPage: React.FC = () => {
     const [email, setEmail] = useState('');
     const [submitted, setSubmitted] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const { resetPassword } = useAuth();
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setSubmitted(true);
-        console.log('Recuperação solicitada para:', email);
+        setLoading(true);
+
+        try {
+            const { error } = await resetPassword(email);
+            if (error) throw error;
+            setSubmitted(true);
+            toast.success('E-mail de recuperação enviado!');
+        } catch (error: any) {
+            toast.error(error.message || 'Erro ao enviar e-mail de recuperação.');
+            console.error('Erro na recuperação:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -44,8 +59,12 @@ const ForgotPasswordPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            <button type="submit" className="w-full bg-[#0B1221] hover:bg-[#1a2436] text-white font-black py-5 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#0B1221]/20 group">
-                                ENVIAR LINK DE RECUPERAÇÃO
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full bg-[#0B1221] hover:bg-[#1a2436] text-white font-black py-5 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#0B1221]/20 group disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {loading ? 'ENVIANDO...' : 'ENVIAR LINK DE RECUPERAÇÃO'}
                                 <Send className="w-5 h-5 text-[#FBC02D] group-hover:translate-x-1 transition-transform" />
                             </button>
                         </form>

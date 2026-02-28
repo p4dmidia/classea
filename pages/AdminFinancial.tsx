@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Wallet,
     CheckCircle2,
@@ -13,50 +12,139 @@ import {
     Send,
     ShieldCheck,
     Coins,
-    Banknote
+    Banknote,
+    Loader2
 } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 interface WithdrawalRequest {
     id: string;
-    affiliateName: string;
-    amount: number;
-    pixKey: string;
-    requestDate: string;
+    user_id: string;
+    amount_requested: number;
+    fee_amount: number;
+    net_amount: number;
+    pix_key: string;
+    created_at: string;
     status: 'pending' | 'approved' | 'paid' | 'rejected';
+    affiliate?: {
+        full_name: string;
+    };
 }
 
 const AdminFinancial: React.FC = () => {
-    const [requests, setRequests] = useState<WithdrawalRequest[]>([
-        { id: '1', affiliateName: 'Felix Schneider', amount: 1250.00, pixKey: 'felix@email.com', requestDate: '21/02/2026', status: 'pending' },
-        { id: '2', affiliateName: 'Maria Santos', amount: 450.00, pixKey: '123.456.789-00', requestDate: '20/02/2026', status: 'pending' },
-        { id: '3', affiliateName: 'João Silva', amount: 890.00, pixKey: '11998877665', requestDate: '19/02/2026', status: 'approved' },
-        { id: '4', affiliateName: 'Ana Costa', amount: 2100.00, pixKey: 'ana.costa@banco.com', requestDate: '15/02/2026', status: 'paid' },
-    ]);
-
-    const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'paid'>('all');
+    const [requests, setRequests] = useState<WithdrawalRequest[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'paid' | 'rejected'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [processingLot, setProcessingLot] = useState(false);
 
+    useEffect(() => {
+        fetchRequests();
+    }, []);
+
+    const fetchRequests = async () => {
+        setIsLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('withdrawals')
+                .select(`
+                    *,
+                    affiliate:affiliates(full_name)
+                `)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setRequests(data || []);
+        } catch (error) {
+            console.error('Error fetching requests:', error);
+            toast.error('Erro ao carregar pedidos de saque.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const filteredRequests = requests.filter(req => {
         const matchesFilter = filter === 'all' || req.status === filter;
-        const matchesSearch = req.affiliateName.toLowerCase().includes(searchTerm.toLowerCase()) || req.pixKey.includes(searchTerm);
+        const name = req.affiliate?.full_name || 'Usuário Desconhecido';
+        const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || req.pix_key.includes(searchTerm);
         return matchesFilter && matchesSearch;
     });
 
-    const handleAction = (id: string, newStatus: 'approved' | 'rejected') => {
-        setRequests(prev => prev.map(req => req.id === id ? { ...req, status: newStatus } : req));
+    const handleAction = async (id: string, newStatus: 'approved' | 'rejected') => {
+        try {
+            const { error } = await supabase
+                .from('withdrawals')
+                .update({ status: newStatus })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            toast.success(newStatus === 'approved' ? 'Saque aprovado!' : 'Saque rejeitado.');
+            fetchRequests();
+        } catch (error) {
+            console.error('Error updating status:', error);
+            toast.error('Erro ao atualizar status.');
+        }
     };
 
-    const handleProcessBatch = () => {
+    const handleProcessBatch = async () => {
+        const approvedCount = requests.filter(r => r.status === 'approved').length;
+
+        if (approvedCount === 0) {
+            toast.error('Não há saques aprovados para processar.');
+            return;
+        }
+
+        if (!confirm(`Deseja marcar ${approvedCount} saques aprovados como pagos?`)) return;
+
         setProcessingLot(true);
-        // Simulate processing day 15 batch
-        setTimeout(() => {
-            setRequests(prev => prev.map(req => req.status === 'approved' ? { ...req, status: 'paid' } : req));
+        try {
+            const { error } = await supabase
+                .from('withdrawals')
+                .update({
+                    status: 'paid',
+                    processed_at: new Date().toISOString()
+                })
+                .eq('status', 'approved');
+
+            if (error) throw error;
+
+            toast.success(`${approvedCount} saques marcados como pagos com sucesso!`);
+            fetchRequests();
+        } catch (error) {
+            console.error('Error processing batch:', error);
+            toast.error('Erro ao processar lote.');
+        } finally {
             setProcessingLot(false);
-            alert('Lote de pagamentos processado com sucesso! Todos os aprovados foram marcados como pagos.');
-        }, 2000);
+        }
     };
+
+    // Stats calculations
+    const totalPendente = requests
+        .filter(r => r.status === 'pending' || r.status === 'approved')
+        .reduce((acc, curr) => acc + curr.amount_requested, 0);
+
+    const paidThisMonth = requests
+        .filter(r => {
+            if (r.status !== 'paid') return false;
+            const date = new Date(r.created_at);
+            const now = new Date();
+            return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+        })
+        .reduce((acc, curr) => acc + curr.amount_requested, 0);
+
+    if (isLoading) {
+        return (
+            <AdminLayout>
+                <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                    <Loader2 className="w-10 h-10 text-[#FBC02D] animate-spin" />
+                    <p className="font-bold text-slate-400">Carregando dados financeiros...</p>
+                </div>
+            </AdminLayout>
+        );
+    }
 
     return (
         <AdminLayout>
@@ -79,7 +167,7 @@ const AdminFinancial: React.FC = () => {
                             </div>
                             <p className="text-slate-400 text-xs font-black uppercase tracking-widest leading-none mb-2">Total Pendente</p>
                             <h3 className="text-3xl font-black text-[#FBC02D]">
-                                R$ {requests.filter(r => r.status === 'pending' || r.status === 'approved').reduce((acc, curr) => acc + curr.amount, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </h3>
                         </div>
                     </div>
@@ -90,7 +178,7 @@ const AdminFinancial: React.FC = () => {
                         </div>
                         <p className="text-slate-400 text-xs font-black uppercase tracking-widest leading-none mb-2">Pago este Mês</p>
                         <h3 className="text-3xl font-black text-[#05080F]">
-                            R$ {requests.filter(r => r.status === 'paid').reduce((acc, curr) => acc + curr.amount, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {paidThisMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </h3>
                     </div>
 
@@ -102,7 +190,7 @@ const AdminFinancial: React.FC = () => {
                             onClick={handleProcessBatch}
                             className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${processingLot ? 'bg-slate-100 text-slate-400' : 'bg-[#FBC02D] text-[#0B1221] hover:bg-[#ffc947] shadow-xl shadow-amber-200/50'}`}
                         >
-                            {processingLot ? <Clock className="w-4 h-4 animate-spin" /> : <Banknote className="w-4 h-4" />}
+                            {processingLot ? <Loader2 className="w-4 h-4 animate-spin" /> : <Banknote className="w-4 h-4" />}
                             {processingLot ? 'PROCESSANDO...' : 'PROCESSAR LOTE (DIA 15)'}
                         </button>
                     </div>
@@ -126,13 +214,13 @@ const AdminFinancial: React.FC = () => {
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                                 </div>
                                 <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
-                                    {(['all', 'pending', 'approved', 'paid'] as const).map(f => (
+                                    {(['all', 'pending', 'approved', 'paid', 'rejected'] as const).map(f => (
                                         <button
                                             key={f}
                                             onClick={() => setFilter(f)}
                                             className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filter === f ? 'bg-white shadow-sm text-[#05080F]' : 'text-slate-400 hover:text-slate-600'}`}
                                         >
-                                            {f === 'all' ? 'Ver Todos' : f === 'pending' ? 'Pendentes' : f === 'approved' ? 'Aprovados' : 'Pagos'}
+                                            {f === 'all' ? 'Ver Todos' : f === 'pending' ? 'Pendentes' : f === 'approved' ? 'Aprovados' : f === 'paid' ? 'Pagos' : 'Recusados'}
                                         </button>
                                     ))}
                                 </div>
@@ -152,33 +240,33 @@ const AdminFinancial: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                                {filteredRequests.map((req) => (
+                                {filteredRequests.length > 0 ? filteredRequests.map((req) => (
                                     <tr key={req.id} className="group hover:bg-slate-50/30 transition-all">
                                         <td className="py-6 px-10">
                                             <div>
-                                                <p className="font-black text-[#05080F] text-sm">{req.affiliateName}</p>
+                                                <p className="font-black text-[#05080F] text-sm">{req.affiliate?.full_name || 'Usuário Desconhecido'}</p>
                                                 <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1 mt-1">
-                                                    <Send className="w-3 h-3 text-[#FBC02D]" /> {req.pixKey}
+                                                    <Send className="w-3 h-3 text-[#FBC02D]" /> {req.pix_key}
                                                 </p>
                                             </div>
                                         </td>
                                         <td className="py-6 px-4">
                                             <div className="flex items-center gap-2 text-slate-500 font-bold text-xs">
                                                 <Calendar className="w-3.5 h-3.5 text-slate-300" />
-                                                {req.requestDate}
+                                                {new Date(req.created_at).toLocaleDateString('pt-BR')}
                                             </div>
                                         </td>
                                         <td className="py-6 px-4">
-                                            <p className="font-black text-[#05080F]">R$ {req.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                            <p className="font-black text-[#05080F]">R$ {req.amount_requested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                         </td>
                                         <td className="py-6 px-4">
                                             <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider ${req.status === 'paid' ? 'bg-emerald-50 text-emerald-600' :
-                                                    req.status === 'approved' ? 'bg-blue-50 text-blue-600' :
-                                                        req.status === 'rejected' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'
+                                                req.status === 'approved' ? 'bg-blue-50 text-blue-600' :
+                                                    req.status === 'rejected' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'
                                                 }`}>
                                                 <div className={`w-1.5 h-1.5 rounded-full ${req.status === 'paid' ? 'bg-emerald-500' :
-                                                        req.status === 'approved' ? 'bg-blue-300' :
-                                                            req.status === 'rejected' ? 'bg-red-400' : 'bg-amber-400'
+                                                    req.status === 'approved' ? 'bg-blue-300' :
+                                                        req.status === 'rejected' ? 'bg-red-400' : 'bg-amber-400'
                                                     }`}></div>
                                                 {req.status === 'pending' ? 'Aguardando' :
                                                     req.status === 'approved' ? 'Aprovado' :
@@ -211,7 +299,16 @@ const AdminFinancial: React.FC = () => {
                                             )}
                                         </td>
                                     </tr>
-                                ))}
+                                )) : (
+                                    <tr>
+                                        <td colSpan={5} className="py-20 text-center">
+                                            <div className="flex flex-col items-center gap-4 text-slate-400">
+                                                <Wallet className="w-12 h-12 opacity-20" />
+                                                <p className="font-bold">Nenhum pedido de saque encontrado.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -223,8 +320,8 @@ const AdminFinancial: React.FC = () => {
                         <Calendar className="w-6 h-6" />
                     </div>
                     <div>
-                        <h4 className="font-black text-[#05080F] text-sm uppercase tracking-widest leading-none mb-1">Próximo Lote</h4>
-                        <p className="text-xs font-bold text-slate-500">O processamento automático ocorrerá no dia **15/03/2026**. Certifique-se de aprovar todos os pedidos antes desta data.</p>
+                        <h4 className="font-black text-[#05080F] text-sm uppercase tracking-widest leading-none mb-1">Pagamentos Consolidados</h4>
+                        <p className="text-xs font-bold text-slate-500">O processamento em lote move todos os pedidos **Aprovados** para o status **Pago**. Recomenda-se realizar esta ação no dia 15 de cada mês.</p>
                     </div>
                 </div>
             </div>

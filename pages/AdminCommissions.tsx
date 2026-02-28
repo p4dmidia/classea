@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Percent,
     Coins,
@@ -10,53 +9,132 @@ import {
     ChevronRight,
     TrendingUp,
     Settings2,
-    ShieldCheck
+    ShieldCheck,
+    Loader2
 } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 interface CommissionLevel {
     level: number;
     value: number;
 }
 
+interface CommissionConfig {
+    key: string;
+    type: 'percent' | 'money';
+    active_generations: number;
+    levels: CommissionLevel[];
+}
+
 const AdminCommissions: React.FC = () => {
-    // Geral State (7 Generations)
+    // Geral State
     const [geralType, setGeralType] = useState<'percent' | 'money'>('percent');
     const [geralGens, setGeralGens] = useState(7);
     const [geralLevels, setGeralLevels] = useState<CommissionLevel[]>([
-        { level: 1, value: 10 },
-        { level: 2, value: 4 },
-        { level: 3, value: 2 },
-        { level: 4, value: 2 },
-        { level: 5, value: 2 },
-        { level: 6, value: 2 },
-        { level: 7, value: 1 },
+        { level: 1, value: 0 },
+        { level: 2, value: 0 },
+        { level: 3, value: 0 },
+        { level: 4, value: 0 },
+        { level: 5, value: 0 },
+        { level: 6, value: 0 },
+        { level: 7, value: 0 },
     ]);
 
-    // Colchões State (6 Generations)
+    // Colchões State
     const [mattressType, setMattressType] = useState<'percent' | 'money'>('percent');
     const [mattressGens, setMattressGens] = useState(6);
     const [mattressLevels, setMattressLevels] = useState<CommissionLevel[]>([
-        { level: 1, value: 20 },
-        { level: 2, value: 4 },
-        { level: 3, value: 4 },
-        { level: 4, value: 4 },
-        { level: 5, value: 4 },
-        { level: 6, value: 4 },
+        { level: 1, value: 0 },
+        { level: 2, value: 0 },
+        { level: 3, value: 0 },
+        { level: 4, value: 0 },
+        { level: 5, value: 0 },
+        { level: 6, value: 0 },
     ]);
 
-    const [showToast, setShowToast] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
 
-    const handleSave = () => {
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 3000);
+    useEffect(() => {
+        fetchConfigs();
+    }, []);
+
+    const fetchConfigs = async () => {
+        setIsLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('commission_configs')
+                .select('*');
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                const geral = data.find(c => c.key === 'geral');
+                const mattress = data.find(c => c.key === 'mattress');
+
+                if (geral) {
+                    setGeralType(geral.type);
+                    setGeralGens(geral.active_generations);
+                    setGeralLevels(geral.levels);
+                }
+
+                if (mattress) {
+                    setMattressType(mattress.type);
+                    setMattressGens(mattress.active_generations);
+                    setMattressLevels(mattress.levels);
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching configs:', error);
+            toast.error('Erro ao carregar configurações. Verifique se a tabela commission_configs foi criada.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const configs = [
+                {
+                    key: 'geral',
+                    type: geralType,
+                    active_generations: geralGens,
+                    levels: geralLevels,
+                    updated_at: new Date().toISOString()
+                },
+                {
+                    key: 'mattress',
+                    type: mattressType,
+                    active_generations: mattressGens,
+                    levels: mattressLevels,
+                    updated_at: new Date().toISOString()
+                }
+            ];
+
+            const { error } = await supabase
+                .from('commission_configs')
+                .upsert(configs);
+
+            if (error) throw error;
+
+            toast.success('Regras de comissão atualizadas com sucesso!');
+        } catch (error) {
+            console.error('Error saving configs:', error);
+            toast.error('Erro ao salvar as configurações.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const updateLevelValue = (type: 'geral' | 'mattress', level: number, newValue: number) => {
+        const val = isNaN(newValue) ? 0 : newValue;
         if (type === 'geral') {
-            setGeralLevels(prev => prev.map(l => l.level === level ? { ...l, value: newValue } : l));
+            setGeralLevels(prev => prev.map(l => l.level === level ? { ...l, value: val } : l));
         } else {
-            setMattressLevels(prev => prev.map(l => l.level === level ? { ...l, value: newValue } : l));
+            setMattressLevels(prev => prev.map(l => l.level === level ? { ...l, value: val } : l));
         }
     };
 
@@ -83,6 +161,17 @@ const AdminCommissions: React.FC = () => {
         ));
     };
 
+    if (isLoading) {
+        return (
+            <AdminLayout>
+                <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                    <Loader2 className="w-10 h-10 text-[#FBC02D] animate-spin" />
+                    <p className="font-bold text-slate-400">Carregando configurações...</p>
+                </div>
+            </AdminLayout>
+        );
+    }
+
     return (
         <AdminLayout>
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
@@ -94,17 +183,18 @@ const AdminCommissions: React.FC = () => {
                     </div>
                     <div className="flex gap-3">
                         <button
-                            onClick={() => window.location.reload()}
+                            onClick={() => fetchConfigs()}
                             className="bg-white border border-slate-200 px-6 py-3 rounded-2xl flex items-center gap-2 font-bold text-slate-600 hover:shadow-md transition-all whitespace-nowrap"
                         >
                             <RefreshCcw className="w-4 h-4 text-slate-400" />
-                            Resetar
+                            Recarregar
                         </button>
                         <button
                             onClick={handleSave}
-                            className="bg-[#05080F] text-white px-8 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-xl shadow-[#05080F]/10 hover:bg-[#1a2436] transition-all whitespace-nowrap"
+                            disabled={isSaving}
+                            className="bg-[#05080F] text-white px-8 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-xl shadow-[#05080F]/10 hover:bg-[#1a2436] transition-all whitespace-nowrap disabled:opacity-50"
                         >
-                            <Save className="w-4 h-4 text-[#FBC02D]" />
+                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-[#FBC02D]" />}
                             Salvar Alterações
                         </button>
                     </div>
@@ -125,13 +215,15 @@ const AdminCommissions: React.FC = () => {
                             <div className="text-center px-6 py-3 bg-white/5 rounded-2xl border border-white/10">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Distribuído (Geral)</p>
                                 <p className="text-xl font-black text-[#FBC02D]">
-                                    {geralLevels.slice(0, geralGens).reduce((acc, curr) => acc + curr.value, 0).toFixed(1)}%
+                                    {geralLevels.slice(0, geralGens).reduce((acc, curr) => acc + curr.value, 0).toFixed(1)}
+                                    {geralType === 'percent' ? '%' : 'R$'}
                                 </p>
                             </div>
                             <div className="text-center px-6 py-3 bg-white/5 rounded-2xl border border-white/10">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total (Colchões)</p>
                                 <p className="text-xl font-black text-[#FBC02D]">
-                                    {mattressLevels.slice(0, mattressGens).reduce((acc, curr) => acc + curr.value, 0).toFixed(1)}%
+                                    {mattressLevels.slice(0, mattressGens).reduce((acc, curr) => acc + (curr.value || 0), 0).toFixed(1)}
+                                    {mattressType === 'percent' ? '%' : 'R$'}
                                 </p>
                             </div>
                         </div>
@@ -249,20 +341,14 @@ const AdminCommissions: React.FC = () => {
                     </div>
                     <button
                         onClick={handleSave}
-                        className="w-full md:w-auto px-10 py-4 bg-[#FBC02D] text-[#05080F] rounded-2xl font-black text-sm shadow-xl shadow-[#FBC02D]/10 hover:shadow-2xl transition-all"
+                        disabled={isSaving}
+                        className="w-full md:w-auto px-10 py-4 bg-[#FBC02D] text-[#05080F] rounded-2xl font-black text-sm shadow-xl shadow-[#FBC02D]/10 hover:shadow-2xl transition-all flex items-center justify-center gap-2"
                     >
+                        {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
                         CONFIRMAR E ATUALIZAR REGRAS
                     </button>
                 </div>
             </div>
-
-            {/* Toast Notification */}
-            {showToast && (
-                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] bg-[#05080F] text-[#FBC02D] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 font-black text-sm">
-                    <ShieldCheck className="w-5 h-5 border-2 border-[#FBC02D] rounded-full" />
-                    Regras de comissão atualizadas com sucesso!
-                </div>
-            )}
         </AdminLayout>
     );
 };

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Users,
     Wallet,
@@ -13,42 +13,129 @@ import {
     Award
 } from 'lucide-react';
 import AffiliateLayout from '../components/AffiliateLayout';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../components/AuthContext';
+import toast from 'react-hot-toast';
 
 const AffiliateDashboard: React.FC = () => {
+    const { user } = useAuth();
+    const [loading, setLoading] = useState(true);
+    const [affiliateData, setAffiliateData] = useState<any>(null);
+    const [walletData, setWalletData] = useState<any>(null);
     const [copied, setCopied] = useState(false);
-    // Em um cenário real, o login viria do AuthContext
-    const userLogin = "FELIX2024";
-    const affiliateLink = `classea.com.br/ref/${userLogin.toLowerCase()}`;
+
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            if (!user) return;
+
+            try {
+                setLoading(true);
+
+                // 1. Buscar dados do Afiliado
+                const { data: aff, error: affErr } = await supabase
+                    .from('affiliates')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .single();
+
+                if (affErr) throw affErr;
+                setAffiliateData(aff);
+
+                // 2. Buscar dados Financeiros
+                const { data: wallet, error: walletErr } = await supabase
+                    .from('user_settings')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .single();
+
+                if (walletErr) throw walletErr;
+                setWalletData(wallet);
+
+            } catch (err: any) {
+                console.error('Erro ao carregar dados do dashboard:', err);
+                toast.error('Não foi possível carregar alguns dados.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDashboardData();
+    }, [user]);
+
+    const userLogin = affiliateData?.referral_code || "...";
+    const domain = window.location.origin;
+    const affiliateLink = `${domain}/ref/${userLogin.toLowerCase()}`;
 
     const handleCopyLink = () => {
-        navigator.clipboard.writeText(`https://${affiliateLink}`);
+        navigator.clipboard.writeText(affiliateLink);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const handleOpenStore = () => {
+        window.open('/', '_blank');
+    };
+
+    const handleSupportWhatsApp = () => {
+        const message = encodeURIComponent('Olá, preciso de suporte, pode me ajudar?');
+        window.open(`https://wa.me/554199670714?text=${message}`, '_blank');
+    };
+
+    const formatCurrency = (value: number) => {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    };
+
     const stats = [
-        { label: 'Saldo Disponível', value: 'R$ 1.250,00', icon: Wallet, color: 'text-[#FBC02D]' },
-        { label: 'Total Ganhos', value: 'R$ 8.420,50', icon: TrendingUp, color: 'text-emerald-500' },
-        { label: 'Indicações Ativas', value: '42', icon: Users, color: 'text-blue-500' },
-        { label: 'Taxa de Conversão', value: '12.4%', icon: Award, color: 'text-purple-500' },
+        {
+            label: 'Saldo Disponível',
+            value: formatCurrency(walletData?.available_balance || 0),
+            icon: Wallet,
+            color: 'text-[#FBC02D]'
+        },
+        {
+            label: 'Total Ganhos',
+            value: formatCurrency(walletData?.total_earnings || 0),
+            icon: TrendingUp,
+            color: 'text-emerald-500'
+        },
+        {
+            label: 'Indicações Ativas',
+            value: '0', // TODO: Implementar contagem real de indicações
+            icon: Users,
+            color: 'text-blue-500'
+        },
+        {
+            label: 'Taxa de Conversão',
+            value: '0.0%', // TODO: Implementar métrica real
+            icon: Award,
+            color: 'text-purple-500'
+        },
     ];
 
-    const recentCommissions = [
-        { id: 1, name: 'João Silva', date: 'Hoje, 14:20', value: 'R$ 45,00', status: 'Pendente' },
-        { id: 2, name: 'Maria Santos', date: 'Ontem, 18:05', value: 'R$ 120,00', status: 'Confirmado' },
-        { id: 3, name: 'Pedro Oliveira', date: '20 Fev, 10:30', value: 'R$ 85,00', status: 'Confirmado' },
-        { id: 4, name: 'Ana Costa', date: '19 Fev, 15:45', value: 'R$ 45,00', status: 'Cancelado' },
-    ];
+    const recentCommissions: any[] = []; // TODO: Buscar da tabela de comissões quando implementada
+
+    if (loading) {
+        return (
+            <AffiliateLayout>
+                <div className="min-h-[60vh] flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#FBC02D]"></div>
+                </div>
+            </AffiliateLayout>
+        );
+    }
 
     return (
         <AffiliateLayout>
             {/* Top Header */}
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-[#0B1221]">Olá, Afiliado!</h1>
+                    <h1 className="text-3xl font-black text-[#0B1221]">Olá, {affiliateData?.full_name?.split(' ')[0] || 'Afiliado'}!</h1>
                     <p className="text-slate-500 font-medium">Bora ver como estão seus resultados hoje?</p>
                 </div>
-                <button className="bg-white border border-slate-200 px-6 py-3 rounded-2xl flex items-center gap-2 font-bold text-[#0B1221] shadow-sm hover:shadow-md transition-all">
+                <button
+                    onClick={handleOpenStore}
+                    className="bg-white border border-slate-200 px-6 py-3 rounded-2xl flex items-center gap-2 font-bold text-[#0B1221] shadow-sm hover:shadow-md transition-all"
+                >
                     <ExternalLink className="w-4 h-4 text-[#FBC02D]" />
                     Ver Loja Classe A
                 </button>
@@ -131,32 +218,40 @@ const AffiliateDashboard: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {recentCommissions.map((item) => (
-                                        <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
-                                            <td className="py-5 px-2">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-[#0B1221] font-bold text-xs">
-                                                        {item.name.split(' ').map(n => n[0]).join('')}
+                                    {recentCommissions.length > 0 ? (
+                                        recentCommissions.map((item) => (
+                                            <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
+                                                <td className="py-5 px-2">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-[#0B1221] font-bold text-xs">
+                                                            {item.name.split(' ').map(n => n[0]).join('')}
+                                                        </div>
+                                                        <span className="font-bold text-[#0B1221]">{item.name}</span>
                                                     </div>
-                                                    <span className="font-bold text-[#0B1221]">{item.name}</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-5 px-2 text-sm text-slate-500 font-medium">
-                                                <div className="flex items-center gap-1">
-                                                    <Clock className="w-3.5 h-3.5" />
-                                                    {item.date}
-                                                </div>
-                                            </td>
-                                            <td className="py-5 px-2 font-black text-[#0B1221]">{item.value}</td>
-                                            <td className="py-5 px-2 text-right">
-                                                <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${item.status === 'Confirmado' ? 'bg-emerald-50 text-emerald-600' :
-                                                    item.status === 'Pendente' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
-                                                    }`}>
-                                                    {item.status}
-                                                </span>
+                                                </td>
+                                                <td className="py-5 px-2 text-sm text-slate-500 font-medium">
+                                                    <div className="flex items-center gap-1">
+                                                        <Clock className="w-3.5 h-3.5" />
+                                                        {item.date}
+                                                    </div>
+                                                </td>
+                                                <td className="py-5 px-2 font-black text-[#0B1221]">{item.value}</td>
+                                                <td className="py-5 px-2 text-right">
+                                                    <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${item.status === 'Confirmado' ? 'bg-emerald-50 text-emerald-600' :
+                                                        item.status === 'Pendente' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
+                                                        }`}>
+                                                        {item.status}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={4} className="py-10 text-center text-slate-400 font-medium">
+                                                Nenhuma indicação recente encontrada.
                                             </td>
                                         </tr>
-                                    ))}
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -168,13 +263,17 @@ const AffiliateDashboard: React.FC = () => {
                     {/* Profile Card */}
                     <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8 text-center">
                         <div className="relative inline-block mb-4">
-                            <div className="w-24 h-24 rounded-full bg-slate-100 border-4 border-white shadow-lg mx-auto overflow-hidden">
-                                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="Avatar" className="w-full h-full object-cover" />
+                            <div className="w-24 h-24 rounded-full bg-slate-100 border-4 border-white shadow-lg mx-auto overflow-hidden flex items-center justify-center">
+                                {affiliateData?.full_name ? (
+                                    <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${affiliateData.full_name}`} alt="Avatar" className="w-full h-full object-cover" />
+                                ) : (
+                                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="Avatar" className="w-full h-full object-cover" />
+                                )}
                             </div>
                             <div className="absolute bottom-1 right-1 bg-emerald-500 w-6 h-6 rounded-full border-4 border-white"></div>
                         </div>
-                        <h3 className="text-xl font-black text-[#0B1221]">Félix Schneider</h3>
-                        <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-1">Afiliado Diamante</p>
+                        <h3 className="text-xl font-black text-[#0B1221]">{affiliateData?.full_name || 'Afiliado'}</h3>
+                        <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-1">Afiliado Classe A</p>
 
                         <div className="grid grid-cols-2 gap-4 mt-8 border-t border-slate-50 pt-8">
                             <div>
@@ -196,7 +295,10 @@ const AffiliateDashboard: React.FC = () => {
                     <div className="bg-gradient-to-br from-[#FBC02D] to-[#ffa000] rounded-[2.5rem] p-8 text-[#0B1221]">
                         <h3 className="text-xl font-black mb-2">Precisa de ajuda?</h3>
                         <p className="text-[#0B1221]/70 text-sm font-medium mb-6">Nossa equipe está pronta para te ajudar a vender mais.</p>
-                        <button className="w-full bg-white/20 hover:bg-white/30 py-4 rounded-2xl font-black transition-all border border-white/20 backdrop-blur-sm">
+                        <button
+                            onClick={handleSupportWhatsApp}
+                            className="w-full bg-white/20 hover:bg-white/30 py-4 rounded-2xl font-black transition-all border border-white/20 backdrop-blur-sm"
+                        >
                             CHAMAR SUPORTE
                         </button>
                     </div>

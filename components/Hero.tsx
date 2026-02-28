@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const Hero: React.FC = () => {
   return (
@@ -17,12 +18,12 @@ const Hero: React.FC = () => {
             Descubra o equilíbrio perfeito entre conforto, saúde e elegância com nossos produtos premium selecionados para você.
           </p>
           <div className="flex flex-wrap gap-4 pt-4">
-            <button className="bg-[#FBC02D] hover:bg-[#f9b100] text-[#0B1221] font-bold py-4 px-8 rounded-lg shadow-lg shadow-[#FBC02D]/20 transition-all">
+            <Link to="/shop" className="bg-[#FBC02D] hover:bg-[#f9b100] text-[#0B1221] font-black py-4 px-8 rounded-lg shadow-lg shadow-[#FBC02D]/20 transition-all text-center">
               Ver Coleção 2024
-            </button>
-            <button className="border-2 border-slate-200 hover:border-[#FBC02D] text-[#0B1221] font-bold py-4 px-8 rounded-lg transition-all">
-              Conhecer Negócio
-            </button>
+            </Link>
+            <Link to="/consorcio" className="border-2 border-slate-200 hover:border-[#FBC02D] text-[#0B1221] font-black py-4 px-8 rounded-lg transition-all text-center">
+              Consórcio Ativo
+            </Link>
           </div>
         </div>
 

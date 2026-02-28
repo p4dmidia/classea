@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     CheckCircle2,
     Send,
@@ -11,8 +12,11 @@ import {
     FileText,
     Download
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 const RegisterPage: React.FC = () => {
+    const navigate = useNavigate();
     const [registrationType, setRegistrationType] = useState<'business' | 'sales' | null>(null);
     const [formData, setFormData] = useState({
         nome: '',
@@ -24,23 +28,71 @@ const RegisterPage: React.FC = () => {
         aceiteContrato: false
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError(null);
+
         if (!registrationType) {
-            alert('Por favor, selecione o tipo de cadastro.');
+            setError('Por favor, selecione o tipo de cadastro.');
             return;
         }
         if (formData.senha !== formData.confirmarSenha) {
-            alert('As senhas não coincidem.');
+            setError('As senhas não coincidem.');
             return;
         }
         if (!formData.aceiteContrato) {
-            alert('Você precisa aceitar os termos do contrato para prosseguir.');
+            setError('Você precisa aceitar os termos do contrato para prosseguir.');
             return;
         }
 
-        alert('Cadastro realizado com sucesso! Bem-vindo à Classe A.');
-        console.log('Dados do cadastro:', { ...formData, type: registrationType });
+        setLoading(true);
+        try {
+            const { data, error: signUpError } = await supabase.auth.signUp({
+                email: formData.email,
+                password: formData.senha,
+                options: {
+                    data: {
+                        nome: formData.nome,
+                        sobrenome: formData.sobrenome,
+                        login: formData.login,
+                        registration_type: registrationType,
+                    }
+                }
+            });
+
+            if (signUpError) throw signUpError;
+
+            if (data?.user) {
+                toast.success('Cadastro realizado com sucesso! Bem-vindo à Classe A.', {
+                    duration: 5000,
+                    style: {
+                        background: '#0B1221',
+                        color: '#fff',
+                        fontWeight: 'bold',
+                        borderRadius: '1rem',
+                        border: '1px solid rgba(251, 192, 45, 0.2)'
+                    },
+                    iconTheme: {
+                        primary: '#FBC02D',
+                        secondary: '#0B1221',
+                    },
+                });
+
+                // Redirecionar para login após um pequeno delay para o usuário ver o toast
+                setTimeout(() => {
+                    navigate('/login');
+                }, 2000);
+            }
+        } catch (err: any) {
+            setError(err.message || 'Erro ao realizar cadastro.');
+            toast.error(err.message || 'Erro ao realizar cadastro.');
+            console.error('Erro no cadastro:', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -231,11 +283,18 @@ const RegisterPage: React.FC = () => {
                                             </div>
                                         </div>
 
+                                        {error && (
+                                            <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-2xl text-xs font-black uppercase tracking-widest text-center">
+                                                {error}
+                                            </div>
+                                        )}
+
                                         <button
                                             type="submit"
-                                            className="w-full py-5 bg-[#0B1221] text-white rounded-2xl font-black text-sm shadow-2xl shadow-[#0B1221]/20 hover:bg-[#1a2436] transition-all flex items-center justify-center gap-3 uppercase tracking-widest"
+                                            disabled={loading}
+                                            className={`w-full py-5 bg-[#0B1221] text-white rounded-2xl font-black text-sm shadow-2xl shadow-[#0B1221]/20 hover:bg-[#1a2436] transition-all flex items-center justify-center gap-3 uppercase tracking-widest ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         >
-                                            CRIAR MINHA CONTA AGORA
+                                            {loading ? 'PROCESSANDO...' : 'CRIAR MINHA CONTA AGORA'}
                                             <Send className="w-5 h-5 text-[#FBC02D]" />
                                         </button>
                                     </div>

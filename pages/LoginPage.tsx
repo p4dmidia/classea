@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, ArrowRight } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
@@ -10,11 +12,64 @@ const LoginPage: React.FC = () => {
         senha: ''
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('Dados de login:', formData);
-        // Simulating redirect to dashboard
-        navigate('/dashboard');
+        setError(null);
+        setLoading(true);
+
+        let loginIdentifier = formData.email.trim();
+
+        try {
+            // Se não for um e-mail (não tem @), tenta buscar o e-mail pelo login/username
+            if (!loginIdentifier.includes('@')) {
+                const { data: affiliateData, error: lookupError } = await supabase
+                    .from('affiliates')
+                    .select('email')
+                    .ilike('referral_code', loginIdentifier)
+                    .single();
+
+                if (lookupError || !affiliateData) {
+                    throw new Error('Usuário não encontrado. Verifique seu login ou e-mail.');
+                }
+
+                loginIdentifier = affiliateData.email;
+            }
+
+            const { data, error: signInError } = await supabase.auth.signInWithPassword({
+                email: loginIdentifier,
+                password: formData.senha,
+            });
+
+            if (signInError) throw signInError;
+
+            if (data?.session) {
+                toast.success('Login realizado com sucesso!', {
+                    style: {
+                        background: '#0B1221',
+                        color: '#fff',
+                        fontWeight: 'bold',
+                        borderRadius: '1rem',
+                    },
+                });
+                navigate('/dashboard');
+            }
+        } catch (err: any) {
+            let message = 'Erro ao realizar login. Verifique suas credenciais.';
+            if (err.message === 'Invalid login credentials') {
+                message = 'E-mail, usuário ou senha incorretos.';
+            } else if (err.message) {
+                message = err.message;
+            }
+
+            setError(message);
+            toast.error(message);
+            console.error('Erro no login:', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,8 +125,18 @@ const LoginPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <button type="submit" className="w-full bg-[#0B1221] hover:bg-[#1a2436] text-white font-black py-5 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#0B1221]/20 group">
-                            ENTRAR NO SISTEMA
+                        {error && (
+                            <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-2xl text-xs font-black uppercase tracking-widest text-center">
+                                {error}
+                            </div>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className={`w-full bg-[#0B1221] hover:bg-[#1a2436] text-white font-black py-5 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#0B1221]/20 group ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            {loading ? 'ENTRANDO...' : 'ENTRAR NO SISTEMA'}
                             <LogIn className="w-5 h-5 text-[#FBC02D] group-hover:translate-x-1 transition-transform" />
                         </button>
                     </form>

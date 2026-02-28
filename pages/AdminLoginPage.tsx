@@ -2,20 +2,56 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, Lock, User, Eye, EyeOff, ArrowRight, ShieldCheck } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 const AdminLoginPage: React.FC = () => {
     const navigate = useNavigate();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
-        // Simulação de login - Permite qualquer credencial
-        setTimeout(() => {
-            setIsLoading(false);
+
+        try {
+            // 1. Authenticate with Supabase
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email,
+                password
+            });
+
+            if (authError) throw authError;
+
+            // 2. Check Role in user_profiles
+            const { data: profile, error: profileError } = await supabase
+                .from('user_profiles')
+                .select('role')
+                .eq('id', authData.user.id)
+                .single();
+
+            if (profileError) throw new Error('Falha ao verificar permissões de acesso.');
+
+            if (profile?.role !== 'admin') {
+                // Not an admin - Force Logout
+                await supabase.auth.signOut();
+                toast.error('Acesso negado. Esta área é restrita a administradores.');
+                setIsLoading(false);
+                return;
+            }
+
+            // 3. Success
+            toast.success('Autenticação realizada com sucesso!');
             navigate('/admin/dashboard');
-        }, 1500);
+
+        } catch (error: any) {
+            console.error('Admin Login Error:', error);
+            toast.error(error.message || 'Erro ao realizar login. Verifique suas credenciais.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -48,14 +84,16 @@ const AdminLoginPage: React.FC = () => {
                     <form onSubmit={handleLogin} className="space-y-6">
                         {/* Username Field */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Credencial de Acesso</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Administrativo</label>
                             <div className="relative group/input">
                                 <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-[#FBC02D] transition-colors">
                                     <User className="w-5 h-5" />
                                 </div>
                                 <input
-                                    type="text"
-                                    placeholder="admin_id"
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="admin@classea.com"
                                     className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-14 pr-6 text-white placeholder:text-slate-600 outline-none focus:border-[#FBC02D]/50 focus:bg-white/10 transition-all font-medium"
                                     required
                                 />
@@ -65,7 +103,7 @@ const AdminLoginPage: React.FC = () => {
                         {/* Password Field */}
                         <div className="space-y-2">
                             <div className="flex justify-between items-center ml-1">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Código Identificador</label>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Senha de Acesso</label>
                             </div>
                             <div className="relative group/input">
                                 <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-[#FBC02D] transition-colors">
@@ -73,6 +111,8 @@ const AdminLoginPage: React.FC = () => {
                                 </div>
                                 <input
                                     type={showPassword ? "text" : "password"}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
                                     placeholder="••••••••••••"
                                     className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-14 pr-14 text-white placeholder:text-slate-600 outline-none focus:border-[#FBC02D]/50 focus:bg-white/10 transition-all font-medium"
                                     required
