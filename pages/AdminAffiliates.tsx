@@ -14,13 +14,15 @@ import {
     ArrowUpDown,
     Download,
     X,
-    Loader2
+    Loader2,
+    Network
 } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
+import { AffiliateNetwork } from '../components/AffiliateNetwork';
 
 const AdminAffiliates: React.FC = () => {
     // States
@@ -33,6 +35,8 @@ const AdminAffiliates: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [affiliates, setAffiliates] = useState<any[]>([]);
     const [totalStats, setTotalStats] = useState({ total: 0, pending: 0, newThisMonth: 0 });
+    const [viewingNetworkId, setViewingNetworkId] = useState<string | null>(null);
+    const [viewingNetworkName, setViewingNetworkName] = useState<string>('');
 
     const itemsPerPage = 8;
 
@@ -400,6 +404,16 @@ const AdminAffiliates: React.FC = () => {
                                                         </button>
                                                     )}
                                                     <button
+                                                        onClick={() => {
+                                                            setViewingNetworkId(aff.id);
+                                                            setViewingNetworkName(aff.name);
+                                                        }}
+                                                        className="p-2 text-[#FBC02D] hover:bg-[#FBC02D]/10 rounded-xl transition-all"
+                                                        title="Ver Rede"
+                                                    >
+                                                        <Network className="w-5 h-5" />
+                                                    </button>
+                                                    <button
                                                         onClick={() => toggleStatus(aff.id, aff.raw_status)}
                                                         className={`p-2 rounded-xl transition-all ${aff.raw_status ? 'text-amber-500 hover:bg-amber-50' : 'text-emerald-500 hover:bg-emerald-50'}`}
                                                         title={aff.raw_status ? 'Bloquear' : 'Ativar'}
@@ -477,6 +491,37 @@ const AdminAffiliates: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* Network View Modal */}
+                {viewingNetworkId && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+                        <div className="bg-[#05080F] w-full max-w-6xl rounded-[3rem] border border-white/10 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+                            <div className="p-8 border-b border-white/5 flex justify-between items-center">
+                                <div>
+                                    <h2 className="text-2xl font-black text-white">Rede de Afiliados</h2>
+                                    <p className="text-slate-400 font-medium capitalize">Visualizando rede de: <span className="text-[#FBC02D]">{viewingNetworkName}</span></p>
+                                </div>
+                                <button
+                                    onClick={() => setViewingNetworkId(null)}
+                                    className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-white transition-all"
+                                >
+                                    <X className="w-6 h-6" />
+                                </button>
+                            </div>
+                            <div className="p-8">
+                                <AffiliateNetwork rootAffiliateId={viewingNetworkId} />
+                            </div>
+                            <div className="p-6 bg-white/5 flex justify-end">
+                                <button
+                                    onClick={() => setViewingNetworkId(null)}
+                                    className="px-8 py-3 bg-[#FBC02D] text-[#05080F] font-black rounded-2xl hover:bg-white transition-all"
+                                >
+                                    Fechar Visualização
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </AdminLayout>
     );

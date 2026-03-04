@@ -13,7 +13,8 @@ import {
     ChevronRight,
     Percent,
     Wallet,
-    Trophy
+    Trophy,
+    Layers
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
@@ -42,6 +43,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     const menuItems = [
         { label: 'Visão Geral', icon: LayoutDashboard, path: '/admin/dashboard' },
         { label: 'Afiliados', icon: Users, path: '/admin/affiliates' },
+        { label: 'Categorias', icon: Layers, path: '/admin/categories' },
         { label: 'Produtos', icon: Package, path: '/admin/products' },
         { label: 'Pedidos', icon: ShoppingCart, path: '/admin/orders' },
         { label: 'Consórcio', icon: Trophy, path: '/admin/consorcio' },

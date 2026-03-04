@@ -126,9 +126,28 @@ const ProductDetails: React.FC = () => {
                                     R$ {(product.price * 1.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </span>
                             </div>
-                            <p className="text-slate-500 font-medium leading-relaxed">
+                            <p className="text-slate-500 font-medium leading-relaxed mb-6">
                                 {product.description || 'Este produto premium oferece qualidade incomparável e durabilidade, ideal para quem busca o melhor custo-benefício e sofisticação em cada detalhe.'}
                             </p>
+
+                            {(product.weight || product.length || product.width || product.height) && (
+                                <div className="grid grid-cols-2 gap-4 pt-6 border-t border-slate-100">
+                                    {product.weight > 0 && (
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Peso</span>
+                                            <span className="text-sm font-bold text-[#0B1221]">{product.weight} kg</span>
+                                        </div>
+                                    )}
+                                    {(product.length > 0 || product.width > 0 || product.height > 0) && (
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dimensões</span>
+                                            <span className="text-sm font-bold text-[#0B1221]">
+                                                {product.length || 0} x {product.width || 0} x {product.height || 0} cm
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Actions */}

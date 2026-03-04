@@ -26,6 +26,7 @@ import AdminOrders from './pages/AdminOrders';
 import AdminSecurity from './pages/AdminSecurity';
 import AdminCommissions from './pages/AdminCommissions';
 import AdminConsorcio from './pages/AdminConsorcio';
+import AdminCategories from './pages/AdminCategories';
 import CheckoutPage from './pages/CheckoutPage';
 import AdminFinancial from './pages/AdminFinancial';
 import ProductDetails from './pages/ProductDetails';
@@ -73,6 +74,7 @@ const AppContent: React.FC = () => {
           <Route path="/admin/security" element={<AdminSecurity />} />
           <Route path="/admin/commissions" element={<AdminCommissions />} />
           <Route path="/admin/consorcio" element={<AdminConsorcio />} />
+          <Route path="/admin/categories" element={<AdminCategories />} />
         </Routes>
       </main>
       {!isDashboard && <Footer />}

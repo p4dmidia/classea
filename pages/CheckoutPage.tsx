@@ -30,13 +30,50 @@ const CheckoutPage: React.FC = () => {
         email: '',
         phone: '',
         cpf: '',
-        address: ''
+        address: '',
+        cep: ''
     });
+
+    const [shippingOptions, setShippingOptions] = useState<any[]>([]);
+    const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
+    const [selectedShipping, setSelectedShipping] = useState<any>(null);
 
     const isConsorcioInCart = cart.some(item => item.category === 'Consórcio');
     const subtotal = cartTotal;
-    const shipping = cart.length > 0 ? 25.00 : 0;
+    const shipping = selectedShipping ? parseFloat(selectedShipping.price) : 0;
     const total = subtotal + shipping;
+
+    const calculateShipping = async () => {
+        if (!customerInfo.cep || customerInfo.cep.length < 8) {
+            toast.error('Informe um CEP válido para calcular o frete.');
+            return;
+        }
+
+        setIsCalculatingShipping(true);
+        setSelectedShipping(null);
+
+        try {
+            const { data, error } = await supabase.functions.invoke('calculate-shipping', {
+                body: {
+                    zip: customerInfo.cep,
+                    items: cart.map(item => ({ id: item.id, quantity: item.quantity }))
+                }
+            });
+
+            if (error) throw error;
+            setShippingOptions(data || []);
+            if (data && data.length > 0) {
+                toast.success('Frete calculado!');
+            } else {
+                toast.error('Nenhuma opção de frete encontrada para este CEP.');
+            }
+        } catch (error: any) {
+            console.error('Shipping error:', error);
+            toast.error('Erro ao calcular frete: ' + (error.message || 'Tente novamente.'));
+        } finally {
+            setIsCalculatingShipping(false);
+        }
+    };
 
     const handleConfirmOrder = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -64,8 +101,10 @@ const CheckoutPage: React.FC = () => {
                     customer_email: customerInfo.email,
                     customer_phone: customerInfo.phone,
                     customer_cpf: customerInfo.cpf,
-                    shipping_address: customerInfo.address,
+                    shipping_address: `${customerInfo.address} - CEP: ${customerInfo.cep}`,
                     total_amount: total,
+                    shipping_cost: shipping,
+                    shipping_method: selectedShipping?.name || 'Não informado',
                     status: 'Pendente',
                     payment_method: paymentMethod === 'credit' ? 'Cartão de Crédito' : 'Pix'
                 }]);
@@ -211,14 +250,24 @@ const CheckoutPage: React.FC = () => {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CPF (Necessário para PIX)</label>
-                                    <input
-                                        type="text"
-                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
-                                        placeholder="000.000.000-00"
-                                        value={customerInfo.cpf}
-                                        onChange={(e) => setCustomerInfo({ ...customerInfo, cpf: e.target.value })}
-                                    />
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CEP</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                            placeholder="00000-000"
+                                            value={customerInfo.cep}
+                                            onChange={(e) => setCustomerInfo({ ...customerInfo, cep: e.target.value })}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={calculateShipping}
+                                            disabled={isCalculatingShipping}
+                                            className="px-6 bg-[#0B1221] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#1a2436] transition-all disabled:opacity-50"
+                                        >
+                                            {isCalculatingShipping ? <Loader2 className="w-4 h-4 animate-spin" /> : 'CALCULAR'}
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="space-y-2 md:col-span-2">
                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Endereço Completo</label>
@@ -230,6 +279,28 @@ const CheckoutPage: React.FC = () => {
                                         onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
                                     />
                                 </div>
+
+                                {shippingOptions.length > 0 && (
+                                    <div className="md:col-span-2 space-y-4 pt-4 border-t border-slate-50">
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Selecione a Entrega</label>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {shippingOptions.map((opt, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    type="button"
+                                                    onClick={() => setSelectedShipping(opt)}
+                                                    className={`p-4 rounded-2xl border-2 text-left transition-all flex justify-between items-center ${selectedShipping === opt ? 'border-[#FBC02D] bg-amber-50/30' : 'border-slate-100 hover:border-slate-200'}`}
+                                                >
+                                                    <div>
+                                                        <p className="text-xs font-black uppercase tracking-widest text-[#0B1221]">{opt.name}</p>
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{opt.company.name} • {opt.delivery_time} dias</p>
+                                                    </div>
+                                                    <p className="font-black text-sm text-[#0B1221]">R$ {parseFloat(opt.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

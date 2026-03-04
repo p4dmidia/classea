@@ -4,27 +4,22 @@ import {
     Search,
     Filter,
     Plus,
-    MoreVertical,
     Edit,
     Trash2,
-    Eye,
     CheckCircle,
-    AlertCircle,
     XCircle,
-    ArrowUpDown,
     Layers,
     Tag,
     BarChart,
     X,
     Upload,
-    DollarSign,
     Box,
-    ChevronRight,
     Loader2
 } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface Product {
     id: string;
@@ -37,9 +32,24 @@ interface Product {
     is_active: boolean;
     sales_count: number;
     created_at: string;
+    weight: number;
+    length: number;
+    width: number;
+    height: number;
+    origin_zip: string;
+    subcategory_id?: number | null;
     product_categories?: {
         name: string;
     };
+    product_subcategories?: {
+        name: string;
+    };
+}
+
+interface Subcategory {
+    id: number;
+    name: string;
+    category_id: number;
 }
 
 interface Category {
@@ -51,29 +61,36 @@ interface Category {
 }
 
 const AdminProducts: React.FC = () => {
+    const navigate = useNavigate();
+
     // States
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('Todas');
     const [filterStatus, setFilterStatus] = useState('Todos');
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
-    const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
+    const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+    const [filteredSubcategories, setFilteredSubcategories] = useState<Subcategory[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-    const [newCategoryName, setNewCategoryName] = useState('');
-    const [isCategorySaving, setIsCategorySaving] = useState(false);
 
     // Form States
     const [formData, setFormData] = useState({
         name: '',
         category_id: '',
+        subcategory_id: '',
         price: '',
         stock_quantity: '',
-        description: ''
+        description: '',
+        weight: '0.5',
+        length: '16',
+        width: '11',
+        height: '2',
+        origin_zip: '82820-160'
     });
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -88,7 +105,7 @@ const AdminProducts: React.FC = () => {
     const fetchInitialData = async () => {
         setIsLoading(true);
         try {
-            await Promise.all([fetchProducts(), fetchCategories()]);
+            await Promise.all([fetchProducts(), fetchCategories(), fetchSubcategories()]);
         } finally {
             setIsLoading(false);
         }
@@ -99,7 +116,8 @@ const AdminProducts: React.FC = () => {
             .from('products')
             .select(`
                 *,
-                product_categories (name)
+                product_categories (name),
+                product_subcategories (name)
             `)
             .order('created_at', { ascending: false });
 
@@ -130,56 +148,42 @@ const AdminProducts: React.FC = () => {
         }
     };
 
-    const handleAddCategory = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newCategoryName.trim()) return;
-        setIsCategorySaving(true);
+    const fetchSubcategories = async () => {
+        const { data, error } = await supabase
+            .from('product_subcategories')
+            .select('*');
 
-        try {
-            const { error } = await supabase
-                .from('product_categories')
-                .insert([{ name: newCategoryName }]);
-
-            if (error) throw error;
-
-            toast.success('Categoria adicionada!');
-            setNewCategoryName('');
-            fetchCategories();
-        } catch (error) {
-            toast.error('Erro ao adicionar categoria');
-            console.error(error);
-        } finally {
-            setIsCategorySaving(false);
+        if (error) {
+            toast.error('Erro ao carregar subcategorias');
+        } else {
+            setSubcategories(data || []);
         }
     };
 
-    const handleDeleteCategory = async (id: number) => {
-        if (!window.confirm('Tem certeza? Isso pode afetar produtos vinculados.')) return;
-
-        try {
-            const { error } = await supabase
-                .from('product_categories')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
-
-            toast.success('Categoria removida');
-            fetchCategories();
-            fetchProducts();
-        } catch (error) {
-            toast.error('Erro ao excluir categoria');
+    // Filter subcategories when category changes
+    useEffect(() => {
+        if (formData.category_id) {
+            const filtered = subcategories.filter(sub => sub.category_id === parseInt(formData.category_id));
+            setFilteredSubcategories(filtered);
+        } else {
+            setFilteredSubcategories([]);
         }
-    };
+    }, [formData.category_id, subcategories]);
 
     const handleOpenEdit = (prod: Product) => {
         setEditingProduct(prod);
         setFormData({
             name: prod.name,
             category_id: prod.category_id.toString(),
+            subcategory_id: prod.subcategory_id?.toString() || '',
             price: prod.price.toString(),
             stock_quantity: prod.stock_quantity.toString(),
-            description: prod.description || ''
+            description: prod.description || '',
+            weight: (prod.weight || 0.5).toString(),
+            length: (prod.length || 16).toString(),
+            width: (prod.width || 11).toString(),
+            height: (prod.height || 2).toString(),
+            origin_zip: prod.origin_zip || '82820-160'
         });
         setImagePreview(prod.image_url);
         setIsNewModalOpen(true);
@@ -221,11 +225,17 @@ const AdminProducts: React.FC = () => {
             const productData = {
                 name: formData.name,
                 category_id: parseInt(formData.category_id),
+                subcategory_id: formData.subcategory_id ? parseInt(formData.subcategory_id) : null,
                 price: parsedPrice,
                 stock_quantity: parseInt(formData.stock_quantity),
                 description: formData.description,
                 image_url: imageUrl,
-                is_active: true
+                is_active: true,
+                weight: parseFloat(formData.weight) || 0.5,
+                length: parseFloat(formData.length) || 16,
+                width: parseFloat(formData.width) || 11,
+                height: parseFloat(formData.height) || 2,
+                origin_zip: formData.origin_zip || '82820-160'
             };
 
             if (editingProduct) {
@@ -294,9 +304,15 @@ const AdminProducts: React.FC = () => {
         setFormData({
             name: '',
             category_id: '',
+            subcategory_id: '',
             price: '',
             stock_quantity: '',
-            description: ''
+            description: '',
+            weight: '0.5',
+            length: '16',
+            width: '11',
+            height: '2',
+            origin_zip: '82820-160'
         });
         setEditingProduct(null);
         setSelectedImage(null);
@@ -356,11 +372,11 @@ const AdminProducts: React.FC = () => {
                     </div>
                     <div className="flex gap-3">
                         <button
-                            onClick={() => setIsCategoriesModalOpen(true)}
+                            onClick={() => navigate('/admin/categories')}
                             className="bg-white border border-slate-200 px-6 py-3 rounded-2xl flex items-center gap-2 font-bold text-slate-600 hover:shadow-md transition-all whitespace-nowrap"
                         >
                             <Layers className="w-4 h-4 text-[#FBC02D]" />
-                            Categorias
+                            Gerenciar Categorias
                         </button>
                         <button
                             onClick={() => {
@@ -463,7 +479,7 @@ const AdminProducts: React.FC = () => {
                             <thead className="bg-slate-50/50">
                                 <tr>
                                     <th className="text-left py-6 px-8 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Produto</th>
-                                    <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Categoria</th>
+                                    <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Categorização</th>
                                     <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Preço</th>
                                     <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Estoque</th>
                                     <th className="text-center py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Status</th>
@@ -504,7 +520,12 @@ const AdminProducts: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="py-6 px-4">
-                                                <span className="text-sm font-bold text-slate-600">{prod.product_categories?.name || 'Sem Categoria'}</span>
+                                                <p className="text-sm font-bold text-slate-600">{prod.product_categories?.name || 'Sem Categoria'}</p>
+                                                {prod.product_subcategories?.name && (
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100 px-2 py-0.5 rounded">
+                                                        {prod.product_subcategories.name}
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="py-6 px-4 font-black text-[#05080F]">
                                                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.price)}
@@ -580,7 +601,7 @@ const AdminProducts: React.FC = () => {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-[#05080F]/80 backdrop-blur-sm" onClick={() => setIsNewModalOpen(false)}></div>
                     <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
-                        <form className="p-8 md:p-12 mb-0" onSubmit={handleSaveProduct}>
+                        <form className="p-8 md:p-12 mb-0 overflow-y-auto max-h-[90vh] custom-scrollbar" onSubmit={handleSaveProduct}>
                             <div className="flex justify-between items-center mb-10">
                                 <div>
                                     <h2 className="text-3xl font-black text-[#05080F]">{editingProduct ? 'Editar Produto' : 'Novo Produto'}</h2>
@@ -600,7 +621,7 @@ const AdminProducts: React.FC = () => {
                                             required
                                             value={formData.name}
                                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D]"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
                                             placeholder="Ex: Colchão Elite"
                                         />
                                     </div>
@@ -610,11 +631,25 @@ const AdminProducts: React.FC = () => {
                                             required
                                             value={formData.category_id}
                                             onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D]"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
                                         >
                                             <option value="">Selecionar...</option>
                                             {categories.map(cat => (
                                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Subcategoria (Opcional)</label>
+                                        <select
+                                            value={formData.subcategory_id}
+                                            onChange={(e) => setFormData({ ...formData, subcategory_id: e.target.value })}
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
+                                            disabled={!formData.category_id}
+                                        >
+                                            <option value="">Nenhuma</option>
+                                            {filteredSubcategories.map(sub => (
+                                                <option key={sub.id} value={sub.id}>{sub.name}</option>
                                             ))}
                                         </select>
                                     </div>
@@ -625,7 +660,7 @@ const AdminProducts: React.FC = () => {
                                             required
                                             value={formData.price}
                                             onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D]"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
                                             placeholder="R$ 0,00"
                                         />
                                     </div>
@@ -636,9 +671,78 @@ const AdminProducts: React.FC = () => {
                                             required
                                             value={formData.stock_quantity}
                                             onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D]"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
                                             placeholder="0"
                                         />
+                                    </div>
+                                </div>
+
+                                <div className="p-6 bg-slate-50/50 rounded-[2rem] border border-slate-100 space-y-6">
+                                    <h3 className="text-sm font-black text-[#05080F] flex items-center gap-2">
+                                        <Box className="w-4 h-4 text-[#FBC02D]" />
+                                        DADOS DE LOGÍSTICA (FRETE)
+                                    </h3>
+
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Peso (kg)</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                required
+                                                value={formData.weight}
+                                                onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                                                className="w-full bg-white border border-slate-100 rounded-xl py-3 px-3 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                placeholder="0.5"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Comp. (cm)</label>
+                                            <input
+                                                type="number"
+                                                required
+                                                value={formData.length}
+                                                onChange={(e) => setFormData({ ...formData, length: e.target.value })}
+                                                className="w-full bg-white border border-slate-100 rounded-xl py-3 px-3 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                placeholder="16"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Larg. (cm)</label>
+                                            <input
+                                                type="number"
+                                                required
+                                                value={formData.width}
+                                                onChange={(e) => setFormData({ ...formData, width: e.target.value })}
+                                                className="w-full bg-white border border-slate-100 rounded-xl py-3 px-3 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                placeholder="11"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Alt. (cm)</label>
+                                            <input
+                                                type="number"
+                                                required
+                                                value={formData.height}
+                                                onChange={(e) => setFormData({ ...formData, height: e.target.value })}
+                                                className="w-full bg-white border border-slate-100 rounded-xl py-3 px-3 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                placeholder="2"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CEP de Origem (Saída)</label>
+                                        <select
+                                            required
+                                            value={formData.origin_zip}
+                                            onChange={(e) => setFormData({ ...formData, origin_zip: e.target.value })}
+                                            className="w-full bg-white border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
+                                        >
+                                            <option value="82820-160">82820-160 (Curitiba - Feminino/Ternos)</option>
+                                            <option value="93542-440">93542-440 (Novo Hamburgo - Sapato Masc.)</option>
+                                            <option value="01104-001">01104-001 (São Paulo - Roupas Fem.)</option>
+                                        </select>
                                     </div>
                                 </div>
 
@@ -647,7 +751,7 @@ const AdminProducts: React.FC = () => {
                                     <textarea
                                         value={formData.description}
                                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] min-h-[100px]"
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] min-h-[100px] text-sm"
                                         placeholder="Detalhes do produto..."
                                     />
                                 </div>
@@ -679,62 +783,6 @@ const AdminProducts: React.FC = () => {
                                 </button>
                             </div>
                         </form>
-                    </div>
-                </div>
-            )}
-            {/* Modal de Gestão de Categorias */}
-            {isCategoriesModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-[#05080F]/80 backdrop-blur-sm" onClick={() => setIsCategoriesModalOpen(false)}></div>
-                    <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
-                        <div className="p-8 md:p-10">
-                            <div className="flex justify-between items-center mb-8">
-                                <div>
-                                    <h2 className="text-2xl font-black text-[#05080F]">Categorias</h2>
-                                    <p className="text-slate-400 font-bold mt-1 uppercase text-[10px] tracking-widest">Gerenciar classificações</p>
-                                </div>
-                                <button onClick={() => setIsCategoriesModalOpen(false)} className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-red-50 hover:text-red-500 transition-all">
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleAddCategory} className="mb-8 flex gap-2">
-                                <input
-                                    type="text"
-                                    placeholder="Nova categoria..."
-                                    className="flex-grow bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
-                                    value={newCategoryName}
-                                    onChange={(e) => setNewCategoryName(e.target.value)}
-                                    required
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={isCategorySaving}
-                                    className="bg-[#05080F] text-white p-3 rounded-xl font-bold hover:bg-[#1a2436] transition-all disabled:opacity-50"
-                                >
-                                    {isCategorySaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-5 h-5" />}
-                                </button>
-                            </form>
-
-                            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                {categories.map((cat) => (
-                                    <div key={cat.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group border border-transparent hover:border-slate-100 transition-all">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-lg bg-white border border-slate-100 flex items-center justify-center">
-                                                <Tag className="w-4 h-4 text-[#FBC02D]" />
-                                            </div>
-                                            <span className="font-bold text-[#05080F]">{cat.name}</span>
-                                        </div>
-                                        <button
-                                            onClick={() => handleDeleteCategory(cat.id)}
-                                            className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
                     </div>
                 </div>
             )}

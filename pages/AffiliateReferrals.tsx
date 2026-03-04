@@ -17,6 +17,8 @@ import AffiliateLayout from '../components/AffiliateLayout';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../components/AuthContext';
 import toast from 'react-hot-toast';
+import { AffiliateNetwork } from '../components/AffiliateNetwork';
+import { Network, List } from 'lucide-react';
 
 interface Referral {
     id: string;
@@ -37,6 +39,7 @@ const AffiliateReferrals: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('Todos');
     const [affiliateId, setAffiliateId] = useState<string | null>(null);
+    const [viewMode, setViewMode] = useState<'list' | 'network'>('list');
 
     // Estados para estatísticas
     const [stats, setStats] = useState([
@@ -161,12 +164,30 @@ const AffiliateReferrals: React.FC = () => {
                     <h1 className="text-3xl font-black text-[#0B1221]">Minhas Indicações</h1>
                     <p className="text-slate-500 font-medium">Acompanhe sua rede de afiliados e indicações diretas.</p>
                 </div>
-                <button
-                    onClick={fetchReferrals}
-                    className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:text-[#FBC02D] transition-all"
-                >
-                    <Clock className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-                </button>
+                <div className="flex items-center gap-3">
+                    <div className="bg-white p-1.5 rounded-2xl border border-slate-200 flex gap-1">
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${viewMode === 'list' ? 'bg-[#0B1221] text-white' : 'text-slate-400 hover:text-[#0B1221]'}`}
+                        >
+                            <List className="w-4 h-4" />
+                            Lista
+                        </button>
+                        <button
+                            onClick={() => setViewMode('network')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${viewMode === 'network' ? 'bg-[#0B1221] text-white' : 'text-slate-400 hover:text-[#0B1221]'}`}
+                        >
+                            <Network className="w-4 h-4" />
+                            Rede
+                        </button>
+                    </div>
+                    <button
+                        onClick={fetchReferrals}
+                        className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:text-[#FBC02D] transition-all"
+                    >
+                        <Clock className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+                    </button>
+                </div>
             </header>
 
             {/* Stats Grid */}
@@ -221,72 +242,78 @@ const AffiliateReferrals: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Table */}
-                <div className="overflow-x-auto">
-                    {loading ? (
-                        <div className="py-20 flex flex-col items-center justify-center">
-                            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#FBC02D]"></div>
-                            <p className="mt-4 text-slate-400 font-bold uppercase tracking-widest text-xs">Carregando indicações...</p>
-                        </div>
-                    ) : filteredReferrals.length > 0 ? (
-                        <table className="w-full">
-                            <thead className="bg-slate-50/50">
-                                <tr>
-                                    <th className="text-left py-5 px-8 text-xs font-black text-slate-400 uppercase tracking-widest">
-                                        Afiliado Indicado
-                                    </th>
-                                    <th className="text-left py-5 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Produto / Nível</th>
-                                    <th className="text-left py-5 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Data Cadastro</th>
-                                    <th className="text-center py-5 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
-                                    <th className="text-right py-5 px-8 text-xs font-black text-slate-400 uppercase tracking-widest">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {filteredReferrals.map((item) => (
-                                    <tr key={item.id} className="group hover:bg-slate-50/30 transition-colors">
-                                        <td className="py-6 px-8">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-[#0B1221] text-[#FBC02D] flex items-center justify-center font-black text-xs">
-                                                    {item.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-[#0B1221]">{item.full_name}</span>
-                                                    <span className="text-[10px] text-slate-400">{item.email}</span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="py-6 px-4">
-                                            <span className="text-sm font-medium text-slate-600">{item.product}</span>
-                                        </td>
-                                        <td className="py-6 px-4">
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-bold text-[#0B1221]">{formatDate(item.created_at).day}</span>
-                                                <span className="text-[10px] text-slate-400 font-medium uppercase">{formatDate(item.created_at).time}</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-6 px-4 text-center">
-                                            <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${item.status === 'Ativo' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
-                                                }`}>
-                                                {item.status === 'Ativo' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                                                {item.status}
-                                            </span>
-                                        </td>
-                                        <td className="py-6 px-8 text-right">
-                                            <button className="text-[#0B1221] hover:text-[#FBC02D] transition-all">
-                                                <ArrowUpRight className="w-5 h-5" />
-                                            </button>
-                                        </td>
+                {/* Content based on view mode */}
+                {viewMode === 'list' ? (
+                    <div className="overflow-x-auto">
+                        {loading ? (
+                            <div className="py-20 flex flex-col items-center justify-center">
+                                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#FBC02D]"></div>
+                                <p className="mt-4 text-slate-400 font-bold uppercase tracking-widest text-xs">Carregando indicações...</p>
+                            </div>
+                        ) : filteredReferrals.length > 0 ? (
+                            <table className="w-full">
+                                <thead className="bg-slate-50/50">
+                                    <tr>
+                                        <th className="text-left py-5 px-8 text-xs font-black text-slate-400 uppercase tracking-widest">
+                                            Afiliado Indicado
+                                        </th>
+                                        <th className="text-left py-5 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Produto / Nível</th>
+                                        <th className="text-left py-5 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Data Cadastro</th>
+                                        <th className="text-center py-5 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                        <th className="text-right py-5 px-8 text-xs font-black text-slate-400 uppercase tracking-widest">Ações</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    ) : (
-                        <div className="py-20 text-center">
-                            <Users className="w-12 h-12 text-slate-100 mx-auto mb-4" />
-                            <p className="text-slate-400 font-bold">Nenhuma indicação encontrada.</p>
-                        </div>
-                    )}
-                </div>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {filteredReferrals.map((item) => (
+                                        <tr key={item.id} className="group hover:bg-slate-50/30 transition-colors">
+                                            <td className="py-6 px-8">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-[#0B1221] text-[#FBC02D] flex items-center justify-center font-black text-xs">
+                                                        {item.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-[#0B1221]">{item.full_name}</span>
+                                                        <span className="text-[10px] text-slate-400">{item.email}</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="py-6 px-4">
+                                                <span className="text-sm font-medium text-slate-600">{item.product}</span>
+                                            </td>
+                                            <td className="py-6 px-4">
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-bold text-[#0B1221]">{formatDate(item.created_at).day}</span>
+                                                    <span className="text-[10px] text-slate-400 font-medium uppercase">{formatDate(item.created_at).time}</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-6 px-4 text-center">
+                                                <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${item.status === 'Ativo' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                                                    }`}>
+                                                    {item.status === 'Ativo' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                                                    {item.status}
+                                                </span>
+                                            </td>
+                                            <td className="py-6 px-8 text-right">
+                                                <button className="text-[#0B1221] hover:text-[#FBC02D] transition-all">
+                                                    <ArrowUpRight className="w-5 h-5" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <div className="py-20 text-center">
+                                <Users className="w-12 h-12 text-slate-100 mx-auto mb-4" />
+                                <p className="text-slate-400 font-bold">Nenhuma indicação encontrada.</p>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="p-8">
+                        <AffiliateNetwork rootAffiliateId={affiliateId || undefined} />
+                    </div>
+                )}
 
                 {/* Pagination */}
                 <div className="p-8 border-t border-slate-50 flex justify-between items-center">
