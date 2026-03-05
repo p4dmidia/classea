@@ -362,19 +362,37 @@ const ShopPage: React.FC = () => {
                                 ))}
                             </div>
                         )}
+                        )}
 
-                        {!isLoading && products.length === 0 && (
-                            <div className="text-center py-20 px-4">
-                                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-400">
-                                    <Search className="w-8 h-8" />
-                                </div>
-                                <h3 className="text-xl font-bold text-[#0B1221]">Nenhum produto encontrado</h3>
-                                <p className="text-slate-500 mt-2">Tente ajustar seus filtros ou mude sua pesquisa.</p>
+                        {!isLoading && totalPages > 1 && (
+                            <div className="flex justify-center items-center gap-2 pt-12 pb-8">
                                 <button
-                                    onClick={() => { navigate('/shop'); setSearchTerm(''); setActiveCategory('Todos'); }}
-                                    className="mt-6 text-[#FBC02D] font-bold hover:underline"
+                                    onClick={() => handlePageChange(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                    className="p-2 border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50 transition-colors"
                                 >
-                                    Limpar todos os filtros
+                                    <ChevronDown className="w-5 h-5 rotate-90" />
+                                </button>
+
+                                {[...Array(totalPages)].map((_, i) => {
+                                    const page = i + 1;
+                                    return (
+                                        <button
+                                            key={page}
+                                            onClick={() => handlePageChange(page)}
+                                            className={`w-10 h-10 rounded-lg font-bold transition-all ${currentPage === page ? 'bg-[#FBC02D] text-[#0B1221]' : 'border border-slate-200 text-slate-400 hover:border-[#FBC02D] hover:text-[#FBC02D]'}`}
+                                        >
+                                            {page}
+                                        </button>
+                                    );
+                                })}
+
+                                <button
+                                    onClick={() => handlePageChange(currentPage + 1)}
+                                    disabled={currentPage === totalPages}
+                                    className="p-2 border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50 transition-colors"
+                                >
+                                    <ChevronDown className="w-5 h-5 -rotate-90" />
                                 </button>
                             </div>
                         )}
