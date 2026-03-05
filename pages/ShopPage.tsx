@@ -214,7 +214,7 @@ const ShopPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="container mx-auto px-4 py-12 max-w-7xl">
+            <div className="container mx-auto px-4 py-12 max-w-[1400px]">
                 <div className="flex flex-col lg:flex-row gap-8">
                     <aside className="w-full lg:w-64 space-y-6 flex-shrink-0">
                         <div className="space-y-4">
@@ -308,7 +308,7 @@ const ShopPage: React.FC = () => {
                             </div>
                         ) : (
                             <div className="flex-grow w-full max-w-full">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
                                     {products.map(product => (
                                         <div
                                             key={product.id}
