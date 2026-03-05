@@ -18,7 +18,7 @@ const ShopPage: React.FC = () => {
     const [copiedId, setCopiedId] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1'));
     const [totalPages, setTotalPages] = useState(1);
-    const productsPerPage = 32;
+    const productsPerPage = 20;
 
     // New Filters
     const [minPrice, setMinPrice] = useState<string>(searchParams.get('min') || '');
