@@ -16,6 +16,9 @@ const ShopPage: React.FC = () => {
     const [categories, setCategories] = useState<string[]>(['Todos']);
     const [isLoading, setIsLoading] = useState(true);
     const [copiedId, setCopiedId] = useState<number | null>(null);
+    const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1'));
+    const [totalPages, setTotalPages] = useState(1);
+    const productsPerPage = 32;
 
     // New Filters
     const [minPrice, setMinPrice] = useState<string>(searchParams.get('min') || '');
@@ -33,11 +36,15 @@ const ShopPage: React.FC = () => {
         const max = searchParams.get('max');
         const stock = searchParams.get('stock');
 
+        const page = searchParams.get('page');
+
         if (q !== null) setSearchTerm(q);
         if (cat !== null) setActiveCategory(cat);
         if (min !== null) setMinPrice(min);
         if (max !== null) setMaxPrice(max);
         if (stock !== null) setOnlyInStock(stock === 'true');
+        if (page !== null) setCurrentPage(parseInt(page));
+        else setCurrentPage(1);
 
         fetchProducts();
     }, [searchParams]);
@@ -61,6 +68,10 @@ const ShopPage: React.FC = () => {
     const fetchProducts = async () => {
         setIsLoading(true);
         try {
+            const page = parseInt(searchParams.get('page') || '1');
+            const from = (page - 1) * productsPerPage;
+            const to = from + productsPerPage - 1;
+
             // Using join to filter by category name
             let query = supabase
                 .from('products')
@@ -69,7 +80,7 @@ const ShopPage: React.FC = () => {
                     product_categories!inner (
                         name
                     )
-                `);
+                `, { count: 'exact' });
 
             const cat = searchParams.get('category');
             if (cat && cat !== 'Todos') {
@@ -96,31 +107,47 @@ const ShopPage: React.FC = () => {
                 query = query.gt('stock_quantity', 0);
             }
 
-            const { data, error } = await query.order('created_at', { ascending: false });
+            const { data, error, count } = await query
+                .order('created_at', { ascending: false })
+                .range(from, to);
 
             if (error) {
-                // If the join fails, maybe it's because some products don't have categories or the relation is different
-                // Let's try a fallback if cat is Todos
                 if (!cat || cat === 'Todos') {
                     const fallback = await supabase
                         .from('products')
-                        .select(`*, product_categories (name)`)
-                        .order('created_at', { ascending: false });
+                        .select(`*, product_categories (name)`, { count: 'exact' })
+                        .order('created_at', { ascending: false })
+                        .range(from, to);
 
                     if (fallback.error) throw fallback.error;
-                    setProducts(fallback.data || []);
+
+                    const formattedFallback = fallback.data?.map(p => ({
+                        ...p,
+                        category: p.product_categories?.name || 'Sem Categoria',
+                        // Fix image URLs if they are comma separated
+                        display_image: (p.image_url || p.image || '').split(',')[0].strip?.() || (p.image_url || p.image || '').split(',')[0]
+                    }));
+
+                    setProducts(formattedFallback || []);
+                    if (fallback.count !== null) {
+                        setTotalPages(Math.ceil(fallback.count / productsPerPage));
+                    }
                     return;
                 }
                 throw error;
             }
 
-            // Format data to flatten category name for easier UI usage
             const formatted = data?.map(p => ({
                 ...p,
-                category: p.product_categories?.name || 'Sem Categoria'
+                category: p.product_categories?.name || 'Sem Categoria',
+                // Fix image URLs if they are comma separated
+                display_image: (p.image_url || p.image || '').split(',')[0].trim()
             }));
 
             setProducts(formatted || []);
+            if (count !== null) {
+                setTotalPages(Math.ceil(count / productsPerPage));
+            }
         } catch (error) {
             console.error('Error fetching products:', error);
             toast.error('Erro ao carregar produtos.');
@@ -150,7 +177,15 @@ const ShopPage: React.FC = () => {
         if (minPrice) params.set('min', minPrice); else params.delete('min');
         if (maxPrice) params.set('max', maxPrice); else params.delete('max');
         if (onlyInStock) params.set('stock', 'true'); else params.delete('stock');
+        params.delete('page'); // Reset to page 1 on filter
         setSearchParams(params);
+    };
+
+    const handlePageChange = (page: number) => {
+        const params = new URLSearchParams(searchParams);
+        params.set('page', page.toString());
+        setSearchParams(params);
+        window.scrollTo(0, 0);
     };
 
     const handleCopyAffiliateLink = (e: React.MouseEvent, productId: any) => {
@@ -261,7 +296,7 @@ const ShopPage: React.FC = () => {
 
                             <div className="flex items-center gap-4">
                                 <span className="text-sm text-slate-500 whitespace-nowrap">
-                                    Mostrando <span className="font-bold text-[#0B1221]">{products.length}</span> produtos
+                                    Página <span className="font-bold text-[#0B1221]">{currentPage}</span> de <span className="font-bold text-[#0B1221]">{totalPages}</span>
                                 </span>
                             </div>
                         </div>
@@ -272,7 +307,7 @@ const ShopPage: React.FC = () => {
                                 <p className="font-bold text-slate-400">Buscando produtos...</p>
                             </div>
                         ) : (
-                            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-8">
+                            <div className="grid sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
                                 {products.map(product => (
                                     <div
                                         key={product.id}
@@ -281,9 +316,12 @@ const ShopPage: React.FC = () => {
                                     >
                                         <div className="aspect-[4/5] relative overflow-hidden bg-slate-100">
                                             <img
-                                                src={product.image_url || product.image || 'https://via.placeholder.com/400x500'}
+                                                src={product.display_image || 'https://via.placeholder.com/400x500'}
                                                 alt={product.name}
                                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                onError={(e: any) => {
+                                                    e.target.src = 'https://via.placeholder.com/400x500';
+                                                }}
                                             />
                                             <div className="absolute top-4 right-4 flex flex-col gap-2">
                                                 <div
