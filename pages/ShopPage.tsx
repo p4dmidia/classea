@@ -307,20 +307,20 @@ const ShopPage: React.FC = () => {
                                 <p className="font-bold text-slate-400">Buscando produtos...</p>
                             </div>
                         ) : (
-                            <div className="grid sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                                 {products.map(product => (
                                     <div
                                         key={product.id}
                                         onClick={() => navigate(`/p/${product.id}`)}
                                         className="group bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-xl hover:shadow-[#FBC02D]/10 transition-all duration-300 cursor-pointer flex flex-col"
                                     >
-                                        <div className="aspect-square relative overflow-hidden bg-white flex items-center justify-center p-4">
+                                        <div className="aspect-[4/5] relative overflow-hidden bg-white flex items-center justify-center p-4">
                                             <img
-                                                src={product.display_image || 'https://via.placeholder.com/400x400'}
+                                                src={product.display_image || 'https://via.placeholder.com/400x500'}
                                                 alt={product.name}
-                                                className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105"
+                                                className="max-w-full max-h-full object-contain transition-all duration-500 group-hover:scale-105"
                                                 onError={(e: any) => {
-                                                    e.target.src = 'https://via.placeholder.com/400x400';
+                                                    e.target.src = 'https://via.placeholder.com/400x500';
                                                 }}
                                             />
                                             <div className="absolute top-4 right-4 flex flex-col gap-2">
