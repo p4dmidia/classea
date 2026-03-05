@@ -124,8 +124,7 @@ const ShopPage: React.FC = () => {
                     const formattedFallback = fallback.data?.map(p => ({
                         ...p,
                         category: p.product_categories?.name || 'Sem Categoria',
-                        // Fix image URLs if they are comma separated
-                        display_image: (p.image_url || p.image || '').split(',')[0].strip?.() || (p.image_url || p.image || '').split(',')[0]
+                        display_image: (p.image_url || p.image || '').split(',')[0].trim()
                     }));
 
                     setProducts(formattedFallback || []);
@@ -302,68 +301,69 @@ const ShopPage: React.FC = () => {
                                 </span>
                             </div>
                         </div>
-
                         {isLoading ? (
                             <div className="flex flex-col items-center justify-center py-20 gap-4">
                                 <Loader2 className="w-10 h-10 text-[#FBC02D] animate-spin" />
                                 <p className="font-bold text-slate-400">Buscando produtos...</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                                {products.map(product => (
-                                    <div
-                                        key={product.id}
-                                        onClick={() => navigate(`/p/${product.id}`)}
-                                        className="group bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-xl hover:shadow-[#FBC02D]/10 transition-all duration-300 cursor-pointer flex flex-col h-full"
-                                    >
-                                        <div className="aspect-square relative overflow-hidden bg-white flex items-center justify-center p-4">
-                                            <img
-                                                src={product.display_image || 'https://via.placeholder.com/400x400'}
-                                                alt={product.name}
-                                                className="max-w-full max-h-full object-contain transition-all duration-500 group-hover:scale-105"
-                                                onError={(e: any) => {
-                                                    e.target.src = 'https://via.placeholder.com/400x400';
-                                                }}
-                                            />
-                                            <div className="absolute top-4 right-4 flex flex-col gap-2">
-                                                <div
-                                                    onClick={(e) => handleAddToCart(e, product)}
-                                                    className="bg-white/90 backdrop-blur-sm rounded-full p-2 text-[#0B1221] shadow-md -translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all cursor-pointer hover:bg-white"
-                                                >
-                                                    <ShoppingCart className="w-4 h-4" />
-                                                </div>
-                                                <div
-                                                    onClick={(e) => handleCopyAffiliateLink(e, product.id)}
-                                                    className={`bg-white shadow-md rounded-full p-2 -translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all delay-75 cursor-pointer relative ${copiedId === product.id ? 'text-emerald-500' : 'text-[#0B1221] hover:text-[#FBC02D]'}`}
-                                                >
-                                                    {copiedId === product.id ? <Check className="w-4 h-4" /> : <Link className="w-4 h-4" />}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="p-6 flex flex-col flex-grow space-y-3">
-                                            <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">{product.category}</span>
-                                            <h3 className="font-bold text-[#0B1221] leading-tight group-hover:text-[#FBC02D] transition-colors line-clamp-2 min-h-[2.5rem]">{product.name}</h3>
-                                            <div className="mt-auto pt-2">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <span className="text-lg font-black text-[#0B1221]">
-                                                        R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                    </span>
-                                                    <div className="flex text-[#FBC02D]">
-                                                        {[...Array(5)].map((_, i) => <Star key={i} className="w-3 h-3 fill-current" />)}
+                            <div className="flex-grow w-full max-w-full">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {products.map(product => (
+                                        <div
+                                            key={product.id}
+                                            onClick={() => navigate(`/p/${product.id}`)}
+                                            className="group bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-xl hover:shadow-[#FBC02D]/10 transition-all duration-300 cursor-pointer flex flex-col h-full"
+                                        >
+                                            <div className="aspect-square relative overflow-hidden bg-white flex items-center justify-center p-4">
+                                                <img
+                                                    src={product.display_image || 'https://via.placeholder.com/400x400'}
+                                                    alt={product.name}
+                                                    className="max-w-full max-h-full object-contain transition-all duration-500 group-hover:scale-105"
+                                                    onError={(e: any) => {
+                                                        e.target.src = 'https://via.placeholder.com/400x400';
+                                                    }}
+                                                />
+                                                <div className="absolute top-4 right-4 flex flex-col gap-2">
+                                                    <div
+                                                        onClick={(e) => handleAddToCart(e, product)}
+                                                        className="bg-white/90 backdrop-blur-sm rounded-full p-2 text-[#0B1221] shadow-md -translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all cursor-pointer hover:bg-white"
+                                                    >
+                                                        <ShoppingCart className="w-4 h-4" />
+                                                    </div>
+                                                    <div
+                                                        onClick={(e) => handleCopyAffiliateLink(e, product.id)}
+                                                        className={`bg-white shadow-md rounded-full p-2 -translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all delay-75 cursor-pointer relative ${copiedId === product.id ? 'text-emerald-500' : 'text-[#0B1221] hover:text-[#FBC02D]'}`}
+                                                    >
+                                                        {copiedId === product.id ? <Check className="w-4 h-4" /> : <Link className="w-4 h-4" />}
                                                     </div>
                                                 </div>
+                                            </div>
+                                            <div className="p-6 flex flex-col flex-grow space-y-3">
+                                                <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">{product.category}</span>
+                                                <h3 className="font-bold text-[#0B1221] leading-tight group-hover:text-[#FBC02D] transition-colors line-clamp-2 min-h-[2.5rem]">{product.name}</h3>
+                                                <div className="mt-auto pt-2">
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        <span className="text-lg font-black text-[#0B1221]">
+                                                            R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                        </span>
+                                                        <div className="flex text-[#FBC02D]">
+                                                            {[...Array(5)].map((_, i) => <Star key={i} className="w-3 h-3 fill-current" />)}
+                                                        </div>
+                                                    </div>
 
-                                                <button
-                                                    onClick={(e) => handleAddToCart(e, product)}
-                                                    className="w-full bg-slate-50 border border-slate-100 py-3 rounded-xl text-[#0B1221] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 group-hover:bg-[#FBC02D] group-hover:border-[#FBC02D] transition-all"
-                                                >
-                                                    <ShoppingCart className="w-3 h-3" />
-                                                    Adicionar ao Carrinho
-                                                </button>
+                                                    <button
+                                                        onClick={(e) => handleAddToCart(e, product)}
+                                                        className="w-full bg-slate-50 border border-slate-100 py-3 rounded-xl text-[#0B1221] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 group-hover:bg-[#FBC02D] group-hover:border-[#FBC02D] transition-all"
+                                                    >
+                                                        <ShoppingCart className="w-3 h-3" />
+                                                        Adicionar ao Carrinho
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         )}
 
@@ -418,7 +418,7 @@ const ShopPage: React.FC = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 
