@@ -161,6 +161,7 @@ const ShopPage: React.FC = () => {
         const params = new URLSearchParams(searchParams);
         if (searchTerm) params.set('q', searchTerm);
         else params.delete('q');
+        params.delete('page'); // Reset to page 1 on search
         setSearchParams(params);
     };
 
@@ -168,6 +169,7 @@ const ShopPage: React.FC = () => {
         const params = new URLSearchParams(searchParams);
         if (cat === 'Todos') params.delete('category');
         else params.set('category', cat);
+        params.delete('page'); // Reset to page 1 on category change
         setSearchParams(params);
         setActiveCategory(cat);
     };
@@ -307,12 +309,12 @@ const ShopPage: React.FC = () => {
                                 <p className="font-bold text-slate-400">Buscando produtos...</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                                 {products.map(product => (
                                     <div
                                         key={product.id}
                                         onClick={() => navigate(`/p/${product.id}`)}
-                                        className="group bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-xl hover:shadow-[#FBC02D]/10 transition-all duration-300 cursor-pointer flex flex-col"
+                                        className="group bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-xl hover:shadow-[#FBC02D]/10 transition-all duration-300 cursor-pointer flex flex-col h-full"
                                     >
                                         <div className="aspect-square relative overflow-hidden bg-white flex items-center justify-center p-4">
                                             <img
