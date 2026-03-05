@@ -43,8 +43,9 @@ SUB_MAP = {
 }
 
 downloads_dir = r'c:\Users\eu\Downloads'
-# Exact filenames from list_dir
+# Exact filenames from list_dir handles variations
 files = [
+    "wc-product-export-4-3-2026-1772651748898.csv", # Page 1
     "pagina2 - classe a.csv",
     "pagina 3 - classe a.csv",
     "pagina 4 -classe a.csv",
@@ -58,7 +59,21 @@ files = [
     "página 12.csv",
     "página 13.csv",
     "pagina 14.csv",
-    "pagina 15.csv"
+    "pagina 15.csv",
+    "pagina 16.csv",
+    "pagina 17.csv",
+    "pagina 18.csv",
+    "pagina 19.csv",
+    "pagina 20.csv",
+    "pagina 21.csv",
+    "pagina 22.csv",
+    "pagina 23.csv",
+    "pagina 24.csv",
+    "pagina 25.csv",
+    "pagina 26.csv",
+    "pagina 27.csv",
+    "pagina 28.csv",
+    "pagina 29.csv"
 ]
 
 products = {}
@@ -124,14 +139,47 @@ for filename in files:
 
 # Clean and Map
 final_list = []
-for p in products.values():
-    # Clean price
-    p_str = str(p['price']).replace('R$', '').replace('\xa0', '').replace(' ', '').strip()
-    clean_price = p_str.replace('.', '').replace(',', '.') if p_str else '0'
+
+def clean_to_float(val, default='0'):
+    if not val: return default
+    # Handle R$ and whitespace
+    s = str(val).replace('R$', '').replace('\xa0', '').replace(' ', '').strip()
+    # Handle Brazilian format (1.234,56 -> 1234.56)
+    if ',' in s and '.' in s:
+        s = s.replace('.', '').replace(',', '.')
+    elif ',' in s:
+        s = s.replace(',', '.')
+    
     try:
-        float(clean_price)
+        return str(float(s))
     except:
-        clean_price = '0'
+        return default
+
+def clean_to_int(val, default='0'):
+    if not val: return default
+    # Extract first sequence of digits if it's a complex string like "1,38 x 1,88"
+    s = str(val).replace('\xa0', '').replace(' ', '').strip()
+    # Replace comma with dot first in case it's a float like "1,38"
+    s = s.replace(',', '.')
+    
+    try:
+        # Try direct float to int (e.g. "1.0" -> 1)
+        return str(int(float(s.split(' ')[0].split('x')[0])))
+    except:
+        # Try to find any digit
+        import re
+        match = re.search(r'\d+', s)
+        if match:
+            return match.group()
+        return default
+
+for p in products.values():
+    clean_price = clean_to_float(p['price'], '0')
+    clean_weight = clean_to_float(p['weight'], '0.5')
+    clean_stock = clean_to_int(p['stock_quantity'], '0')
+    clean_length = clean_to_int(p['length'], '16')
+    clean_width = clean_to_int(p['width'], '11')
+    clean_height = clean_to_int(p['height'], '2')
         
     # Map Category/Subcategory
     cat_id = ''
@@ -140,7 +188,6 @@ for p in products.values():
     cat_str = p['categories'].upper()
     
     for cat_name, cid in CAT_MAP.items():
-        # Use regex-like search to avoid partial word matches if needed, but here simple in is okay
         if cat_name in cat_str:
             cat_id = cid
             break
@@ -154,18 +201,18 @@ for p in products.values():
         'name': p['name'],
         'description': 'Produtos Classe A',
         'price': clean_price,
-        'stock_quantity': p['stock_quantity'] or '0',
+        'stock_quantity': clean_stock,
         'image_url': p['image_url'],
-        'weight': p['weight'] or '0.5',
-        'length': p['length'] or '16',
-        'width': '11',
-        'height': p['height'] or '2',
+        'weight': clean_weight,
+        'length': clean_length,
+        'width': clean_width,
+        'height': clean_height,
         'origin_zip': '82820-160',
         'category_id': cat_id,
         'subcategory_id': sub_id
     })
 
-output_file = r'c:\Users\eu\Documents\P4D\Projetos\Classe A\final_import_full.csv'
+output_file = r'c:\Users\eu\Documents\P4D\Projetos\Classe A\final_import_1_29.csv'
 with open(output_file, mode='w', encoding='utf-8', newline='') as f:
     fieldnames = ['name', 'description', 'price', 'stock_quantity', 'image_url', 'weight', 'length', 'width', 'height', 'origin_zip', 'category_id', 'subcategory_id']
     writer = csv.DictWriter(f, fieldnames=fieldnames)

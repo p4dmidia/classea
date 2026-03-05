@@ -312,15 +312,15 @@ const ShopPage: React.FC = () => {
                                     <div
                                         key={product.id}
                                         onClick={() => navigate(`/p/${product.id}`)}
-                                        className="group bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-xl hover:shadow-[#FBC02D]/10 transition-all duration-300 cursor-pointer"
+                                        className="group bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-xl hover:shadow-[#FBC02D]/10 transition-all duration-300 cursor-pointer flex flex-col"
                                     >
-                                        <div className="aspect-[4/5] relative overflow-hidden bg-slate-100">
+                                        <div className="aspect-square relative overflow-hidden bg-white flex items-center justify-center p-4">
                                             <img
-                                                src={product.display_image || 'https://via.placeholder.com/400x500'}
+                                                src={product.display_image || 'https://via.placeholder.com/400x400'}
                                                 alt={product.name}
-                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105"
                                                 onError={(e: any) => {
-                                                    e.target.src = 'https://via.placeholder.com/400x500';
+                                                    e.target.src = 'https://via.placeholder.com/400x400';
                                                 }}
                                             />
                                             <div className="absolute top-4 right-4 flex flex-col gap-2">
@@ -338,84 +338,85 @@ const ShopPage: React.FC = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="p-6 space-y-3">
+                                        <div className="p-6 flex flex-col flex-grow space-y-3">
                                             <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">{product.category}</span>
-                                            <h3 className="font-bold text-[#0B1221] leading-tight group-hover:text-[#FBC02D] transition-colors line-clamp-2">{product.name}</h3>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-lg font-black text-[#0B1221]">
-                                                    R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                </span>
-                                                <div className="flex text-[#FBC02D]">
-                                                    {[...Array(5)].map((_, i) => <Star key={i} className="w-3 h-3 fill-current" />)}
+                                            <h3 className="font-bold text-[#0B1221] leading-tight group-hover:text-[#FBC02D] transition-colors line-clamp-2 min-h-[2.5rem]">{product.name}</h3>
+                                            <div className="mt-auto pt-2">
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <span className="text-lg font-black text-[#0B1221]">
+                                                        R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                    </span>
+                                                    <div className="flex text-[#FBC02D]">
+                                                        {[...Array(5)].map((_, i) => <Star key={i} className="w-3 h-3 fill-current" />)}
+                                                    </div>
                                                 </div>
+
+                                                <button
+                                                    onClick={(e) => handleAddToCart(e, product)}
+                                                    className="w-full bg-slate-50 border border-slate-100 py-3 rounded-xl text-[#0B1221] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 group-hover:bg-[#FBC02D] group-hover:border-[#FBC02D] transition-all"
+                                                >
+                                                    <ShoppingCart className="w-3 h-3" />
+                                                    Adicionar ao Carrinho
+                                                </button>
                                             </div>
-
-                                            <button
-                                                onClick={(e) => handleAddToCart(e, product)}
-                                                className="w-full bg-slate-50 border border-slate-100 py-3 rounded-xl text-[#0B1221] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 group-hover:bg-[#FBC02D] group-hover:border-[#FBC02D] transition-all"
-                                            >
-                                                <ShoppingCart className="w-3 h-3" />
-                                                Adicionar ao Carrinho
-                                            </button>
                                         </div>
-                                    </div>
                                 ))}
-                            </div>
-                        )}
+                                    </div>
+                                )}
 
-                        {!isLoading && totalPages > 1 && (
-                            <div className="flex justify-center items-center gap-2 pt-12 pb-8">
-                                <button
-                                    onClick={() => handlePageChange(currentPage - 1)}
-                                    disabled={currentPage === 1}
-                                    className="p-2 border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50 transition-colors"
-                                >
-                                    <ChevronDown className="w-5 h-5 rotate-90" />
-                                </button>
-
-                                {[...Array(totalPages)].map((_, i) => {
-                                    const page = i + 1;
-                                    return (
+                                {!isLoading && totalPages > 1 && (
+                                    <div className="flex justify-center items-center gap-2 pt-12 pb-8">
                                         <button
-                                            key={page}
-                                            onClick={() => handlePageChange(page)}
-                                            className={`w-10 h-10 rounded-lg font-bold transition-all ${currentPage === page ? 'bg-[#FBC02D] text-[#0B1221]' : 'border border-slate-200 text-slate-400 hover:border-[#FBC02D] hover:text-[#FBC02D]'}`}
+                                            onClick={() => handlePageChange(currentPage - 1)}
+                                            disabled={currentPage === 1}
+                                            className="p-2 border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50 transition-colors"
                                         >
-                                            {page}
+                                            <ChevronDown className="w-5 h-5 rotate-90" />
                                         </button>
-                                    );
-                                })}
 
-                                <button
-                                    onClick={() => handlePageChange(currentPage + 1)}
-                                    disabled={currentPage === totalPages}
-                                    className="p-2 border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50 transition-colors"
-                                >
-                                    <ChevronDown className="w-5 h-5 -rotate-90" />
-                                </button>
-                            </div>
-                        )}
+                                        {[...Array(totalPages)].map((_, i) => {
+                                            const page = i + 1;
+                                            return (
+                                                <button
+                                                    key={page}
+                                                    onClick={() => handlePageChange(page)}
+                                                    className={`w-10 h-10 rounded-lg font-bold transition-all ${currentPage === page ? 'bg-[#FBC02D] text-[#0B1221]' : 'border border-slate-200 text-slate-400 hover:border-[#FBC02D] hover:text-[#FBC02D]'}`}
+                                                >
+                                                    {page}
+                                                </button>
+                                            );
+                                        })}
 
-                        {!isLoading && products.length === 0 && (
-                            <div className="text-center py-20 px-4">
-                                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-400">
-                                    <Search className="w-8 h-8" />
-                                </div>
-                                <h3 className="text-xl font-bold text-[#0B1221]">Nenhum produto encontrado</h3>
-                                <p className="text-slate-500 mt-2">Tente ajustar seus filtros ou mude sua pesquisa.</p>
-                                <button
-                                    onClick={() => { navigate('/shop'); setSearchTerm(''); setActiveCategory('Todos'); }}
-                                    className="mt-6 text-[#FBC02D] font-bold hover:underline"
-                                >
-                                    Limpar todos os filtros
-                                </button>
+                                        <button
+                                            onClick={() => handlePageChange(currentPage + 1)}
+                                            disabled={currentPage === totalPages}
+                                            className="p-2 border border-slate-200 rounded-lg disabled:opacity-30 hover:bg-slate-50 transition-colors"
+                                        >
+                                            <ChevronDown className="w-5 h-5 -rotate-90" />
+                                        </button>
+                                    </div>
+                                )}
+
+                                {!isLoading && products.length === 0 && (
+                                    <div className="text-center py-20 px-4">
+                                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-400">
+                                            <Search className="w-8 h-8" />
+                                        </div>
+                                        <h3 className="text-xl font-bold text-[#0B1221]">Nenhum produto encontrado</h3>
+                                        <p className="text-slate-500 mt-2">Tente ajustar seus filtros ou mude sua pesquisa.</p>
+                                        <button
+                                            onClick={() => { navigate('/shop'); setSearchTerm(''); setActiveCategory('Todos'); }}
+                                            className="mt-6 text-[#FBC02D] font-bold hover:underline"
+                                        >
+                                            Limpar todos os filtros
+                                        </button>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
+                </div>
                 </div>
             </div>
-        </div>
-    );
+            );
 };
 
-export default ShopPage;
+            export default ShopPage;
