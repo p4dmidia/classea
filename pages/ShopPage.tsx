@@ -86,13 +86,15 @@ const ShopPage: React.FC = () => {
 
             const catId = searchParams.get('category_id');
             if (catId) {
-                // Fetch descendants recursively (we'll use the RPC created in migration)
-                const { data: descendantIds } = await supabase
+                // Fetch descendants recursively
+                const { data: descendantIds, error: rpcError } = await supabase
                     .rpc('get_category_descendants', { root_id: parseInt(catId) });
 
-                if (descendantIds) {
-                    query = query.in('category_id', descendantIds.map((d: any) => d.id));
+                if (descendantIds && descendantIds.length > 0) {
+                    const idList = descendantIds.map((d: any) => d.id);
+                    query = query.in('category_id', idList);
                 } else {
+                    // Fallback to direct id if RPC fails or returns empty
                     query = query.eq('category_id', parseInt(catId));
                 }
             }
@@ -300,7 +302,7 @@ const ShopPage: React.FC = () => {
                             </div>
                         ) : (
                             <div className="flex-grow w-full">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-4 gap-6">
                                     {products.map(product => (
                                         <div
                                             key={product.id}
@@ -334,9 +336,10 @@ const ShopPage: React.FC = () => {
                                             <div className="p-6 flex flex-col flex-grow space-y-3">
                                                 <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">{product.category}</span>
                                                 <h3 className="font-bold text-[#0B1221] leading-tight group-hover:text-[#FBC02D] transition-colors line-clamp-2 min-h-[2.5rem]">{product.name}</h3>
-                                                <p className="text-xs text-slate-500 line-clamp-2 min-h-[2rem] leading-relaxed">
-                                                    {product.description || 'Qualidade e conforto para você.'}
-                                                </p>
+                                                <p
+                                                    className="text-[11px] text-slate-500 line-clamp-2 min-h-[1.5rem] leading-snug mt-1"
+                                                    dangerouslySetInnerHTML={{ __html: product.description || 'Qualidade e conforto.' }}
+                                                />
                                                 <div className="mt-auto pt-2">
                                                     <div className="flex items-center justify-between mb-4">
                                                         <span className="text-lg font-black text-[#0B1221]">

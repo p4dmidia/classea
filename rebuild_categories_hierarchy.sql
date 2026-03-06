@@ -1,3 +1,18 @@
+-- 0. Função Recursiva para Filtragem
+CREATE OR REPLACE FUNCTION get_category_descendants(root_id INTEGER)
+RETURNS TABLE (id INTEGER) AS $$
+BEGIN
+    RETURN QUERY
+    WITH RECURSIVE category_tree AS (
+        SELECT c.id FROM public.product_categories c WHERE c.id = root_id
+        UNION ALL
+        SELECT c.id FROM public.product_categories c
+        JOIN category_tree ct ON c.parent_id = ct.id
+    )
+    SELECT ct.id FROM category_tree ct;
+END;
+$$ LANGUAGE plpgsql;
+
 -- 1. Limpeza Robusta
 BEGIN;
   UPDATE public.products SET category_id = NULL, subcategory_id = NULL;
