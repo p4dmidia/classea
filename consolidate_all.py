@@ -125,6 +125,7 @@ for filename in files:
                     if name_key not in products:
                         products[name_key] = {
                             'name': name.strip(),
+                            'description': row.get('Descrição curta') or row.get('descrição curta') or '',
                             'stock_quantity': row.get('Estoque') or '0',
                             'weight': row.get('Peso (kg)') or '0.5',
                             'length': row.get('Comprimento (cm)') or '16',
@@ -141,6 +142,7 @@ for filename in files:
                         if row.get('Estoque'): products[name_key]['stock_quantity'] = row['Estoque']
                         if row.get('Categorias'): products[name_key]['categories'] = row['Categorias']
                         if row.get('Imagens'): products[name_key]['image_url'] = row['Imagens']
+                        if row.get('Descrição curta'): products[name_key]['description'] = row['Descrição curta']
                     count += 1
                 print(f"  Read {count} rows from {filename}")
             success = True
@@ -221,7 +223,7 @@ for p in products.values():
             
     final_list.append({
         'name': p['name'],
-        'description': 'Produtos Classe A',
+        'description': p['description'] if p['description'] else 'Produtos Classe A',
         'price': clean_price,
         'stock_quantity': clean_stock,
         'image_url': p['image_url'],

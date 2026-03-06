@@ -78,7 +78,7 @@ const ShopPage: React.FC = () => {
                 .from('products')
                 .select(`
                     *,
-                    product_categories!inner (
+                    product_categories (
                         id,
                         name
                     )
@@ -299,8 +299,8 @@ const ShopPage: React.FC = () => {
                                 <p className="font-bold text-slate-400">Buscando produtos...</p>
                             </div>
                         ) : (
-                            <div className="flex-grow w-full max-w-full">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+                            <div className="flex-grow w-full">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-6">
                                     {products.map(product => (
                                         <div
                                             key={product.id}
@@ -334,6 +334,9 @@ const ShopPage: React.FC = () => {
                                             <div className="p-6 flex flex-col flex-grow space-y-3">
                                                 <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">{product.category}</span>
                                                 <h3 className="font-bold text-[#0B1221] leading-tight group-hover:text-[#FBC02D] transition-colors line-clamp-2 min-h-[2.5rem]">{product.name}</h3>
+                                                <p className="text-xs text-slate-500 line-clamp-2 min-h-[2rem] leading-relaxed">
+                                                    {product.description || 'Qualidade e conforto para você.'}
+                                                </p>
                                                 <div className="mt-auto pt-2">
                                                     <div className="flex items-center justify-between mb-4">
                                                         <span className="text-lg font-black text-[#0B1221]">

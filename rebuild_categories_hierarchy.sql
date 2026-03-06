@@ -1,106 +1,96 @@
--- 1. Limpeza Robusta (Garante que não haverá erros de chave estrangeira)
+-- 1. Limpeza Robusta
 BEGIN;
   UPDATE public.products SET category_id = NULL, subcategory_id = NULL;
   TRUNCATE TABLE public.product_subcategories, public.product_categories RESTART IDENTITY CASCADE;
 COMMIT;
 
--- 2. Criar Hierarquia
+-- 2. Criar Hierarquia com IDs fixos para bater com o script de importação
 DO $$
-DECLARE
-    cat_acessorios_id bigint;
-    cat_vest_masc_id bigint;
-    cat_calc_masc_id bigint;
-    cat_fem_id bigint;
-    cat_cama_id bigint;
-    
-    sub_ternos_id bigint;
-    sub_fem_acess_id bigint;
-    sub_fem_calc_id bigint;
-    sub_fem_vest_id bigint;
-    
-    sub_ternos_micro_id bigint;
 BEGIN
-    -- --- ACESSÓRIOS ---
-    INSERT INTO public.product_categories (name) VALUES ('ACESSÓRIOS') RETURNING id INTO cat_acessorios_id;
-    INSERT INTO public.product_categories (name, parent_id) VALUES 
-        ('CARTEIRAS', cat_acessorios_id),
-        ('CINTOS', cat_acessorios_id),
-        ('PULSEIRAS', cat_acessorios_id);
+    -- --- ACESSÓRIOS (Base ID: 1) ---
+    INSERT INTO public.product_categories (id, name) OVERRIDING SYSTEM VALUE VALUES (1, 'ACESSÓRIOS');
+    INSERT INTO public.product_categories (id, name, parent_id) OVERRIDING SYSTEM VALUE VALUES 
+        (2, 'CARTEIRAS', 1),
+        (3, 'CINTOS', 1),
+        (4, 'PULSEIRAS', 1);
 
-    -- --- VESTUÁRIO MASCULINO ---
-    INSERT INTO public.product_categories (name) VALUES ('VESTUÁRIO MASCULINO') RETURNING id INTO cat_vest_masc_id;
-    INSERT INTO public.product_categories (name, parent_id) VALUES 
-        ('BERMUDAS', cat_vest_masc_id),
-        ('CAMISETAS', cat_vest_masc_id),
-        ('CALÇAS', cat_vest_masc_id),
-        ('CAMISA POLO', cat_vest_masc_id),
-        ('CAMISA SOCIAL MANGA CURTA', cat_vest_masc_id),
-        ('CAMISA SOCIAL MANGA LONGA', cat_vest_masc_id);
+    -- --- VESTUÁRIO MASCULINO (Base ID: 5) ---
+    INSERT INTO public.product_categories (id, name) OVERRIDING SYSTEM VALUE VALUES (5, 'VESTUÁRIO MASCULINO');
+    INSERT INTO public.product_categories (id, name, parent_id) OVERRIDING SYSTEM VALUE VALUES 
+        (6, 'BERMUDAS', 5),
+        (7, 'CAMISETAS', 5),
+        (8, 'CALÇAS', 5),
+        (9, 'CAMISA POLO', 5),
+        (10, 'CAMISA SOCIAL MANGA CURTA', 5),
+        (11, 'CAMISA SOCIAL MANGA LONGA', 5);
     
-    INSERT INTO public.product_categories (name, parent_id) VALUES ('TERNOS & BLAZERS', cat_vest_masc_id) RETURNING id INTO sub_ternos_id;
+    INSERT INTO public.product_categories (id, name, parent_id) OVERRIDING SYSTEM VALUE VALUES (12, 'TERNOS & BLAZERS', 5);
+    
     -- Sub-sub de Ternos
-    INSERT INTO public.product_categories (name, parent_id) VALUES 
-        ('MICROFIBRA', sub_ternos_id),
-        ('FIO INDIANO', sub_ternos_id),
-        ('POLIVISCOSE', sub_ternos_id);
+    INSERT INTO public.product_categories (id, name, parent_id) OVERRIDING SYSTEM VALUE VALUES 
+        (13, 'MICROFIBRA', 12),
+        (14, 'FIO INDIANO', 12),
+        (15, 'POLIVISCOSE', 12);
     
     -- Sub-sub de Ternos -> BLAZERS
-    INSERT INTO public.product_categories (name, parent_id) VALUES ('BLAZERS', sub_ternos_id) RETURNING id INTO sub_ternos_micro_id;
-    INSERT INTO public.product_categories (name, parent_id) VALUES 
-        ('MARESIAS', sub_ternos_micro_id),
-        ('SARJA', sub_ternos_micro_id);
+    INSERT INTO public.product_categories (id, name, parent_id) OVERRIDING SYSTEM VALUE VALUES (16, 'BLAZERS', 12);
+    INSERT INTO public.product_categories (id, name, parent_id) OVERRIDING SYSTEM VALUE VALUES 
+        (17, 'MARESIAS', 16),
+        (18, 'SARJA', 16);
 
-    -- --- CALÇADO MASCULINO ---
-    INSERT INTO public.product_categories (name) VALUES ('CALÇADO MASCULINO') RETURNING id INTO cat_calc_masc_id;
-    INSERT INTO public.product_categories (name, parent_id) VALUES 
-        ('SAPATÊNIS', cat_calc_masc_id),
-        ('TÊNIS', cat_calc_masc_id),
-        ('SAPATO SOCIAL', cat_calc_masc_id),
-        ('CHINELOS', cat_calc_masc_id);
+    -- --- CALÇADO MASCULINO (Base ID: 19) ---
+    INSERT INTO public.product_categories (id, name) OVERRIDING SYSTEM VALUE VALUES (19, 'CALÇADO MASCULINO');
+    INSERT INTO public.product_categories (id, name, parent_id) OVERRIDING SYSTEM VALUE VALUES 
+        (20, 'SAPATÊNIS', 19),
+        (21, 'TÊNIS', 19),
+        (22, 'SAPATO SOCIAL', 19),
+        (23, 'CHINELOS', 19);
 
-    -- --- FEMININO ---
-    INSERT INTO public.product_categories (name) VALUES ('FEMININO') RETURNING id INTO cat_fem_id;
+    -- --- FEMININO (Base ID: 24) ---
+    INSERT INTO public.product_categories (id, name) OVERRIDING SYSTEM VALUE VALUES (24, 'FEMININO');
     
     -- FEMININO -> ACESSÓRIOS FEMININOS
-    INSERT INTO public.product_categories (name, parent_id) VALUES ('ACESSÓRIOS FEMININOS', cat_fem_id) RETURNING id INTO sub_fem_acess_id;
-    INSERT INTO public.product_categories (name, parent_id) VALUES 
-        ('BOLSAS', sub_fem_acess_id),
-        ('CARTEIRAS FEMININAS', sub_fem_acess_id),
-        ('CINTOS FEMININOS', sub_fem_acess_id);
+    INSERT INTO public.product_categories (id, name, parent_id) OVERRIDING SYSTEM VALUE VALUES (25, 'ACESSÓRIOS FEMININOS', 24);
+    INSERT INTO public.product_categories (id, name, parent_id) OVERRIDING SYSTEM VALUE VALUES 
+        (26, 'BOLSAS', 25),
+        (27, 'CARTEIRAS FEMININAS', 25),
+        (28, 'CINTOS FEMININOS', 25);
 
     -- FEMININO -> CALÇADOS
-    INSERT INTO public.product_categories (name, parent_id) VALUES ('CALÇADOS', cat_fem_id) RETURNING id INTO sub_fem_calc_id;
-    INSERT INTO public.product_categories (name, parent_id) VALUES 
-        ('BOTAS', sub_fem_calc_id),
-        ('CHINELOS FEMININOS', sub_fem_calc_id),
-        ('MOCASSIM', sub_fem_calc_id),
-        ('MULES', sub_fem_calc_id),
-        ('PANTUFAS', sub_fem_calc_id),
-        ('RASTEIRAS', sub_fem_calc_id),
-        ('SAPATILHAS', sub_fem_calc_id),
-        ('SANDÁLIAS', sub_fem_calc_id),
-        ('SCARPIN', sub_fem_calc_id),
-        ('TAMANCOS', sub_fem_calc_id),
-        ('TÊNIS CASUAL', sub_fem_calc_id),
-        ('TÊNIS ESPORTIVO', sub_fem_calc_id);
+    INSERT INTO public.product_categories (id, name, parent_id) OVERRIDING SYSTEM VALUE VALUES (29, 'CALÇADOS', 24);
+    INSERT INTO public.product_categories (id, name, parent_id) OVERRIDING SYSTEM VALUE VALUES 
+        (30, 'BOTAS', 29),
+        (31, 'CHINELOS FEMININOS', 29),
+        (32, 'MOCASSIM', 29),
+        (33, 'MULES', 29),
+        (34, 'PANTUFAS', 29),
+        (35, 'RASTEIRAS', 29),
+        (36, 'SAPATILHAS', 29),
+        (37, 'SANDÁLIAS', 29),
+        (38, 'SCARPIN', 29),
+        (39, 'TAMANCOS', 29),
+        (40, 'TÊNIS CASUAL', 29),
+        (41, 'TÊNIS ESPORTIVO', 29);
 
     -- FEMININO -> VESTUÁRIO FEMININOS
-    INSERT INTO public.product_categories (name, parent_id) VALUES ('VESTUÁRIO FEMININOS', cat_fem_id) RETURNING id INTO sub_fem_vest_id;
-    INSERT INTO public.product_categories (name, parent_id) VALUES 
-        ('CAMISETAS FEMININAS', sub_fem_vest_id),
-        ('BERMUDAS FEMININAS', sub_fem_vest_id),
-        ('CALÇAS FEMININAS', sub_fem_vest_id),
-        ('SAIAS', sub_fem_vest_id),
-        ('VESTIDOS', sub_fem_vest_id),
-        ('LINGERIE', sub_fem_vest_id);
+    INSERT INTO public.product_categories (id, name, parent_id) OVERRIDING SYSTEM VALUE VALUES (42, 'VESTUÁRIO FEMININOS', 24);
+    INSERT INTO public.product_categories (id, name, parent_id) OVERRIDING SYSTEM VALUE VALUES 
+        (43, 'CAMISETAS FEMININAS', 42),
+        (44, 'BERMUDAS FEMININAS', 42),
+        (45, 'CALÇAS FEMININAS', 42),
+        (46, 'SAIAS', 42),
+        (47, 'VESTIDOS', 42),
+        (48, 'LINGERIE', 42);
 
-    -- --- CAMA ---
-    INSERT INTO public.product_categories (name) VALUES ('CAMA') RETURNING id INTO cat_cama_id;
-    INSERT INTO public.product_categories (name, parent_id) VALUES 
-        ('BASE BOX', cat_cama_id),
-        ('TRAVESSEIROS', cat_cama_id),
-        ('CABECEIRAS', cat_cama_id),
-        ('COLCHÕES ESTÁTICOS', cat_cama_id),
-        ('COLCHÕES TERAPÊUTICOS', cat_cama_id);
+    -- --- CAMA (Base ID: 49) ---
+    INSERT INTO public.product_categories (id, name) OVERRIDING SYSTEM VALUE VALUES (49, 'CAMA');
+    INSERT INTO public.product_categories (id, name, parent_id) OVERRIDING SYSTEM VALUE VALUES 
+        (50, 'BASE BOX', 49),
+        (51, 'TRAVESSEIROS', 49),
+        (52, 'CABECEIRAS', 49),
+        (53, 'COLCHÕES ESTÁTICOS', 49),
+        (54, 'COLCHÕES TERAPÊUTICOS', 49);
 
+    -- Ajustar o sequenciador para não dar erro em inserts manuais futuros
+    PERFORM setval('product_categories_id_seq', (SELECT MAX(id) FROM product_categories));
 END $$;
