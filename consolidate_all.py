@@ -3,78 +3,93 @@ import os
 
 # Mapping definitions based on screenshots
 CAT_MAP = {
-    'COLCHÕES': 1,
-    'ACESSÓRIOS': 2,
-    'CONFORTO': 3,
-    'CAMAS': 4,
-    'ENXOVAL': 5,
-    'CONSÓRCIO': 6,
-    'CAMA': 9,
-    'VESTUÁRIO MASCULINO': 11,
-    'CALÇADO MASCULINO': 12,
-    'CALÇADOS MASCULINO': 12, # Handle variations
-    'FEMININO': 13,
+    'CAMA': 49,
+    'ACESSÓRIOS': 1,
+    'VESTUÁRIO MASCULINO': 5,
+    'CALÇADO MASCULINO': 19,
+    'FEMININO': 24,
     'PROMOÇÕES': 15
 }
 
-SUB_MAP = {
-    'BASE BOX': 6,
-    'TRAVESSEIROS': 7,
-    'CABECEIRAS': 8,
-    'COLCHÕES ESTÁTICOS': 9,
-    'COLCHÕES TERAPÊUTICOS': 10,
-    'CARTEIRAS': 11,
-    'CINTOS': 12,
-    'PULSEIRAS': 13,
-    'BERMUDAS': 14,
-    'CAMISETAS': 15,
-    'CALÇAS': 16,
-    'CAMISA POLO': 17,
-    'CAMISA SOCIAL MANGA CURTA': 18,
-    'CAMISA SOCIAL MANGA LONGA': 19,
-    'TERNOS & BLAZERS': 20,
-    'SAPATÊNIS': 21,
-    'TÊNIS': 22,
-    'SAPATO SOCIAL': 23,
-    'CHINELOS': 24,
-    'ACESSÓRIOS FEMININOS': 25,
-    'CALÇADOS': 26, 
-    'VESTUÁRIO FEMININO': 27
+# Mapping for the new 3-level hierarchy
+# We use a tuple (CategoryID, SubcategoryID)
+# If it matches a sub-sub, we assign the parent/child accordingly.
+HIERARCHY_MAP = {
+    # ACESSÓRIOS
+    'CARTEIRAS': (1, 2),
+    'CINTOS': (1, 3),
+    'PULSEIRAS': (1, 4),
+    
+    # VESTUÁRIO MASCULINO
+    'BERMUDAS': (5, 6),
+    'CAMISETAS': (5, 7),
+    'CALÇAS': (5, 8),
+    'CAMISA POLO': (5, 9),
+    'CAMISA SOCIAL MANGA CURTA': (5, 10),
+    'CAMISA SOCIAL MANGA LONGA': (5, 11),
+    'TERNOS & BLAZERS': (5, 12),
+    'MICROFIBRA': (5, 13),
+    'FIO INDIANO': (5, 14),
+    'POLIVISCOSE': (5, 15),
+    'BLAZERS': (5, 16),
+    'MARESIAS': (5, 17),
+    'SARJA': (5, 18),
+    
+    # CALÇADO MASCULINO
+    'SAPATÊNIS': (19, 20),
+    'TÊNIS': (19, 21),
+    'SAPATO SOCIAL': (19, 22),
+    'CHINELOS': (19, 23),
+    
+    # FEMININO
+    'ACESSÓRIOS FEMININOS': (24, 25),
+    'BOLSAS': (24, 26),
+    'CARTEIRAS FEMININAS': (24, 27),
+    'CINTOS FEMININOS': (24, 28),
+    'CALÇADOS': (24, 29),
+    'BOTAS': (24, 30),
+    'CHINELOS FEMININOS': (24, 31),
+    'MOCASSIM': (24, 32),
+    'MULES': (24, 33),
+    'PANTUFAS': (24, 34),
+    'RASTEIRAS': (24, 35),
+    'SAPATILHAS': (24, 36),
+    'SANDÁLIAS': (24, 37),
+    'SCARPIN': (24, 38),
+    'TAMANCOS': (24, 39),
+    'TÊNIS CASUAL': (24, 40),
+    'TÊNIS ESPORTIVO': (24, 41),
+    'VESTUÁRIO FEMININOS': (24, 42),
+    'CAMISETAS FEMININAS': (24, 43),
+    'BERMUDAS FEMININAS': (24, 44),
+    'CALÇAS FEMININAS': (24, 45),
+    'SAIAS': (24, 46),
+    'VESTIDOS': (24, 47),
+    'LINGERIE': (24, 48),
+    
+    # CAMA
+    'BASE BOX': (49, 50),
+    'TRAVESSEIROS': (49, 51),
+    'CABECEIRAS': (49, 52),
+    'COLCHÕES ESTÁTICOS': (49, 53),
+    'COLCHÕES TERAPÊUTICOS': (49, 54),
 }
+
+# SUB_MAP is now integrated into HIERARCHY_MAP for deep mapping
 
 downloads_dir = r'c:\Users\eu\Downloads'
 # Exact filenames from list_dir handles variations
+# PRIMARY SOURCE only to avoid duplication
 files = [
-    "wc-product-export-4-3-2026-1772651748898.csv", # Page 1
-    "pagina2 - classe a.csv",
-    "pagina 3 - classe a.csv",
-    "pagina 4 -classe a.csv",
-    "página 5 classe a.csv",
-    "página 6 - classe A.csv",
-    "página 7 - classe A.csv",
-    "página 8 - classe A.csv",
-    "página 9 - classe A.csv",
-    "página 10- classeA.csv",
-    "pagina 11 - classe a.csv",
-    "página 12.csv",
-    "página 13.csv",
-    "pagina 14.csv",
-    "pagina 15.csv",
-    "pagina 16.csv",
-    "pagina 17.csv",
-    "pagina 18.csv",
-    "pagina 19.csv",
-    "pagina 20.csv",
-    "pagina 21.csv",
-    "pagina 22.csv",
-    "pagina 23.csv",
-    "pagina 24.csv",
-    "pagina 25.csv",
-    "pagina 26.csv",
-    "pagina 27.csv",
-    "pagina 28.csv",
-    "pagina 29.csv"
+    "todos os produtos classe A.csv"
 ]
+
+import re
+def normalize_name(name):
+    if not name: return ""
+    name = name.strip().upper()
+    name = re.sub(r'\s+', ' ', name)
+    return name
 
 products = {}
 
@@ -105,11 +120,11 @@ for filename in files:
                         name = row.get('nome') or row.get('NOME')
                     
                     if not name: continue
-                    name = name.strip()
+                    name_key = normalize_name(name)
                     
-                    if name not in products:
-                        products[name] = {
-                            'name': name,
+                    if name_key not in products:
+                        products[name_key] = {
+                            'name': name.strip(),
                             'stock_quantity': row.get('Estoque') or '0',
                             'weight': row.get('Peso (kg)') or '0.5',
                             'length': row.get('Comprimento (cm)') or '16',
@@ -121,14 +136,11 @@ for filename in files:
                             'origin_zip': '82820-160'
                         }
                     else:
-                        # Merge logic
-                        if row.get('Preço'): products[name]['price'] = row['Preço']
-                        if row.get('Estoque'): products[name]['stock_quantity'] = row['Estoque']
-                        if row.get('Peso (kg)'): products[name]['weight'] = row['Peso (kg)']
-                        if row.get('Comprimento (cm)'): products[name]['length'] = row['Comprimento (cm)']
-                        if row.get('Altura (cm)'): products[name]['height'] = row['Altura (cm)']
-                        if row.get('Categorias'): products[name]['categories'] = row['Categorias']
-                        if row.get('Imagens'): products[name]['image_url'] = row['Imagens']
+                        # Update with better data if available
+                        if row.get('Preço'): products[name_key]['price'] = row['Preço']
+                        if row.get('Estoque'): products[name_key]['stock_quantity'] = row['Estoque']
+                        if row.get('Categorias'): products[name_key]['categories'] = row['Categorias']
+                        if row.get('Imagens'): products[name_key]['image_url'] = row['Imagens']
                     count += 1
                 print(f"  Read {count} rows from {filename}")
             success = True
@@ -181,21 +193,31 @@ for p in products.values():
     clean_width = clean_to_int(p['width'], '11')
     clean_height = clean_to_int(p['height'], '2')
         
-    # Map Category/Subcategory
-    cat_id = ''
-    sub_id = ''
+    # Map Category/Subcategory using the new hierarchy
+    final_cat_id = ''
     
     cat_str = p['categories'].upper()
     
-    for cat_name, cid in CAT_MAP.items():
-        if cat_name in cat_str:
-            cat_id = cid
+    # Sort hierarchy by specificity (length of keyword)
+    sorted_hierarchy = sorted(HIERARCHY_MAP.items(), key=lambda x: len(x[0]), reverse=True)
+    
+    match_found = False
+    for keyword, (cid, sid) in sorted_hierarchy:
+        if keyword in cat_str or keyword in p['name'].upper():
+            # If it's a sub-sub level or sub level, we assign the specific ID
+            # In our new schema, everything IS a category (recursive)
+            # So we assign to the most specific child ID
+            final_cat_id = sid
+            match_found = True
             break
             
-    for sub_name, sid in SUB_MAP.items():
-        if sub_name in cat_str:
-            sub_id = sid
-            break
+    if not match_found:
+        # Fallback to main categories
+        sorted_cats = sorted(CAT_MAP.items(), key=lambda x: len(x[0]), reverse=True)
+        for cat_name, cid in sorted_cats:
+            if cat_name in cat_str:
+                final_cat_id = cid
+                break
             
     final_list.append({
         'name': p['name'],
@@ -208,13 +230,12 @@ for p in products.values():
         'width': clean_width,
         'height': clean_height,
         'origin_zip': '82820-160',
-        'category_id': cat_id,
-        'subcategory_id': sub_id
+        'category_id': final_cat_id
     })
 
 output_file = r'c:\Users\eu\Documents\P4D\Projetos\Classe A\final_import_1_29.csv'
 with open(output_file, mode='w', encoding='utf-8', newline='') as f:
-    fieldnames = ['name', 'description', 'price', 'stock_quantity', 'image_url', 'weight', 'length', 'width', 'height', 'origin_zip', 'category_id', 'subcategory_id']
+    fieldnames = ['name', 'description', 'price', 'stock_quantity', 'image_url', 'weight', 'length', 'width', 'height', 'origin_zip', 'category_id']
     writer = csv.DictWriter(f, fieldnames=fieldnames)
     writer.writeheader()
     writer.writerows(final_list)
