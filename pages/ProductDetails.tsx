@@ -126,9 +126,10 @@ const ProductDetails: React.FC = () => {
                                     R$ {(product.price * 1.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </span>
                             </div>
-                            <p className="text-slate-500 font-medium leading-relaxed mb-6">
-                                {product.description || 'Este produto premium oferece qualidade incomparável e durabilidade, ideal para quem busca o melhor custo-benefício e sofisticação em cada detalhe.'}
-                            </p>
+                            <div
+                                className="text-slate-500 font-medium leading-relaxed mb-6 prose prose-slate max-w-none"
+                                dangerouslySetInnerHTML={{ __html: product.description || 'Este produto premium oferece qualidade incomparável e durabilidade, ideal para quem busca o melhor custo-benefício e sofisticação em cada detalhe.' }}
+                            />
 
                             {(product.weight || product.length || product.width || product.height) && (
                                 <div className="grid grid-cols-2 gap-4 pt-6 border-t border-slate-100">

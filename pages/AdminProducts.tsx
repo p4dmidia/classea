@@ -37,24 +37,17 @@ interface Product {
     width: number;
     height: number;
     origin_zip: string;
-    subcategory_id?: number | null;
     product_categories?: {
         name: string;
+        parent_id: number | null;
     };
-    product_subcategories?: {
-        name: string;
-    };
-}
-
-interface Subcategory {
-    id: number;
-    name: string;
-    category_id: number;
 }
 
 interface Category {
     id: number;
     name: string;
+    parent_id: number | null;
+    children?: Category[];
     _count?: {
         products: number;
     };
@@ -73,8 +66,6 @@ const AdminProducts: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
-    const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
-    const [filteredSubcategories, setFilteredSubcategories] = useState<Subcategory[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
@@ -82,7 +73,6 @@ const AdminProducts: React.FC = () => {
     const [formData, setFormData] = useState({
         name: '',
         category_id: '',
-        subcategory_id: '',
         price: '',
         stock_quantity: '',
         description: '',
@@ -105,7 +95,7 @@ const AdminProducts: React.FC = () => {
     const fetchInitialData = async () => {
         setIsLoading(true);
         try {
-            await Promise.all([fetchProducts(), fetchCategories(), fetchSubcategories()]);
+            await Promise.all([fetchProducts(), fetchCategories()]);
         } finally {
             setIsLoading(false);
         }
@@ -116,8 +106,7 @@ const AdminProducts: React.FC = () => {
             .from('products')
             .select(`
                 *,
-                product_categories (name),
-                product_subcategories (name)
+                product_categories (name, parent_id)
             `)
             .order('created_at', { ascending: false });
 
@@ -132,50 +121,53 @@ const AdminProducts: React.FC = () => {
     const fetchCategories = async () => {
         const { data, error } = await supabase
             .from('product_categories')
-            .select(`
-                *,
-                products (id)
-            `);
+            .select('*')
+            .order('name');
 
         if (error) {
             toast.error('Erro ao carregar categorias');
         } else {
-            const formatted = data.map((cat: any) => ({
-                ...cat,
-                count: cat.products?.length || 0
-            }));
-            setCategories(formatted);
+            // Build hierarchical tree for the category management/selection
+            const buildTree = (cats: any[]): Category[] => {
+                const map = new Map<number | null, Category[]>();
+                cats.forEach(cat => {
+                    if (!map.has(cat.parent_id)) map.set(cat.parent_id, []);
+                    map.get(cat.parent_id)!.push({ ...cat, children: [] });
+                });
+
+                const resolveChildren = (parentId: number | null): Category[] => {
+                    const children = map.get(parentId) || [];
+                    return children.map(child => ({
+                        ...child,
+                        children: resolveChildren(child.id)
+                    }));
+                };
+
+                return resolveChildren(null);
+            };
+            setCategories(buildTree(data || []));
         }
     };
 
-    const fetchSubcategories = async () => {
-        const { data, error } = await supabase
-            .from('product_subcategories')
-            .select('*');
-
-        if (error) {
-            toast.error('Erro ao carregar subcategorias');
-        } else {
-            setSubcategories(data || []);
-        }
+    // Helper to flatten tree for select dropdowns
+    const categoriesToSelect = (nodes: Category[], prefix = ''): { id: number, name: string }[] => {
+        let list: { id: number, name: string }[] = [];
+        nodes.forEach(node => {
+            list.push({ id: node.id, name: prefix + node.name });
+            if (node.children) {
+                list = [...list, ...categoriesToSelect(node.children, prefix + node.name + ' > ')];
+            }
+        });
+        return list;
     };
 
-    // Filter subcategories when category changes
-    useEffect(() => {
-        if (formData.category_id) {
-            const filtered = subcategories.filter(sub => sub.category_id === parseInt(formData.category_id));
-            setFilteredSubcategories(filtered);
-        } else {
-            setFilteredSubcategories([]);
-        }
-    }, [formData.category_id, subcategories]);
+    // Removed subcategory logic as it's merged into categories
 
     const handleOpenEdit = (prod: Product) => {
         setEditingProduct(prod);
         setFormData({
             name: prod.name,
             category_id: prod.category_id.toString(),
-            subcategory_id: prod.subcategory_id?.toString() || '',
             price: prod.price.toString(),
             stock_quantity: prod.stock_quantity.toString(),
             description: prod.description || '',
@@ -225,7 +217,6 @@ const AdminProducts: React.FC = () => {
             const productData = {
                 name: formData.name,
                 category_id: parseInt(formData.category_id),
-                subcategory_id: formData.subcategory_id ? parseInt(formData.subcategory_id) : null,
                 price: parsedPrice,
                 stock_quantity: parseInt(formData.stock_quantity),
                 description: formData.description,
@@ -304,7 +295,6 @@ const AdminProducts: React.FC = () => {
         setFormData({
             name: '',
             category_id: '',
-            subcategory_id: '',
             price: '',
             stock_quantity: '',
             description: '',
@@ -448,8 +438,8 @@ const AdminProducts: React.FC = () => {
                                         }}
                                     >
                                         <option>Todas</option>
-                                        {categories.map(cat => (
-                                            <option key={cat.id}>{cat.name}</option>
+                                        {categoriesToSelect(categories).map(cat => (
+                                            <option key={cat.id} value={cat.name}>{cat.name}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -521,11 +511,6 @@ const AdminProducts: React.FC = () => {
                                             </td>
                                             <td className="py-6 px-4">
                                                 <p className="text-sm font-bold text-slate-600">{prod.product_categories?.name || 'Sem Categoria'}</p>
-                                                {prod.product_subcategories?.name && (
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100 px-2 py-0.5 rounded">
-                                                        {prod.product_subcategories.name}
-                                                    </span>
-                                                )}
                                             </td>
                                             <td className="py-6 px-4 font-black text-[#05080F]">
                                                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.price)}
@@ -634,22 +619,8 @@ const AdminProducts: React.FC = () => {
                                             className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
                                         >
                                             <option value="">Selecionar...</option>
-                                            {categories.map(cat => (
+                                            {categoriesToSelect(categories).map(cat => (
                                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Subcategoria (Opcional)</label>
-                                        <select
-                                            value={formData.subcategory_id}
-                                            onChange={(e) => setFormData({ ...formData, subcategory_id: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
-                                            disabled={!formData.category_id}
-                                        >
-                                            <option value="">Nenhuma</option>
-                                            {filteredSubcategories.map(sub => (
-                                                <option key={sub.id} value={sub.id}>{sub.name}</option>
                                             ))}
                                         </select>
                                     </div>

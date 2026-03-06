@@ -3,6 +3,7 @@ import { Search, Filter, ChevronDown, Grid, List, Star, ShoppingCart, Link, Chec
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCart } from '../components/CartContext';
+import CategorySidebar from '../components/CategorySidebar';
 import toast from 'react-hot-toast';
 
 const ShopPage: React.FC = () => {
@@ -11,9 +12,9 @@ const ShopPage: React.FC = () => {
     const { addToCart } = useCart();
 
     const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
-    const [activeCategory, setActiveCategory] = useState(searchParams.get('category') || 'Todos');
+    const [activeCategoryId, setActiveCategoryId] = useState<number | null>(searchParams.get('category_id') ? parseInt(searchParams.get('category_id')!) : null);
     const [products, setProducts] = useState<any[]>([]);
-    const [categories, setCategories] = useState<string[]>(['Todos']);
+    const [categories, setCategories] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [copiedId, setCopiedId] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1'));
@@ -31,15 +32,15 @@ const ShopPage: React.FC = () => {
 
     useEffect(() => {
         const q = searchParams.get('q');
-        const cat = searchParams.get('category');
+        const catId = searchParams.get('category_id');
         const min = searchParams.get('min');
         const max = searchParams.get('max');
         const stock = searchParams.get('stock');
-
         const page = searchParams.get('page');
 
         if (q !== null) setSearchTerm(q);
-        if (cat !== null) setActiveCategory(cat);
+        if (catId !== null) setActiveCategoryId(parseInt(catId));
+        else setActiveCategoryId(null);
         if (min !== null) setMinPrice(min);
         if (max !== null) setMaxPrice(max);
         if (stock !== null) setOnlyInStock(stock === 'true');
@@ -53,12 +54,12 @@ const ShopPage: React.FC = () => {
         try {
             const { data, error } = await supabase
                 .from('product_categories')
-                .select('name')
+                .select('id, name, parent_id')
                 .order('name');
 
             if (error) throw error;
             if (data) {
-                setCategories(['Todos', ...data.map(c => c.name)]);
+                setCategories(data);
             }
         } catch (error) {
             console.error('Error fetching categories:', error);
@@ -72,19 +73,28 @@ const ShopPage: React.FC = () => {
             const from = (page - 1) * productsPerPage;
             const to = from + productsPerPage - 1;
 
-            // Using join to filter by category name
+            // Using join to filter by category id and descendant ids
             let query = supabase
                 .from('products')
                 .select(`
                     *,
                     product_categories!inner (
+                        id,
                         name
                     )
                 `, { count: 'exact' });
 
-            const cat = searchParams.get('category');
-            if (cat && cat !== 'Todos') {
-                query = query.eq('product_categories.name', cat);
+            const catId = searchParams.get('category_id');
+            if (catId) {
+                // Fetch descendants recursively (we'll use the RPC created in migration)
+                const { data: descendantIds } = await supabase
+                    .rpc('get_category_descendants', { root_id: parseInt(catId) });
+
+                if (descendantIds) {
+                    query = query.in('category_id', descendantIds.map((d: any) => d.id));
+                } else {
+                    query = query.eq('category_id', parseInt(catId));
+                }
             }
 
             const q = searchParams.get('q');
@@ -112,7 +122,7 @@ const ShopPage: React.FC = () => {
                 .range(from, to);
 
             if (error) {
-                if (!cat || cat === 'Todos') {
+                if (!catId) {
                     const fallback = await supabase
                         .from('products')
                         .select(`*, product_categories (name)`, { count: 'exact' })
@@ -164,13 +174,13 @@ const ShopPage: React.FC = () => {
         setSearchParams(params);
     };
 
-    const handleCategoryChange = (cat: string) => {
+    const handleCategoryChange = (catId: number | null) => {
         const params = new URLSearchParams(searchParams);
-        if (cat === 'Todos') params.delete('category');
-        else params.set('category', cat);
+        if (catId === null) params.delete('category_id');
+        else params.set('category_id', catId.toString());
         params.delete('page'); // Reset to page 1 on category change
         setSearchParams(params);
-        setActiveCategory(cat);
+        setActiveCategoryId(catId);
     };
 
     const applyAdvancedFilters = () => {
@@ -210,36 +220,18 @@ const ShopPage: React.FC = () => {
             <div className="bg-slate-50 border-b border-slate-100 py-8">
                 <div className="container mx-auto px-4">
                     <h1 className="text-3xl font-extrabold text-[#0B1221]">Nossa Loja</h1>
-                    <p className="text-slate-500 mt-2">Home / Loja {activeCategory !== 'Todos' && `/ ${activeCategory}`}</p>
+                    <p className="text-slate-500 mt-2">Home / Loja {activeCategoryId && `/ ${categories.find(c => c.id === activeCategoryId)?.name || ''}`}</p>
                 </div>
             </div>
 
             <div className="container mx-auto px-4 py-12 max-w-[1400px]">
                 <div className="flex flex-col lg:flex-row gap-8">
-                    <aside className="w-full lg:w-64 space-y-6 flex-shrink-0">
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-bold text-[#0B1221] flex items-center gap-2">
-                                <Filter className="w-5 h-5 text-[#FBC02D]" />
-                                Filtros
-                            </h3>
-                            <div className="h-1 w-12 bg-[#FBC02D] rounded-full"></div>
-                        </div>
-
-                        <div className="space-y-3">
-                            <h4 className="font-semibold text-[#0B1221]">Categorias</h4>
-                            <ul className="space-y-2">
-                                {categories.map(cat => (
-                                    <li key={cat}>
-                                        <button
-                                            onClick={() => handleCategoryChange(cat)}
-                                            className={`text-sm transition-colors text-left w-full ${activeCategory === cat ? 'text-[#FBC02D] font-bold' : 'text-slate-600 hover:text-[#FBC02D]'}`}
-                                        >
-                                            {cat}
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
+                    <aside className="w-full lg:w-72 space-y-6 flex-shrink-0">
+                        <CategorySidebar
+                            categories={categories}
+                            activeCategoryId={activeCategoryId}
+                            onCategorySelect={handleCategoryChange}
+                        />
 
                         <div className="space-y-3 pt-4 border-t border-slate-100">
                             <h4 className="font-semibold text-[#0B1221]">Preço</h4>
@@ -408,7 +400,7 @@ const ShopPage: React.FC = () => {
                                 <h3 className="text-xl font-bold text-[#0B1221]">Nenhum produto encontrado</h3>
                                 <p className="text-slate-500 mt-2">Tente ajustar seus filtros ou mude sua pesquisa.</p>
                                 <button
-                                    onClick={() => { navigate('/shop'); setSearchTerm(''); setActiveCategory('Todos'); }}
+                                    onClick={() => { navigate('/shop'); setSearchTerm(''); setActiveCategoryId(null); }}
                                     className="mt-6 text-[#FBC02D] font-bold hover:underline"
                                 >
                                     Limpar todos os filtros
