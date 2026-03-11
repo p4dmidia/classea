@@ -24,7 +24,7 @@ const ProductDetails: React.FC = () => {
     const [quantity, setQuantity] = useState(1);
 
     useEffect(() => {
-        console.log("%c Classe A Product Details Version: 4.5.2 ", "background: #FBC02D; color: #0B1221; font-weight: bold; padding: 4px; border-radius: 4px;");
+        console.log("%c Classe A Product Details Version: 4.5.3 ", "background: #FBC02D; color: #0B1221; font-weight: bold; padding: 4px; border-radius: 4px;");
         fetchProduct();
     }, [id]);
 
@@ -43,7 +43,7 @@ const ProductDetails: React.FC = () => {
             const formatted = {
                 ...data,
                 category: data.product_categories?.name || 'Geral',
-                image_url: data.image_url || data.image || 'https://via.placeholder.com/600x600'
+                image_url: data.image_url || data.image || 'https://placehold.co/600x600?text=Classe+A'
             };
 
             setProduct(formatted);
@@ -88,9 +88,12 @@ const ProductDetails: React.FC = () => {
                     <div className="space-y-4">
                         <div className="aspect-square bg-slate-50 rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm group">
                             <img
-                                src={product.image_url || 'https://via.placeholder.com/600x600'}
+                                src={product.image_url || 'https://placehold.co/600x600?text=Classe+A'}
                                 alt={product.name}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                                onError={(e: any) => {
+                                    e.target.src = 'https://placehold.co/600x600?text=Classe+A';
+                                }}
                             />
                         </div>
                     </div>

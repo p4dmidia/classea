@@ -204,12 +204,15 @@ for p in products.values():
     # Replace literal \n (backslash + n) with <br/>
     description_cleaned = description_cleaned.replace('\\n', '<br/>').replace('\n', '<br/>')
     
+    # Clean the image URL: replace spaces with %20
+    image_url_cleaned = p['image_url'].strip().replace(' ', '%20')
+    
     final_list.append({
         'name': p['name'],
         'description': description_cleaned,
         'price': clean_price,
         'stock_quantity': clean_stock,
-        'image_url': p['image_url'],
+        'image_url': image_url_cleaned,
         'weight': clean_weight,
         'length': clean_length,
         'width': clean_width,

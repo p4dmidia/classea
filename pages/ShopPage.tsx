@@ -27,7 +27,7 @@ const ShopPage: React.FC = () => {
     const [onlyInStock, setOnlyInStock] = useState<boolean>(searchParams.get('stock') === 'true');
 
     useEffect(() => {
-        console.log("%c Classe A App Version: 4.5.2 - Image & Description Fix Applied ", "background: #FBC02D; color: #0B1221; font-weight: bold; padding: 4px; border-radius: 4px;");
+        console.log("%c Classe A App Version: 4.5.3 - Image Encoding & Placeholder Fix ", "background: #FBC02D; color: #0B1221; font-weight: bold; padding: 4px; border-radius: 4px;");
         fetchCategories();
     }, []);
 
@@ -229,7 +229,7 @@ const ShopPage: React.FC = () => {
                         <nav className="text-sm font-medium text-slate-400">
                             Home / Loja {currentCategoryName && `/ ${currentCategoryName}`}
                         </nav>
-                        <span className="text-[9px] text-slate-200">v4.5.2</span>
+                        <span className="text-[9px] text-slate-200">v4.5.3</span>
                     </div>
                 </div>
             </div>
@@ -319,11 +319,11 @@ const ShopPage: React.FC = () => {
                                         >
                                             <div className="aspect-square relative overflow-hidden bg-white flex items-center justify-center p-4">
                                                 <img
-                                                    src={product.image_url || 'https://via.placeholder.com/400x400'}
+                                                    src={product.image_url || 'https://placehold.co/400x400?text=Classe+A'}
                                                     alt={product.name}
                                                     className="max-w-full max-h-full object-contain transition-all duration-500 group-hover:scale-105"
                                                     onError={(e: any) => {
-                                                        e.target.src = 'https://via.placeholder.com/400x400';
+                                                        e.target.src = 'https://placehold.co/400x400?text=Classe+A';
                                                     }}
                                                 />
                                                 <div className="absolute top-4 right-4 flex flex-col gap-2">
