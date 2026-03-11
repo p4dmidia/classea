@@ -199,9 +199,14 @@ for p in products.values():
                 final_cat_id = cid
                 break
             
+    # Clean the description: replace literal \n with <br/> and handle encoding if necessary
+    description_cleaned = p['description'] if p['description'] else 'Produtos Classe A'
+    # Replace literal \n (backslash + n) with <br/>
+    description_cleaned = description_cleaned.replace('\\n', '<br/>').replace('\n', '<br/>')
+    
     final_list.append({
         'name': p['name'],
-        'description': p['description'] if p['description'] else 'Produtos Classe A',
+        'description': description_cleaned,
         'price': clean_price,
         'stock_quantity': clean_stock,
         'image_url': p['image_url'],

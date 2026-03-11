@@ -24,6 +24,7 @@ const ProductDetails: React.FC = () => {
     const [quantity, setQuantity] = useState(1);
 
     useEffect(() => {
+        console.log("%c Classe A Product Details Version: 4.5.2 ", "background: #FBC02D; color: #0B1221; font-weight: bold; padding: 4px; border-radius: 4px;");
         fetchProduct();
     }, [id]);
 
@@ -42,7 +43,7 @@ const ProductDetails: React.FC = () => {
             const formatted = {
                 ...data,
                 category: data.product_categories?.name || 'Geral',
-                image_url: data.image_url || data.image
+                image_url: data.image_url || data.image || 'https://via.placeholder.com/600x600'
             };
 
             setProduct(formatted);
