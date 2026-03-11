@@ -15,62 +15,37 @@ CAT_MAP = {
 # We use a tuple (CategoryID, SubcategoryID)
 # If it matches a sub-sub, we assign the parent/child accordingly.
 HIERARCHY_MAP = {
-    # ACESSÓRIOS
-    'CARTEIRAS': (1, 2),
-    'CINTOS': (1, 3),
-    'PULSEIRAS': (1, 4),
-    
     # VESTUÁRIO MASCULINO
-    'BERMUDAS': (5, 6),
-    'CAMISETAS': (5, 7),
-    'CALÇAS': (5, 8),
-    'CAMISA POLO': (5, 9),
-    'CAMISA SOCIAL MANGA CURTA': (5, 10),
-    'CAMISA SOCIAL MANGA LONGA': (5, 11),
-    'TERNOS & BLAZERS': (5, 12),
-    'MICROFIBRA': (5, 13),
-    'FIO INDIANO': (5, 14),
-    'POLIVISCOSE': (5, 15),
-    'BLAZERS': (5, 16),
-    'MARESIAS': (5, 17),
-    'SARJA': (5, 18),
+    'BERMUDA': (5, 6),
+    'CAMISETA': (5, 7),
+    'CALÇA': (5, 8),
+    'POLO': (5, 9),
+    'SOCIAL MANGA CURTA': (5, 10),
+    'SOCIAL MANGA LONGA': (5, 11),
+    'TERNO': (5, 12),
+    'BLAZER': (5, 16),
     
     # CALÇADO MASCULINO
     'SAPATÊNIS': (19, 20),
     'TÊNIS': (19, 21),
     'SAPATO SOCIAL': (19, 22),
-    'CHINELOS': (19, 23),
+    'CHINELO': (19, 23),
     
     # FEMININO
-    'ACESSÓRIOS FEMININOS': (24, 25),
-    'BOLSAS': (24, 26),
-    'CARTEIRAS FEMININAS': (24, 27),
-    'CINTOS FEMININOS': (24, 28),
-    'CALÇADOS': (24, 29),
-    'BOTAS': (24, 30),
-    'CHINELOS FEMININOS': (24, 31),
-    'MOCASSIM': (24, 32),
-    'MULES': (24, 33),
-    'PANTUFAS': (24, 34),
-    'RASTEIRAS': (24, 35),
-    'SAPATILHAS': (24, 36),
-    'SANDÁLIAS': (24, 37),
-    'SCARPIN': (24, 38),
-    'TAMANCOS': (24, 39),
-    'TÊNIS CASUAL': (24, 40),
-    'TÊNIS ESPORTIVO': (24, 41),
-    'VESTUÁRIO FEMININOS': (24, 42),
-    'CAMISETAS FEMININAS': (24, 43),
-    'BERMUDAS FEMININAS': (24, 44),
-    'CALÇAS FEMININAS': (24, 45),
-    'SAIAS': (24, 46),
-    'VESTIDOS': (24, 47),
-    'LINGERIE': (24, 48),
+    'BOLSA': (24, 26),
+    'BOTA': (24, 30),
+    'RASTEIRA': (24, 35),
+    'SAPATILHA': (24, 36),
+    'SANDÁLIA': (24, 37),
+    'TAMANCO': (24, 39),
+    'VESTIDO': (24, 47),
     
     # CAMA
     'BASE BOX': (49, 50),
-    'TRAVESSEIROS': (49, 51),
-    'CABECEIRAS': (49, 52),
+    'TRAVESSEIRO': (49, 51),
+    'CABECEIRA': (49, 52),
+    'COLCHÃO ESTÁTICO': (49, 53),
+    'COLCHÃO TERAPÊUTICO': (49, 54),
     'COLCHÕES ESTÁTICOS': (49, 53),
     'COLCHÕES TERAPÊUTICOS': (49, 54),
 }
@@ -87,7 +62,8 @@ files = [
 import re
 def normalize_name(name):
     if not name: return ""
-    name = name.strip().upper()
+    # Standardize spaces including non-breaking spaces
+    name = name.replace('\xa0', ' ').strip().upper()
     name = re.sub(r'\s+', ' ', name)
     return name
 
@@ -197,18 +173,20 @@ for p in products.values():
         
     # Map Category/Subcategory using the new hierarchy
     final_cat_id = ''
-    
     cat_str = p['categories'].upper()
     
     # Sort hierarchy by specificity (length of keyword)
     sorted_hierarchy = sorted(HIERARCHY_MAP.items(), key=lambda x: len(x[0]), reverse=True)
     
     match_found = False
+    import re
+    
+    # Use word boundary matching for keywords to avoid partial matches (e.g., "SAPATO" matching "SAPATO SOCIAL")
     for keyword, (cid, sid) in sorted_hierarchy:
-        if keyword in cat_str or keyword in p['name'].upper():
-            # If it's a sub-sub level or sub level, we assign the specific ID
-            # In our new schema, everything IS a category (recursive)
-            # So we assign to the most specific child ID
+        # Check in name and category string with improved regex
+        pattern = r'\b' + re.escape(keyword) + r'\b'
+        name_search = p['name'].upper().replace('\xa0', ' ')
+        if re.search(pattern, cat_str) or re.search(pattern, name_search):
             final_cat_id = sid
             match_found = True
             break
@@ -217,7 +195,7 @@ for p in products.values():
         # Fallback to main categories
         sorted_cats = sorted(CAT_MAP.items(), key=lambda x: len(x[0]), reverse=True)
         for cat_name, cid in sorted_cats:
-            if cat_name in cat_str:
+            if cat_name in cat_str or cat_name in p['name'].upper().replace('\xa0', ' '):
                 final_cat_id = cid
                 break
             

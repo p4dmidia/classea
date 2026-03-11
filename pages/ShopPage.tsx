@@ -27,6 +27,7 @@ const ShopPage: React.FC = () => {
     const [onlyInStock, setOnlyInStock] = useState<boolean>(searchParams.get('stock') === 'true');
 
     useEffect(() => {
+        console.log("%c Classe A App Version: 4.5.1 - Live Fix Applied ", "background: #FBC02D; color: #0B1221; font-weight: bold; padding: 4px; border-radius: 4px;");
         fetchCategories();
     }, []);
 
@@ -217,12 +218,19 @@ const ShopPage: React.FC = () => {
         toast.success(`${product.name} adicionado ao carrinho!`);
     };
 
+    const currentCategoryName = activeCategoryId ? categories.find(c => c.id === activeCategoryId)?.name : '';
+
     return (
         <div className="bg-white min-h-screen">
             <div className="bg-slate-50 border-b border-slate-100 py-8">
                 <div className="container mx-auto px-4">
-                    <h1 className="text-3xl font-extrabold text-[#0B1221]">Nossa Loja</h1>
-                    <p className="text-slate-500 mt-2">Home / Loja {activeCategoryId && `/ ${categories.find(c => c.id === activeCategoryId)?.name || ''}`}</p>
+                    <h1 className="text-4xl font-black text-[#0B1221] mb-2">Nossa Loja</h1>
+                    <div className="flex items-center gap-2">
+                        <nav className="text-sm font-medium text-slate-400">
+                            Home / Loja {currentCategoryName && `/ ${currentCategoryName}`}
+                        </nav>
+                        <span className="text-[9px] text-slate-200">v4.5.1</span>
+                    </div>
                 </div>
             </div>
 
