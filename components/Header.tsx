@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Search, User, ShoppingCart } from 'lucide-react';
+import { Search, User, ShoppingCart, Menu, X } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from './CartContext';
 
@@ -9,6 +9,7 @@ const Header: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { cartCount } = useCart();
   const [searchValue, setSearchValue] = useState(searchParams.get('q') || '');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,8 +32,8 @@ const Header: React.FC = () => {
     <header className="w-full">
       {/* Top Bar */}
       <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
-        <Link to="/" className="flex items-center gap-2">
-          <img src="/assets/logo.png" alt="Classe A" className="h-20 w-auto" />
+        <Link to="/" className="flex items-center gap-2" onClick={() => setIsMenuOpen(false)}>
+          <img src="/assets/logo.png" alt="Classe A" className="h-16 md:h-20 w-auto" />
         </Link>
 
         <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-700">
@@ -55,25 +56,33 @@ const Header: React.FC = () => {
           </button>
         </form>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
           <Link to="/checkout" className="relative p-2 text-slate-700 hover:text-[#FBC02D] transition-colors">
-            <ShoppingCart className="w-6 h-6" />
+            <ShoppingCart className="w-5 h-5 md:w-6 md:h-6" />
             {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-4 h-4 md:w-5 md:h-5 rounded-full flex items-center justify-center border-2 border-white">
                 {cartCount}
               </span>
             )}
           </Link>
 
-          <Link to="/login" className="bg-[#FBC02D] hover:bg-[#f9b100] transition-colors rounded-lg py-2 px-5 flex items-center gap-2 text-sm font-bold text-[#0B1221]">
+          <Link to="/login" className="hidden sm:flex bg-[#FBC02D] hover:bg-[#f9b100] transition-colors rounded-lg py-2 px-3 md:px-5 items-center gap-2 text-xs md:text-sm font-bold text-[#0B1221]">
             <User className="w-4 h-4" />
             Minha Conta
           </Link>
+
+          {/* Mobile Menu Toggle */}
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="md:hidden p-2 text-slate-700 hover:text-[#FBC02D] transition-colors"
+          >
+            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </div>
       </div>
 
-      {/* Categories Bar */}
-      <div className="border-t border-slate-100">
+      {/* Categories Bar - Desktop Only */}
+      <div className="border-t border-slate-100 hidden md:block">
         <div className="container mx-auto px-4 overflow-x-auto">
           <ul className="flex items-center gap-6 py-4 whitespace-nowrap text-xs md:text-sm font-medium">
             {categories.map((cat, idx) => {
@@ -100,6 +109,60 @@ const Header: React.FC = () => {
               );
             })}
           </ul>
+        </div>
+      </div>
+      {/* Mobile Menu Overlay */}
+      <div className={`
+        fixed inset-0 z-50 bg-[#0B1221] transition-transform duration-300 md:hidden
+        ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}
+      `}>
+        <div className="flex flex-col h-full p-6">
+          <div className="flex items-center justify-between mb-8">
+            <img src="/assets/logo.png" alt="Classe A" className="h-12 w-auto brightness-0 invert" />
+            <button onClick={() => setIsMenuOpen(false)} className="text-white p-2">
+              <X className="w-8 h-8" />
+            </button>
+          </div>
+
+          <form onSubmit={(e) => { handleSearch(e); setIsMenuOpen(false); }} className="relative mb-8">
+            <input
+              type="text"
+              placeholder="Buscar produtos..."
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              className="w-full bg-white/10 text-white rounded-xl py-4 px-6 outline-none focus:ring-2 focus:ring-[#FBC02D]/50"
+            />
+            <button type="submit" className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50">
+              <Search className="w-6 h-6" />
+            </button>
+          </form>
+
+          <nav className="flex flex-col gap-6 text-xl font-black text-white mb-12">
+            <Link to="/" onClick={() => setIsMenuOpen(false)} className="hover:text-[#FBC02D]">Home</Link>
+            <Link to="/shop" onClick={() => setIsMenuOpen(false)} className="hover:text-[#FBC02D]">Loja</Link>
+            <Link to="/consorcio" onClick={() => setIsMenuOpen(false)} className="hover:text-[#FBC02D]">Consórcio</Link>
+            <Link to="/register" onClick={() => setIsMenuOpen(false)} className="hover:text-[#FBC02D]">Cadastre-se</Link>
+            <Link to="/login" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 text-[#FBC02D]">
+              <User className="w-6 h-6" />
+              Minha Conta
+            </Link>
+          </nav>
+
+          <div className="mt-auto pt-8 border-t border-white/10">
+            <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-4">Categorias</p>
+            <div className="grid grid-cols-2 gap-4">
+              {categories.map((cat, idx) => (
+                <Link
+                  key={idx}
+                  to={cat.path}
+                  onClick={() => setIsMenuOpen(false)}
+                  className="text-white/70 hover:text-[#FBC02D] text-sm font-bold py-2"
+                >
+                  {cat.label}
+                </Link>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </header>

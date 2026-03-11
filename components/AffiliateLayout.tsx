@@ -8,7 +8,9 @@ import {
     ExternalLink,
     Library,
     LogOut,
-    Star
+    Star,
+    Menu,
+    X
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
@@ -21,6 +23,7 @@ interface AffiliateLayoutProps {
 const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
     const location = useLocation();
     const { user } = useAuth();
+    const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
 
     const handleLogout = async () => {
         try {
@@ -59,9 +62,33 @@ const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
     ];
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC] flex flex-col md:flex-row">
-            {/* Sidebar - Desktop */}
-            <aside className="hidden md:flex w-72 bg-[#0B1221] flex-col p-6 text-white shrink-0">
+        <div className="min-h-screen bg-[#F8FAFC] flex flex-col lg:flex-row overflow-x-hidden">
+            {/* Mobile Header */}
+            <header className="lg:hidden h-16 bg-[#0B1221] px-4 flex items-center justify-between sticky top-0 z-30 shadow-md">
+                <Link to="/" onClick={() => setIsSidebarOpen(false)}>
+                    <img src="/assets/logo.png" alt="Classe A" className="h-8 w-auto brightness-0 invert" />
+                </Link>
+                <button
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    className="p-2 text-white hover:text-[#FBC02D] transition-colors"
+                >
+                    {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                </button>
+            </header>
+
+            {/* Sidebar Overlay */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-[#0B1221]/60 backdrop-blur-sm z-40 lg:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
+            {/* Sidebar */}
+            <aside className={`
+                w-72 bg-[#0B1221] flex flex-col p-6 text-white shrink-0 fixed h-full z-50 transition-transform duration-300 lg:translate-x-0 lg:static lg:h-auto
+                ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+            `}>
                 <div className="mb-12 px-2 flex items-center justify-between">
                     <Link to="/">
                         <img src="/assets/logo.png" alt="Classe A" className="h-12 w-auto brightness-0 invert" />
@@ -75,6 +102,7 @@ const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
                             <Link
                                 key={item.label}
                                 to={item.path}
+                                onClick={() => setIsSidebarOpen(false)}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all group ${isActive
                                     ? 'bg-[#FBC02D]/10 text-[#FBC02D]'
                                     : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -103,7 +131,7 @@ const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-grow p-4 md:p-10 lg:p-12 overflow-y-auto">
+            <main className="flex-grow p-4 md:p-8 lg:p-12 overflow-y-auto">
                 {children}
             </main>
         </div>

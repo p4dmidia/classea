@@ -14,7 +14,9 @@ import {
     Percent,
     Wallet,
     Trophy,
-    Layers
+    Layers,
+    Menu,
+    X
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
@@ -27,6 +29,7 @@ interface AdminLayoutProps {
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
+    const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
 
     const handleLogout = async () => {
         try {
@@ -53,9 +56,20 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     ];
 
     return (
-        <div className="min-h-screen bg-[#F0F2F5] flex">
+        <div className="min-h-screen bg-[#F0F2F5] flex overflow-x-hidden">
+            {/* Sidebar Overlay */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-[#05080F]/60 backdrop-blur-sm z-40 lg:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
             {/* Sidebar */}
-            <aside className="w-72 bg-[#05080F] flex flex-col p-6 text-white shrink-0 fixed h-full">
+            <aside className={`
+                w-72 bg-[#05080F] flex flex-col p-6 text-white shrink-0 fixed h-full z-50 transition-transform duration-300 lg:translate-x-0
+                ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:sticky'}
+            `}>
                 <div className="mb-12 px-2 flex items-center gap-3">
                     <div className="w-10 h-10 bg-[#FBC02D] rounded-xl flex items-center justify-center">
                         <ShieldAlert className="w-6 h-6 text-[#05080F]" />
@@ -70,6 +84,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                             <Link
                                 key={item.label}
                                 to={item.path}
+                                onClick={() => setIsSidebarOpen(false)}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all group ${isActive
                                     ? 'bg-[#FBC02D] text-[#05080F]'
                                     : 'text-slate-500 hover:text-white hover:bg-white/5'
@@ -95,16 +110,24 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             </aside>
 
             {/* Main Content Area */}
-            <div className="flex-grow ml-72">
+            <div className={`flex-grow transition-all duration-300 ${isSidebarOpen ? 'lg:ml-72' : 'lg:ml-72'}`}>
                 {/* Topbar */}
-                <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-20">
-                    <div className="relative w-96">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Buscar por pedidos, afiliados..."
-                            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2.5 pl-12 pr-4 text-sm outline-none focus:border-[#FBC02D] transition-all"
-                        />
+                <header className="h-20 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between sticky top-0 z-20">
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            className="lg:hidden p-2 text-slate-500 hover:text-[#05080F] transition-colors"
+                        >
+                            {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                        </button>
+                        <div className="relative w-48 md:w-96 hidden sm:block">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Buscar por pedidos, afiliados..."
+                                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2.5 pl-12 pr-4 text-sm outline-none focus:border-[#FBC02D] transition-all"
+                            />
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-6">
