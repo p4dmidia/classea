@@ -138,61 +138,105 @@ export const AffiliateNetwork: React.FC<AffiliateNetworkProps> = ({ rootAffiliat
         loadData();
     }, [rootAffiliateId]);
 
-    const renderCustomNode = ({ nodeDatum, toggleNode }: any) => (
-        <g>
-            <circle r="15" fill={nodeDatum.children?.length ? "#c1a35f" : "#4a4a4a"} stroke="#fff" strokeWidth="2" onClick={toggleNode} />
-            <text fill="white" strokeWidth="0.5" x="20" dy="5" fontSize="14" className="font-medium shadow-sm">
-                {nodeDatum.name}
-            </text>
-            {nodeDatum.attributes?.email && (
-                <text fill="#a0a0a0" x="20" dy="22" fontSize="10">
-                    {nodeDatum.attributes.email}
-                </text>
-            )}
-        </g>
-    );
+    const renderCustomNode = ({ nodeDatum, toggleNode }: any) => {
+        const isRoot = nodeDatum.attributes?.id === rootAffiliateId;
+        const hasChildren = nodeDatum.children && nodeDatum.children.length > 0;
+
+        return (
+            <g>
+                {/* ForeignObject allows using HTML/Tailwind inside SVG */}
+                <foreignObject
+                    width="160"
+                    height="160"
+                    x="-80"
+                    y="-40"
+                    className="overflow-visible"
+                >
+                    <div className="flex flex-col items-center justify-center cursor-pointer group" onClick={toggleNode}>
+                        {/* Avatar Container */}
+                        <div className={`
+                            relative w-20 h-20 rounded-full p-1 transition-all duration-300
+                            ${isRoot ? 'bg-gradient-to-tr from-[#FBC02D] to-[#FFA000]' : 'bg-slate-200'}
+                            group-hover:scale-110 group-hover:shadow-[0_0_20px_rgba(251,192,45,0.3)]
+                        `}>
+                            <div className="w-full h-full rounded-full bg-white overflow-hidden border-2 border-white flex items-center justify-center">
+                                <img
+                                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${nodeDatum.attributes?.email || nodeDatum.name}`}
+                                    alt={nodeDatum.name}
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
+                            
+                            {/* Expand/Collapse Indicator */}
+                            {hasChildren && (
+                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#0B1221] text-white w-5 h-5 rounded-full flex items-center justify-center border-2 border-white text-[10px] font-black">
+                                    {nodeDatum.__rd3t.collapsed ? '+' : '-'}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Name Label */}
+                        <div className="mt-3 text-center">
+                            <p className="text-sm font-black text-[#0B1221] leading-none mb-1 group-hover:text-[#FBC02D] transition-colors">
+                                {nodeDatum.name.split(' ')[0]}
+                            </p>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-2 py-0.5 bg-slate-50 rounded-full border border-slate-100">
+                                {nodeDatum.attributes?.email?.split('@')[0] || 'Afiliado'}
+                            </p>
+                        </div>
+                    </div>
+                </foreignObject>
+            </g>
+        );
+    };
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center h-96 bg-black/40 rounded-xl border border-gold/20">
-                <Loader2 className="w-8 h-8 text-gold animate-spin mb-4" />
-                <p className="text-gray-400">Carregando visualização de rede...</p>
+            <div className="flex flex-col items-center justify-center h-[500px] bg-white rounded-[2.5rem] border border-slate-100 shadow-sm">
+                <Loader2 className="w-10 h-10 text-[#FBC02D] animate-spin mb-4" />
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Construindo sua rede...</p>
             </div>
         );
     }
 
     if (error || !treeData) {
         return (
-            <div className="flex items-center justify-center h-96 bg-black/40 rounded-xl border border-red-500/20">
-                <p className="text-red-400">{error || 'Dados indisponíveis'}</p>
+            <div className="flex items-center justify-center h-[500px] bg-white rounded-[2.5rem] border border-red-100 shadow-sm">
+                <p className="text-red-400 font-bold">{error || 'Dados indisponíveis'}</p>
             </div>
         );
     }
 
     return (
-        <div className="relative w-full h-[600px] bg-black/60 rounded-xl border border-gold/30 overflow-hidden" ref={containerRef}>
-            <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
-                {/* Controls could be added here */}
-                <div className="bg-black/80 p-2 rounded-lg border border-gold/30 text-xs text-gold/70">
-                    Arraste para mover • Scroll para zoom
+        <div className="relative w-full h-[600px] bg-slate-50 rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-inner" ref={containerRef}>
+            <div className="absolute top-6 right-6 z-10 flex flex-col gap-2">
+                <div className="bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400 shadow-xl">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 rounded-full bg-[#FBC02D]"></div>
+                        <span>Arraste para mover</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-slate-300"></div>
+                        <span>Scroll para zoom</span>
+                    </div>
                 </div>
             </div>
 
             <Tree
                 data={treeData}
                 translate={translate}
-                scaleExtent={{ min: 0.1, max: 2 }}
+                scaleExtent={{ min: 0.2, max: 1.5 }}
                 zoom={zoom}
                 orientation="vertical"
                 pathFunc="step"
                 renderCustomNodeElement={renderCustomNode}
-                separation={{ siblings: 2, nonSiblings: 2 }}
-                nodeSize={{ x: 200, y: 100 }}
+                separation={{ siblings: 1.5, nonSiblings: 2 }}
+                nodeSize={{ x: 220, y: 180 }}
                 styles={{
                     links: {
-                        stroke: '#c1a35f',
-                        strokeWidth: 1,
-                        opacity: 0.5
+                        stroke: '#CBD5E1',
+                        strokeWidth: 2,
+                        strokeDasharray: '4,4'
                     }
                 }}
             />

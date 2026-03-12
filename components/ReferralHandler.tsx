@@ -17,13 +17,15 @@ const ReferralHandler: React.FC = () => {
                 path: '/',
                 sameSite: 'lax'
             });
-
-            // Opcional: Você pode logar o clique no banco de dados aqui no futuro
         }
 
-        // Redireciona para a home após capturar
-        // Podemos usar um pequeno timeout se quisermos mostrar uma tela de "Carregando"
-        navigate('/', { replace: true });
+        // Get redirect path from query string
+        const params = new URLSearchParams(window.location.search);
+        const redirectTo = params.get('to') || '/';
+        const targetPath = redirectTo.startsWith('/') ? redirectTo : `/${redirectTo}`;
+
+        // Redireciona para o alvo após capturar
+        navigate(targetPath, { replace: true });
     }, [referralCode, navigate]);
 
     return (

@@ -10,7 +10,9 @@ import {
     ArrowUpRight,
     Clock,
     ExternalLink,
-    Award
+    Award,
+    ShoppingCart,
+    UserPlus
 } from 'lucide-react';
 import AffiliateLayout from '../components/AffiliateLayout';
 import { supabase } from '../lib/supabase';
@@ -163,39 +165,63 @@ const AffiliateDashboard: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Main area - Charts/Links */}
                 <div className="lg:col-span-2 space-y-8">
-                    {/* Referral Link Card */}
-                    <div className="bg-[#0B1221] rounded-[2.5rem] p-8 md:p-10 text-white relative overflow-hidden shadow-2xl shadow-[#0B1221]/20">
-                        <div className="relative z-10">
-                            <h2 className="text-2xl font-black mb-2">Seu Link de Afiliado</h2>
-                            <p className="text-slate-400 mb-8 max-w-md">Compartilhe seu link exclusivo e ganhe comissões em cada venda realizada através dele.</p>
+                    {/* Referral Links Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Link Loja */}
+                        <div className="bg-[#0B1221] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-[#0B1221]/20">
+                            <div className="relative z-10">
+                                <h2 className="text-xl font-black mb-2 flex items-center gap-2">
+                                    <ShoppingCart className="w-5 h-5 text-[#FBC02D]" />
+                                    Link para Loja
+                                </h2>
+                                <p className="text-slate-400 text-xs mb-6">Mande para clientes direto para a vitrine.</p>
 
-                            <div className="flex flex-col sm:flex-row gap-4 items-stretch">
-                                <div className="bg-white/10 border border-white/10 rounded-2xl px-5 py-4 flex-grow flex items-center justify-between group">
-                                    <span className="text-slate-200 font-medium truncate mr-4">{affiliateLink}</span>
-                                    <ExternalLink className="w-4 h-4 text-white/30 group-hover:text-white transition-colors" />
+                                <div className="space-y-4">
+                                    <div className="bg-white/10 border border-white/10 rounded-2xl px-4 py-3 flex items-center justify-between group">
+                                        <span className="text-slate-200 text-xs font-medium truncate mr-2">{affiliateLink}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(affiliateLink);
+                                            toast.success('Link da Loja copiado!');
+                                        }}
+                                        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-[#FBC02D] text-[#0B1221] rounded-xl font-black text-xs hover:bg-[#ffc947] transition-all"
+                                    >
+                                        <Copy className="w-4 h-4" />
+                                        COPIAR LINK LOJA
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={handleCopyLink}
-                                    className={`flex items-center justify-center gap-2 px-8 py-4 rounded-2xl font-black transition-all whitespace-nowrap ${copied ? 'bg-emerald-500 text-white' : 'bg-[#FBC02D] text-[#0B1221] hover:bg-[#ffc947]'
-                                        }`}
-                                >
-                                    {copied ? (
-                                        <>
-                                            <CheckCircle className="w-5 h-5" />
-                                            COPIADO!
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Copy className="w-5 h-5" />
-                                            COPIAR LINK
-                                        </>
-                                    )}
-                                </button>
                             </div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-[#FBC02D]/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
                         </div>
-                        {/* Abstract Design Elements */}
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-[#FBC02D]/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl"></div>
+
+                        {/* Link Cadastro */}
+                        <div className="bg-[#0B1221] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-[#0B1221]/20 border border-white/5">
+                            <div className="relative z-10">
+                                <h2 className="text-xl font-black mb-2 flex items-center gap-2">
+                                    <UserPlus className="w-5 h-5 text-blue-400" />
+                                    Link para Cadastro
+                                </h2>
+                                <p className="text-slate-400 text-xs mb-6">Mande para novos parceiros se cadastrarem.</p>
+
+                                <div className="space-y-4">
+                                    <div className="bg-white/10 border border-white/10 rounded-2xl px-4 py-3 flex items-center justify-between group">
+                                        <span className="text-slate-200 text-xs font-medium truncate mr-2">{affiliateLink}?to=register</span>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(`${affiliateLink}?to=register`);
+                                            toast.success('Link de Cadastro copiado!');
+                                        }}
+                                        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-xl font-black text-xs hover:bg-blue-600 transition-all"
+                                    >
+                                        <Copy className="w-4 h-4" />
+                                        COPIAR LINK CADASTRO
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
+                        </div>
                     </div>
 
                     {/* Commissions Table */}

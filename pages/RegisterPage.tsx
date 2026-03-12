@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
+import Cookies from 'js-cookie';
 
 const RegisterPage: React.FC = () => {
     const navigate = useNavigate();
@@ -30,6 +31,16 @@ const RegisterPage: React.FC = () => {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [sponsorCode, setSponsorCode] = useState<string | null>(null);
+
+    React.useEffect(() => {
+        // Tenta capturar o código do patrocinador do cookie
+        const ref = Cookies.get('classea_ref');
+        if (ref) {
+            console.log('Sponsor detected from cookie:', ref);
+            setSponsorCode(ref);
+        }
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -59,6 +70,7 @@ const RegisterPage: React.FC = () => {
                         sobrenome: formData.sobrenome,
                         login: formData.login,
                         registration_type: registrationType,
+                        sponsor_code: sponsorCode,
                     }
                 }
             });
