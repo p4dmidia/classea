@@ -36,8 +36,8 @@ const BusinessOpportunity: React.FC = () => {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div className="bg-[#1A212E] p-8 rounded-xl border border-white/5 hover:border-[#FBC02D]/30 transition-all flex flex-col gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
+          <div className="bg-[#1A212E] p-8 rounded-xl border border-white/5 hover:border-[#FBC02D]/30 transition-all flex flex-col gap-4 sm:col-span-2">
             <div className="w-12 h-12 bg-[#FBC02D]/10 rounded-lg flex items-center justify-center">
               <Users className="text-[#FBC02D] w-6 h-6" />
             </div>
@@ -47,15 +47,6 @@ const BusinessOpportunity: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-[#FBC02D] p-8 rounded-xl flex flex-col gap-4 text-[#0B1221]">
-            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-              <Award className="text-[#0B1221] w-6 h-6" />
-            </div>
-            <div>
-              <h4 className="font-black text-xl mb-1">Reconhecimento</h4>
-              <p className="text-sm font-medium opacity-80">Planos de carreira e prêmios exclusivos.</p>
-            </div>
-          </div>
 
           <div className="bg-[#1A212E] p-8 rounded-xl border border-white/5 hover:border-[#FBC02D]/30 transition-all flex flex-col gap-4">
             <div className="w-12 h-12 bg-[#FBC02D]/10 rounded-lg flex items-center justify-center">
