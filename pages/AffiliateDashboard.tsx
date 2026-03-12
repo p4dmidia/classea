@@ -12,7 +12,8 @@ import {
     ExternalLink,
     Award,
     ShoppingCart,
-    UserPlus
+    UserPlus,
+    AlertCircle
 } from 'lucide-react';
 import AffiliateLayout from '../components/AffiliateLayout';
 import { supabase } from '../lib/supabase';
@@ -24,6 +25,7 @@ const AffiliateDashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [affiliateData, setAffiliateData] = useState<any>(null);
     const [walletData, setWalletData] = useState<any>(null);
+    const [consortiumStatus, setConsortiumStatus] = useState<any>(null);
     const [copied, setCopied] = useState(false);
 
     useEffect(() => {
@@ -52,6 +54,14 @@ const AffiliateDashboard: React.FC = () => {
 
                 if (walletErr) throw walletErr;
                 setWalletData(wallet);
+
+                // 3. Buscar status do Consórcio
+                const { data: status, error: statusErr } = await supabase
+                    .rpc('check_consortium_regularity', { p_user_id: user.id });
+
+                if (!statusErr && status && status.length > 0) {
+                    setConsortiumStatus(status[0]);
+                }
 
             } catch (err: any) {
                 console.error('Erro ao carregar dados do dashboard:', err);
@@ -142,6 +152,35 @@ const AffiliateDashboard: React.FC = () => {
                     Ver Loja Classe A
                 </button>
             </header>
+
+            {/* Consortium Warning */}
+            {consortiumStatus?.is_member && !consortiumStatus?.is_regular && (
+                <div className="mb-10 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className={`p-6 rounded-[2rem] border flex flex-col md:flex-row items-center justify-between gap-6 ${consortiumStatus.status_text === 'Irregular' ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
+                        <div className="flex items-center gap-5">
+                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${consortiumStatus.status_text === 'Irregular' ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'}`}>
+                                <AlertCircle className="w-8 h-8" />
+                            </div>
+                            <div>
+                                <h3 className={`text-xl font-black ${consortiumStatus.status_text === 'Irregular' ? 'text-red-900' : 'text-amber-900'}`}>
+                                    Atenção: Pagamento do Consórcio {consortiumStatus.status_text}
+                                </h3>
+                                <p className={`font-medium ${consortiumStatus.status_text === 'Irregular' ? 'text-red-700/70' : 'text-amber-700/70'}`}>
+                                    {consortiumStatus.status_text === 'Irregular' 
+                                        ? 'Você está fora do prazo de pagamento. Entre em contato com o suporte ou realize sua recompra imediatamente.' 
+                                        : `Sua recompra mensal ainda não foi identificada. O prazo vence em ${consortiumStatus.days_to_deadline} dias (dia 10).`}
+                                </p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => window.location.href = '/consorcio'}
+                            className={`px-8 py-4 rounded-2xl font-black text-sm transition-all whitespace-nowrap shadow-lg ${consortiumStatus.status_text === 'Irregular' ? 'bg-red-600 text-white hover:bg-red-700 shadow-red-200' : 'bg-amber-500 text-[#0B1221] hover:bg-amber-600 shadow-amber-200'}`}
+                        >
+                            REALIZAR RECOMPRA AGORA
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Info Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">

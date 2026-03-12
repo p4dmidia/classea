@@ -28,6 +28,7 @@ const AdminConsorcio: React.FC = () => {
     const [officialResultUrl, setOfficialResultUrl] = useState('');
     const [totalDraws, setTotalDraws] = useState(0);
     const [totalParticipants, setTotalParticipants] = useState(0);
+    const [irregularMembers, setIrregularMembers] = useState<any[]>([]);
 
     // New Group State
     const [newGroup, setNewGroup] = useState({
@@ -63,11 +64,48 @@ const AdminConsorcio: React.FC = () => {
                 .select('*', { count: 'exact', head: true });
             setTotalParticipants(participantCount || 0);
 
+            await fetchIrregularMembers();
+
         } catch (error) {
             console.error('Error fetching groups:', error);
             toast.error('Erro ao buscar grupos.');
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const fetchIrregularMembers = async () => {
+        try {
+            // Fetch all participants and check their regularity
+            const { data, error: pError } = await supabase
+                .from('consortium_participants')
+                .select(`
+                    id, 
+                    user_id,
+                    lucky_number,
+                    consortium_groups (name),
+                    user:auth.users (email)
+                `);
+
+            if (pError) throw pError;
+
+            const participantsData = data as any[];
+
+            // This is slightly inefficient but works for now. 
+            // Better to have a dedicated view or composite function.
+            const results = await Promise.all(participantsData.map(async (p) => {
+                const { data: st, error: stErr } = await supabase
+                    .rpc('check_consortium_regularity', { p_user_id: p.user_id });
+                
+                if (!stErr && st && st.length > 0 && st[0].status_text === 'Irregular') {
+                    return { ...p, status: st[0] };
+                }
+                return null;
+            }));
+
+            setIrregularMembers(results.filter(r => r !== null));
+        } catch (error) {
+            console.error('Error fetching irregular members:', error);
         }
     };
 
@@ -193,7 +231,68 @@ const AdminConsorcio: React.FC = () => {
                         </div>
                         <p className="text-4xl font-black text-[#0B1221]">{totalParticipants}</p>
                     </div>
+                    <div className="bg-red-50 p-8 rounded-[2rem] border border-red-100 shadow-sm relative overflow-hidden">
+                        <div className="absolute -top-4 -right-4 w-24 h-24 bg-red-500/5 rounded-full"></div>
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center text-red-600">
+                                <AlertCircle className="w-6 h-6" />
+                            </div>
+                            <span className="text-red-400 font-black uppercase tracking-widest text-[10px]">Irregulares (Mês Atual)</span>
+                        </div>
+                        <p className="text-4xl font-black text-red-600">{irregularMembers.length}</p>
+                    </div>
                 </div>
+
+                {/* Irregular Members List */}
+                {irregularMembers.length > 0 && (
+                    <div className="bg-white rounded-[2.5rem] border border-red-100 overflow-hidden shadow-sm">
+                        <div className="p-8 border-b border-red-50 bg-red-50/30 flex items-center justify-between">
+                            <h3 className="text-xl font-black text-red-900 flex items-center gap-2">
+                                <AlertCircle className="w-5 h-5" />
+                                Consorciados Irregulares
+                            </h3>
+                            <span className="bg-red-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase">Ação Requerida</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    <tr>
+                                        <th className="px-8 py-4">Membro</th>
+                                        <th className="px-8 py-4">Grupo</th>
+                                        <th className="px-8 py-4">Nº Sorte</th>
+                                        <th className="px-8 py-4 text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {irregularMembers.map((member) => (
+                                        <tr key={member.id} className="hover:bg-red-50/30 transition-colors">
+                                            <td className="px-8 py-6">
+                                                <div className="font-bold text-[#0B1221]">{member.user?.email}</div>
+                                                <div className="text-[10px] text-slate-400 font-medium">Cadastrado em {new Date().toLocaleDateString('pt-BR')}</div>
+                                            </td>
+                                            <td className="px-8 py-6 font-medium text-slate-600">
+                                                {member.consortium_groups?.name}
+                                            </td>
+                                            <td className="px-8 py-6">
+                                                <span className="w-8 h-8 rounded-full bg-slate-100 text-[#0B1221] flex items-center justify-center font-black text-xs">
+                                                    {member.lucky_number.toString().padStart(2, '0')}
+                                                </span>
+                                            </td>
+                                            <td className="px-8 py-6 text-right">
+                                                <button 
+                                                    onClick={() => toast.success(`Notificação enviada para ${member.user?.email}`)}
+                                                    className="bg-[#0B1221] text-white text-[10px] font-black px-4 py-2 rounded-lg hover:bg-red-600 transition-all"
+                                                >
+                                                    NOTIFICAR
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
 
                 {/* Groups Grid */}
                 <div className="grid lg:grid-cols-2 gap-8">

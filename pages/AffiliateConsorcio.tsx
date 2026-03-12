@@ -23,6 +23,7 @@ const AffiliateConsorcio: React.FC = () => {
     const { user } = useAuth();
     const [participation, setParticipation] = useState<any>(null);
     const [draws, setDraws] = useState<any[]>([]);
+    const [cStatus, setCStatus] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -63,6 +64,14 @@ const AffiliateConsorcio: React.FC = () => {
 
                 if (drawError) throw drawError;
                 setDraws(drawData || []);
+
+                // Fetch regularity status
+                const { data: statusData, error: statusError } = await supabase
+                    .rpc('check_consortium_regularity', { p_user_id: user?.id });
+                
+                if (!statusError && statusData && statusData.length > 0) {
+                    setCStatus(statusData[0]);
+                }
             }
 
         } catch (error) {
@@ -133,9 +142,18 @@ const AffiliateConsorcio: React.FC = () => {
                             <div className="grid sm:grid-cols-3 gap-6">
                                 <div className="space-y-1">
                                     <p className="text-slate-400 text-[10px] font-black uppercase tracking-wider">Status da Cota</p>
-                                    <div className="flex items-center gap-2 text-emerald-400">
-                                        <CheckCircle2 className="w-4 h-4" />
-                                        <span className="font-bold">Ativa e Paga</span>
+                                    <div className={`flex items-center gap-2 ${cStatus?.is_regular ? 'text-emerald-400' : 'text-red-400'}`}>
+                                        {cStatus?.is_regular ? (
+                                            <>
+                                                <CheckCircle2 className="w-4 h-4" />
+                                                <span className="font-bold">Em Dia</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <AlertCircle className="w-4 h-4" />
+                                                <span className="font-bold">{cStatus?.status_text || 'Irregular'}</span>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="space-y-1">

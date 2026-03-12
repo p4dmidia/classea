@@ -16,7 +16,16 @@ serve(async (req) => {
     }
 
     try {
-        const { zip, items } = await req.json()
+        if (!MELHOR_ENVIO_TOKEN) {
+            console.error('ERRO: MELHOR_ENVIO_TOKEN não configurado nas variáveis de ambiente.');
+            return new Response(
+                JSON.stringify({ error: 'Configuração do servidor incompleta (Token de API ausente)' }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+            )
+        }
+
+        const body = await req.json().catch(() => ({}));
+        const { zip, items } = body;
 
         if (!zip || !items || !items.length) {
             return new Response(
