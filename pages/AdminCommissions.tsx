@@ -176,15 +176,15 @@ const AdminCommissions: React.FC = () => {
         <AdminLayout>
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
                     <div>
-                        <h1 className="text-3xl font-black text-[#05080F]">Regras de Bonificação</h1>
-                        <p className="text-slate-500 font-medium">Configure a distribuição de comissões por gerações e categorias.</p>
+                        <h1 className="text-2xl md:text-3xl font-black text-[#05080F]">Regras de Bonificação</h1>
+                        <p className="text-sm md:text-base text-slate-500 font-medium">Configure a distribuição de comissões por gerações.</p>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-3 w-full sm:w-auto">
                         <button
                             onClick={() => fetchConfigs()}
-                            className="bg-white border border-slate-200 px-6 py-3 rounded-2xl flex items-center gap-2 font-bold text-slate-600 hover:shadow-md transition-all whitespace-nowrap"
+                            className="flex-1 sm:flex-none justify-center bg-white border border-slate-200 px-4 md:px-6 py-3 rounded-2xl flex items-center gap-2 font-bold text-slate-600 hover:shadow-md transition-all text-sm md:text-base"
                         >
                             <RefreshCcw className="w-4 h-4 text-slate-400" />
                             Recarregar
@@ -192,7 +192,7 @@ const AdminCommissions: React.FC = () => {
                         <button
                             onClick={handleSave}
                             disabled={isSaving}
-                            className="bg-[#05080F] text-white px-8 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-xl shadow-[#05080F]/10 hover:bg-[#1a2436] transition-all whitespace-nowrap disabled:opacity-50"
+                            className="flex-1 sm:flex-none justify-center bg-[#05080F] text-white px-6 md:px-8 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-xl shadow-[#05080F]/10 hover:bg-[#1a2436] transition-all disabled:opacity-50 text-sm md:text-base"
                         >
                             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 text-[#FBC02D]" />}
                             Salvar Alterações
@@ -201,27 +201,27 @@ const AdminCommissions: React.FC = () => {
                 </div>
 
                 {/* Main Info Card */}
-                <div className="bg-[#05080F] rounded-[2.5rem] p-8 text-white relative overflow-hidden">
+                <div className="bg-[#05080F] rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 text-white relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-[#FBC02D]/10 blur-[100px] rounded-full translate-x-1/2 -translate-y-1/2"></div>
-                    <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                        <div className="w-20 h-20 bg-white/10 rounded-[2rem] flex items-center justify-center backdrop-blur-md">
-                            <ShieldCheck className="w-10 h-10 text-[#FBC02D]" />
+                    <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 md:gap-8 text-center md:text-left">
+                        <div className="w-16 h-16 md:w-20 md:h-20 bg-white/10 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center backdrop-blur-md shrink-0">
+                            <ShieldCheck className="w-8 h-8 md:w-10 md:h-10 text-[#FBC02D]" />
                         </div>
                         <div className="flex-grow">
-                            <h2 className="text-2xl font-black mb-2">Segurança de Matriz Unilever</h2>
-                            <p className="text-slate-400 max-w-2xl font-medium">As porcentagens abaixo são aplicadas em cascata. O sistema calcula automaticamente a distribuição no momento da confirmação do pagamento de cada pedido.</p>
+                            <h2 className="text-xl md:text-2xl font-black mb-1 md:mb-2">Segurança de Matriz Unilever</h2>
+                            <p className="text-sm md:text-base text-slate-400 max-w-2xl font-medium">As porcentagens abaixo são aplicadas em cascata automaticamente.</p>
                         </div>
-                        <div className="flex gap-4">
-                            <div className="text-center px-6 py-3 bg-white/5 rounded-2xl border border-white/10">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Distribuído (Geral)</p>
-                                <p className="text-xl font-black text-[#FBC02D]">
+                        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                            <div className="flex-1 text-center px-6 py-3 bg-white/5 rounded-2xl border border-white/10">
+                                <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Geral</p>
+                                <p className="text-lg md:text-xl font-black text-[#FBC02D]">
                                     {geralLevels.slice(0, geralGens).reduce((acc, curr) => acc + curr.value, 0).toFixed(1)}
                                     {geralType === 'percent' ? '%' : 'R$'}
                                 </p>
                             </div>
-                            <div className="text-center px-6 py-3 bg-white/5 rounded-2xl border border-white/10">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total (Colchões)</p>
-                                <p className="text-xl font-black text-[#FBC02D]">
+                            <div className="flex-1 text-center px-6 py-3 bg-white/5 rounded-2xl border border-white/10">
+                                <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Colchões</p>
+                                <p className="text-lg md:text-xl font-black text-[#FBC02D]">
                                     {mattressLevels.slice(0, mattressGens).reduce((acc, curr) => acc + (curr.value || 0), 0).toFixed(1)}
                                     {mattressType === 'percent' ? '%' : 'R$'}
                                 </p>
@@ -232,30 +232,30 @@ const AdminCommissions: React.FC = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Geral Configuration */}
-                    <div className="bg-white rounded-[3rem] border border-slate-100 shadow-sm p-8 md:p-10">
-                        <div className="flex items-center justify-between mb-10">
+                    <div className="bg-white rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-sm p-6 md:p-10">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-10">
                             <div className="flex items-center gap-4">
-                                <div className="p-4 bg-slate-50 rounded-2xl text-slate-600">
-                                    <Settings2 className="w-6 h-6" />
+                                <div className="p-3 md:p-4 bg-slate-50 rounded-xl md:rounded-2xl text-slate-600">
+                                    <Settings2 className="w-5 h-5 md:w-6 md:h-6" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-black text-[#05080F]">Catálogo Geral</h3>
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Até 7 Gerações</p>
+                                    <h3 className="text-lg md:text-xl font-black text-[#05080F]">Catálogo Geral</h3>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Até 7 Gerações</p>
                                 </div>
                             </div>
 
-                            <div className="flex bg-slate-50 p-1.5 rounded-xl border border-slate-100">
+                            <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100 w-full sm:w-auto">
                                 <button
                                     onClick={() => setGeralType('percent')}
-                                    className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${geralType === 'percent' ? 'bg-white shadow-sm text-[#05080F]' : 'text-slate-400'}`}
+                                    className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-black transition-all ${geralType === 'percent' ? 'bg-white shadow-sm text-[#05080F]' : 'text-slate-400'}`}
                                 >
-                                    %
+                                    PORCENTAGEM (%)
                                 </button>
                                 <button
                                     onClick={() => setGeralType('money')}
-                                    className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${geralType === 'money' ? 'bg-white shadow-sm text-[#05080F]' : 'text-slate-400'}`}
+                                    className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-black transition-all ${geralType === 'money' ? 'bg-white shadow-sm text-[#05080F]' : 'text-slate-400'}`}
                                 >
-                                    R$
+                                    VALOR (R$)
                                 </button>
                             </div>
                         </div>
@@ -281,30 +281,30 @@ const AdminCommissions: React.FC = () => {
                     </div>
 
                     {/* Colchões Configuration */}
-                    <div className="bg-white rounded-[3rem] border border-slate-100 shadow-sm p-8 md:p-10">
-                        <div className="flex items-center justify-between mb-10">
+                    <div className="bg-white rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-sm p-6 md:p-10">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-10">
                             <div className="flex items-center gap-4">
-                                <div className="p-4 bg-amber-50 rounded-2xl text-[#FBC02D]">
-                                    <TrendingUp className="w-6 h-6" />
+                                <div className="p-3 md:p-4 bg-amber-50 rounded-xl md:rounded-2xl text-[#FBC02D]">
+                                    <TrendingUp className="w-5 h-5 md:w-6 md:h-6" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-black text-[#05080F]">Linha de Colchões</h3>
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Até 6 Gerações</p>
+                                    <h3 className="text-lg md:text-xl font-black text-[#05080F]">Linha de Colchões</h3>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Até 6 Gerações</p>
                                 </div>
                             </div>
 
-                            <div className="flex bg-slate-50 p-1.5 rounded-xl border border-slate-100">
+                            <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100 w-full sm:w-auto">
                                 <button
                                     onClick={() => setMattressType('percent')}
-                                    className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${mattressType === 'percent' ? 'bg-white shadow-sm text-[#05080F]' : 'text-slate-400'}`}
+                                    className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-black transition-all ${mattressType === 'percent' ? 'bg-white shadow-sm text-[#05080F]' : 'text-slate-400'}`}
                                 >
-                                    %
+                                    PORCENTAGEM (%)
                                 </button>
                                 <button
                                     onClick={() => setMattressType('money')}
-                                    className={`px-4 py-2 rounded-lg text-xs font-black transition-all ${mattressType === 'money' ? 'bg-white shadow-sm text-[#05080F]' : 'text-slate-400'}`}
+                                    className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-black transition-all ${mattressType === 'money' ? 'bg-white shadow-sm text-[#05080F]' : 'text-slate-400'}`}
                                 >
-                                    R$
+                                    VALOR (R$)
                                 </button>
                             </div>
                         </div>
@@ -331,21 +331,21 @@ const AdminCommissions: React.FC = () => {
                 </div>
 
                 {/* Footer Notes */}
-                <div className="bg-white border border-slate-100 p-8 rounded-[2.5rem] flex flex-col md:flex-row items-center gap-8">
+                <div className="bg-white border border-slate-100 p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] flex flex-col md:flex-row items-center gap-6 md:gap-8 shadow-sm">
                     <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center flex-shrink-0">
                         <Info className="w-6 h-6 text-slate-400" />
                     </div>
-                    <div className="flex-grow">
+                    <div className="flex-grow text-center md:text-left">
                         <h4 className="font-black text-[#05080F]">Informação Importante</h4>
-                        <p className="text-slate-500 text-sm font-medium">As novas regras entram em vigor imediatamente para todos os novos pedidos. Pedidos já realizados mantêm a bonificação do momento em que foram gerados.</p>
+                        <p className="text-slate-500 text-xs md:text-sm font-medium">As novas regras entram em vigor imediatamente para todos os novos pedidos.</p>
                     </div>
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="w-full md:w-auto px-10 py-4 bg-[#FBC02D] text-[#05080F] rounded-2xl font-black text-sm shadow-xl shadow-[#FBC02D]/10 hover:shadow-2xl transition-all flex items-center justify-center gap-2"
+                        className="w-full md:w-auto px-10 py-4 bg-[#FBC02D] text-[#05080F] rounded-2xl font-black text-sm md:text-base shadow-xl shadow-[#FBC02D]/10 hover:shadow-2xl transition-all flex items-center justify-center gap-2"
                     >
-                        {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-                        CONFIRMAR E ATUALIZAR REGRAS
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        ATUALIZAR REGRAS
                     </button>
                 </div>
             </div>

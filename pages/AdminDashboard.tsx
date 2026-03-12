@@ -99,12 +99,12 @@ const AdminDashboard: React.FC = () => {
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 {/* Header Section */}
                 <div>
-                    <h1 className="text-3xl font-black text-[#05080F]">Dashboard Administrativo</h1>
-                    <p className="text-slate-500 font-medium">Bem-vindo de volta! Aqui está o resumo operacional de hoje.</p>
+                    <h1 className="text-2xl md:text-3xl font-black text-[#05080F]">Dashboard Administrativo</h1>
+                    <p className="text-slate-500 font-medium text-sm md:text-base">Bem-vindo de volta! Aqui está o resumo operacional de hoje.</p>
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                     {stats.map((stat, idx) => (
                         <div key={idx} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-lg transition-all group">
                             <div className="flex justify-between items-start mb-4">
@@ -123,28 +123,28 @@ const AdminDashboard: React.FC = () => {
                     ))}
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
                     {/* Recent Growth Chart Placeholder */}
-                    <div className="lg:col-span-2 bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
-                        <div className="flex justify-between items-center mb-8">
+                    <div className="lg:col-span-2 bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm">
+                        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8">
                             <h3 className="text-xl font-black text-[#05080F]">Crescimento da Plataforma</h3>
-                            <select className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-[#05080F] outline-none">
+                            <select className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-[#05080F] outline-none w-full sm:w-auto">
                                 <option>Últimos 12 meses</option>
                                 <option>Últimos 30 dias</option>
                             </select>
                         </div>
-                        <div className="h-[300px] flex items-end justify-between gap-4">
+                        <div className="h-[250px] md:h-[300px] flex items-end justify-between gap-2 md:gap-4 overflow-x-auto pb-2 scrollbar-none">
                             {isLoading ? (
                                 <div className="w-full h-full flex items-center justify-center">
                                     <div className="w-8 h-8 border-4 border-[#FBC02D]/20 border-t-[#FBC02D] rounded-full animate-spin"></div>
                                 </div>
                             ) : chartData.map((h, i) => (
-                                <div key={i} className="flex-grow flex flex-col items-center gap-3 group">
+                                <div key={i} className="flex-grow min-w-[30px] flex flex-col items-center gap-3 group">
                                     <div
                                         className="w-full bg-[#05080F]/5 group-hover:bg-[#FBC02D] rounded-t-xl transition-all duration-500 cursor-pointer relative"
-                                        style={{ height: `${h}%` }}
+                                        style={{ height: `${Math.max(h, 5)}%` }}
                                     >
-                                        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-[#05080F] text-white text-[10px] py-1 px-2 rounded-lg font-black whitespace-nowrap">
+                                        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-[#05080F] text-white text-[10px] py-1 px-2 rounded-lg font-black whitespace-nowrap z-10">
                                             R$ {Math.round(h * 1000).toLocaleString('pt-BR')}
                                         </div>
                                     </div>
@@ -155,7 +155,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
 
                     {/* New Affiliates List */}
-                    <div className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm">
+                    <div className="bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm">
                         <div className="flex justify-between items-center mb-8">
                             <h3 className="text-xl font-black text-[#05080F]">Novos Afiliados</h3>
                             <button className="text-[#FBC02D] hover:text-[#05080F] transition-colors"><MoreHorizontal /></button>
@@ -175,17 +175,17 @@ const AdminDashboard: React.FC = () => {
                                 recentAffiliates.map((aff, idx) => (
                                     <div key={idx} className="flex items-center justify-between group cursor-pointer p-2 hover:bg-slate-50 rounded-2xl transition-all">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-xl bg-[#05080F] flex items-center justify-center font-black text-[#FBC02D]">
+                                            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-[#05080F] flex items-center justify-center font-black text-[#FBC02D] shrink-0 text-xs md:text-base">
                                                 {aff.name.charAt(0)}
                                             </div>
-                                            <div>
-                                                <p className="font-black text-[#05080F] text-sm">{aff.name}</p>
+                                            <div className="min-w-0">
+                                                <p className="font-black text-[#05080F] text-sm truncate">{aff.name}</p>
                                                 <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
                                                     <Clock className="w-3 h-3" /> {aff.date}
                                                 </p>
                                             </div>
                                         </div>
-                                        <div className="text-right">
+                                        <div className="text-right shrink-0">
                                             <p className="text-[10px] font-black text-[#FBC02D] uppercase tracking-widest">{aff.plan}</p>
                                             <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${aff.status === 'Ativo' ? 'bg-emerald-50 text-emerald-600' :
                                                 aff.status === 'Pendente' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
@@ -211,7 +211,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
 
                 {/* Quick Actions / Integration Status */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                     <div className="bg-emerald-500 rounded-[2rem] p-6 text-white flex items-center justify-between shadow-xl shadow-emerald-500/20">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Mercado Pago</p>
@@ -230,7 +230,7 @@ const AdminDashboard: React.FC = () => {
                             <Activity className="w-6 h-6" />
                         </div>
                     </div>
-                    <div className="bg-white rounded-[2rem] border border-slate-100 p-6 flex items-center justify-between shadow-sm">
+                    <div className="bg-white rounded-[2rem] border border-slate-100 p-6 flex items-center justify-between shadow-sm sm:col-span-2 lg:col-span-1">
                         <div>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Backup do Sistema</p>
                             <h4 className="text-lg font-black text-[#05080F]">Há 2 horas atrás</h4>

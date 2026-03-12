@@ -355,15 +355,15 @@ const AdminProducts: React.FC = () => {
         <AdminLayout>
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
                     <div>
-                        <h1 className="text-3xl font-black text-[#05080F]">Gestão de Produtos</h1>
-                        <p className="text-slate-500 font-medium">Controle seu catálogo de produtos, estoque e preços.</p>
+                        <h1 className="text-2xl md:text-3xl font-black text-[#05080F]">Gestão de Produtos</h1>
+                        <p className="text-slate-500 font-medium text-sm md:text-base">Controle seu catálogo de produtos, estoque e preços.</p>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
                         <button
                             onClick={() => navigate('/admin/categories')}
-                            className="bg-white border border-slate-200 px-6 py-3 rounded-2xl flex items-center gap-2 font-bold text-slate-600 hover:shadow-md transition-all whitespace-nowrap"
+                            className="bg-white border border-slate-200 px-6 py-3 rounded-2xl flex items-center justify-center gap-2 font-bold text-slate-600 hover:shadow-md transition-all whitespace-nowrap w-full sm:w-auto"
                         >
                             <Layers className="w-4 h-4 text-[#FBC02D]" />
                             Gerenciar Categorias
@@ -373,7 +373,7 @@ const AdminProducts: React.FC = () => {
                                 resetForm();
                                 setIsNewModalOpen(true);
                             }}
-                            className="bg-[#05080F] text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-xl shadow-[#05080F]/10 hover:bg-[#1a2436] transition-all whitespace-nowrap"
+                            className="bg-[#05080F] text-white px-6 py-3 rounded-2xl flex items-center justify-center gap-2 font-bold shadow-xl shadow-[#05080F]/10 hover:bg-[#1a2436] transition-all whitespace-nowrap w-full sm:w-auto"
                         >
                             <Plus className="w-4 h-4 text-[#FBC02D]" />
                             Novo Produto
@@ -382,7 +382,7 @@ const AdminProducts: React.FC = () => {
                 </div>
 
                 {/* Filter & Search Bar */}
-                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between relative z-20">
+                <div className="bg-white p-4 md:p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between relative z-20">
                     <div className="relative w-full md:w-96">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
@@ -444,7 +444,7 @@ const AdminProducts: React.FC = () => {
                                     </select>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Resetar</label>
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Limpar</label>
                                     <button
                                         onClick={() => {
                                             setFilterStatus('Todos');
@@ -462,116 +462,193 @@ const AdminProducts: React.FC = () => {
                     )}
                 </div>
 
-                {/* Products Table */}
-                <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-slate-50/50">
-                                <tr>
-                                    <th className="text-left py-6 px-8 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Produto</th>
-                                    <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Categorização</th>
-                                    <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Preço</th>
-                                    <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Estoque</th>
-                                    <th className="text-center py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Status</th>
-                                    <th className="text-right py-6 px-8 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {isLoading ? (
-                                    [1, 2, 3, 4, 5].map(i => (
-                                        <tr key={i} className="animate-pulse">
-                                            <td className="py-6 px-8"><div className="h-14 w-full bg-slate-100 rounded-2xl"></div></td>
-                                            <td className="py-6 px-4"><div className="h-6 w-24 bg-slate-100 rounded-full"></div></td>
-                                            <td className="py-6 px-4"><div className="h-6 w-20 bg-slate-100 rounded-lg"></div></td>
-                                            <td className="py-6 px-4"><div className="h-6 w-16 bg-slate-100 rounded-lg"></div></td>
-                                            <td className="py-6 px-4"><div className="h-8 w-24 bg-slate-100 rounded-full mx-auto"></div></td>
-                                            <td className="py-6 px-8"><div className="h-10 w-24 bg-slate-100 rounded-xl ml-auto"></div></td>
-                                        </tr>
-                                    ))
-                                ) : currentData.length > 0 ? currentData.map((prod) => {
-                                    const statusInfo = getStatusInfo(prod);
-                                    return (
-                                        <tr key={prod.id} className="group hover:bg-slate-50/50 transition-colors">
-                                            <td className="py-6 px-8">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-[#05080F] overflow-hidden">
-                                                        {prod.image_url ? (
-                                                            <img src={prod.image_url} alt={prod.name} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <Package className="w-6 h-6 text-[#FBC02D]" />
-                                                        )}
+                {/* Products List (Responsive: Grid for Mobile, Table for Desktop) */}
+                <div className="space-y-4">
+                    {/* Desktop Table View */}
+                    <div className="hidden lg:block bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-slate-50/50">
+                                    <tr>
+                                        <th className="text-left py-6 px-8 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Produto</th>
+                                        <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Categorização</th>
+                                        <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Preço</th>
+                                        <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Estoque</th>
+                                        <th className="text-center py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Status</th>
+                                        <th className="text-right py-6 px-8 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {isLoading ? (
+                                        [1, 2, 3, 4, 5].map(i => (
+                                            <tr key={i} className="animate-pulse">
+                                                <td className="py-6 px-8"><div className="h-14 w-full bg-slate-100 rounded-2xl"></div></td>
+                                                <td className="py-6 px-4"><div className="h-6 w-24 bg-slate-100 rounded-full"></div></td>
+                                                <td className="py-6 px-4"><div className="h-6 w-20 bg-slate-100 rounded-lg"></div></td>
+                                                <td className="py-6 px-4"><div className="h-6 w-16 bg-slate-100 rounded-lg"></div></td>
+                                                <td className="py-6 px-4"><div className="h-8 w-24 bg-slate-100 rounded-full mx-auto"></div></td>
+                                                <td className="py-6 px-8"><div className="h-10 w-24 bg-slate-100 rounded-xl ml-auto"></div></td>
+                                            </tr>
+                                        ))
+                                    ) : currentData.map((prod) => {
+                                        const statusInfo = getStatusInfo(prod);
+                                        return (
+                                            <tr key={prod.id} className="group hover:bg-slate-50/50 transition-colors">
+                                                <td className="py-6 px-8">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-[#05080F] overflow-hidden shrink-0">
+                                                            {prod.image_url ? (
+                                                                <img src={prod.image_url} alt={prod.name} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <Package className="w-6 h-6 text-[#FBC02D]" />
+                                                            )}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="font-black text-[#05080F] truncate">{prod.name}</p>
+                                                            <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wider mt-0.5">
+                                                                <BarChart className="w-3 h-3 text-[#FBC02D]" /> {prod.sales_count} vendas
+                                                            </span>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <p className="font-black text-[#05080F]">{prod.name}</p>
-                                                        <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wider mt-0.5">
-                                                            <BarChart className="w-3 h-3 text-[#FBC02D]" /> {prod.sales_count} vendas
-                                                        </span>
+                                                </td>
+                                                <td className="py-6 px-4">
+                                                    <p className="text-sm font-bold text-slate-600">{prod.product_categories?.name || 'Sem Categoria'}</p>
+                                                </td>
+                                                <td className="py-6 px-4 font-black text-[#05080F]">
+                                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.price)}
+                                                </td>
+                                                <td className="py-6 px-4 font-bold text-[#05080F]">
+                                                    {prod.stock_quantity} un.
+                                                </td>
+                                                <td className="py-6 px-4 text-center">
+                                                    <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${statusInfo.color}`}>
+                                                        {statusInfo.text}
+                                                    </span>
+                                                </td>
+                                                <td className="py-6 px-8 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            onClick={() => handleOpenEdit(prod)}
+                                                            className="p-2 text-slate-300 hover:text-[#FBC02D] hover:bg-[#FBC02D]/10 rounded-xl transition-all"
+                                                            title="Editar"
+                                                        >
+                                                            <Edit className="w-5 h-5" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => toggleProductStatus(prod.id, prod.is_active)}
+                                                            className={`p-2 rounded-xl transition-all ${prod.is_active ? 'text-amber-500 hover:bg-amber-50' : 'text-emerald-500 hover:bg-emerald-50'}`}
+                                                            title={prod.is_active ? 'Desativar' : 'Ativar'}
+                                                        >
+                                                            {prod.is_active ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteProduct(prod.id)}
+                                                            className="p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                                            title="Excluir"
+                                                        >
+                                                            <Trash2 className="w-5 h-5" />
+                                                        </button>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="py-6 px-4">
-                                                <p className="text-sm font-bold text-slate-600">{prod.product_categories?.name || 'Sem Categoria'}</p>
-                                            </td>
-                                            <td className="py-6 px-4 font-black text-[#05080F]">
-                                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.price)}
-                                            </td>
-                                            <td className="py-6 px-4 font-bold text-[#05080F]">
-                                                {prod.stock_quantity} un.
-                                            </td>
-                                            <td className="py-6 px-4 text-center">
-                                                <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${statusInfo.color}`}>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {isLoading ? (
+                            [1, 2, 3, 4].map(i => (
+                                <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm animate-pulse space-y-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-16 h-16 bg-slate-100 rounded-2xl shrink-0"></div>
+                                        <div className="flex-grow space-y-2">
+                                            <div className="h-4 bg-slate-100 rounded w-3/4"></div>
+                                            <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+                                        </div>
+                                    </div>
+                                    <div className="h-10 bg-slate-100 rounded-xl"></div>
+                                </div>
+                            ))
+                        ) : currentData.length > 0 ? (
+                            currentData.map((prod) => {
+                                const statusInfo = getStatusInfo(prod);
+                                return (
+                                    <div key={prod.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-20 h-20 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-[#05080F] overflow-hidden shrink-0">
+                                                {prod.image_url ? (
+                                                    <img src={prod.image_url} alt={prod.name} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <Package className="w-8 h-8 text-[#FBC02D]" />
+                                                )}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h3 className="font-black text-[#05080F] text-lg truncate">{prod.name}</h3>
+                                                <p className="text-sm font-bold text-slate-500">{prod.product_categories?.name || 'Sem Categoria'}</p>
+                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 mt-2 rounded-full text-[9px] font-black uppercase tracking-wider ${statusInfo.color}`}>
                                                     {statusInfo.text}
                                                 </span>
-                                            </td>
-                                            <td className="py-6 px-8 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button
-                                                        onClick={() => handleOpenEdit(prod)}
-                                                        className="p-2 text-slate-300 hover:text-[#FBC02D] hover:bg-[#FBC02D]/10 rounded-xl transition-all"
-                                                        title="Editar"
-                                                    >
-                                                        <Edit className="w-5 h-5" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => toggleProductStatus(prod.id, prod.is_active)}
-                                                        className={`p-2 rounded-xl transition-all ${prod.is_active ? 'text-amber-500 hover:bg-amber-50' : 'text-emerald-500 hover:bg-emerald-50'}`}
-                                                        title={prod.is_active ? 'Desativar' : 'Ativar'}
-                                                    >
-                                                        {prod.is_active ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteProduct(prod.id)}
-                                                        className="p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                                                        title="Excluir"
-                                                    >
-                                                        <Trash2 className="w-5 h-5" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                }) : (
-                                    <tr>
-                                        <td colSpan={6} className="py-20 text-center">
-                                            <div className="flex flex-col items-center gap-3 text-slate-400">
-                                                <Search className="w-12 h-12 opacity-20" />
-                                                <p className="font-bold">Nenhum produto encontrado.</p>
                                             </div>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
+                                            <div>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Preço</p>
+                                                <p className="font-black text-[#05080F]">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prod.price)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estoque</p>
+                                                <p className="font-bold text-[#05080F]">{prod.stock_quantity} unidades</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-2 pt-4">
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => handleOpenEdit(prod)}
+                                                    className="p-3 bg-slate-50 text-slate-400 hover:text-[#FBC02D] hover:bg-[#FBC02D]/10 rounded-xl transition-all"
+                                                >
+                                                    <Edit className="w-5 h-5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => toggleProductStatus(prod.id, prod.is_active)}
+                                                    className={`p-3 rounded-xl transition-all ${prod.is_active ? 'bg-amber-50 text-amber-500' : 'bg-emerald-50 text-emerald-500'}`}
+                                                >
+                                                    {prod.is_active ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteProduct(prod.id)}
+                                                    className="p-3 bg-red-50 text-red-400 hover:text-red-500 rounded-xl transition-all"
+                                                >
+                                                    <Trash2 className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Vendas</p>
+                                                <p className="font-black text-[#FBC02D]">{prod.sales_count}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <div className="col-span-full py-20 text-center bg-white rounded-[2.5rem] border border-slate-100">
+                                <Search className="w-12 h-12 opacity-20 mx-auto" />
+                                <p className="font-bold text-slate-400 mt-3">Nenhum produto encontrado.</p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Pagination */}
                     {totalPages > 1 && (
-                        <div className="p-8 border-t border-slate-50 flex justify-center gap-2">
+                        <div className="p-8 flex justify-center flex-wrap gap-2">
                             {[...Array(totalPages)].map((_, i) => (
                                 <button
                                     key={i}
                                     onClick={() => setCurrentPage(i + 1)}
-                                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${currentPage === i + 1 ? 'bg-[#05080F] text-white shadow-lg shadow-[#05080F]/10' : 'hover:bg-slate-100 text-[#05080F]'}`}
+                                    className={`w-10 h-10 md:w-auto md:px-4 md:py-2 rounded-xl text-sm font-bold transition-all ${currentPage === i + 1 ? 'bg-[#05080F] text-white shadow-lg shadow-[#05080F]/10' : 'bg-white border border-slate-100 hover:bg-slate-50 text-[#05080F]'}`}
                                 >
                                     {i + 1}
                                 </button>
@@ -583,20 +660,20 @@ const AdminProducts: React.FC = () => {
 
             {/* Novo/Editar Produto Modal */}
             {isNewModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4">
                     <div className="absolute inset-0 bg-[#05080F]/80 backdrop-blur-sm" onClick={() => setIsNewModalOpen(false)}></div>
-                    <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
-                        <form className="p-8 md:p-12 mb-0 overflow-y-auto max-h-[90vh] custom-scrollbar" onSubmit={handleSaveProduct}>
-                            <div className="flex justify-between items-center mb-10">
-                                <div>
-                                    <h2 className="text-3xl font-black text-[#05080F]">{editingProduct ? 'Editar Produto' : 'Novo Produto'}</h2>
-                                    <p className="text-slate-400 font-bold mt-1 uppercase text-xs tracking-widest">{editingProduct ? 'Atualizar catálogo' : 'Adicionar ao catálogo'}</p>
-                                </div>
-                                <button type="button" onClick={() => setIsNewModalOpen(false)} className="p-4 bg-slate-50 text-slate-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all">
-                                    <X className="w-6 h-6" />
-                                </button>
+                    <div className="bg-white w-full h-full md:h-auto md:max-w-2xl md:rounded-[3rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col">
+                        <div className="p-6 md:p-12 border-b border-slate-50 flex justify-between items-center shrink-0">
+                            <div>
+                                <h2 className="text-2xl md:text-3xl font-black text-[#05080F]">{editingProduct ? 'Editar Produto' : 'Novo Produto'}</h2>
+                                <p className="text-slate-400 font-bold mt-1 uppercase text-[10px] md:text-xs tracking-widest">{editingProduct ? 'Atualizar catálogo' : 'Adicionar ao catálogo'}</p>
                             </div>
+                            <button type="button" onClick={() => setIsNewModalOpen(false)} className="p-3 md:p-4 bg-slate-50 text-slate-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all">
+                                <X className="w-5 h-5 md:w-6 md:h-6" />
+                            </button>
+                        </div>
 
+                        <form className="p-6 md:p-12 mb-0 overflow-y-auto flex-grow custom-scrollbar" onSubmit={handleSaveProduct}>
                             <div className="space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
@@ -648,15 +725,15 @@ const AdminProducts: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="p-6 bg-slate-50/50 rounded-[2rem] border border-slate-100 space-y-6">
-                                    <h3 className="text-sm font-black text-[#05080F] flex items-center gap-2">
+                                <div className="p-4 md:p-6 bg-slate-50/50 rounded-[2rem] border border-slate-100 space-y-6">
+                                    <h3 className="text-[10px] md:text-sm font-black text-[#05080F] flex items-center gap-2 uppercase tracking-widest">
                                         <Box className="w-4 h-4 text-[#FBC02D]" />
-                                        DADOS DE LOGÍSTICA (FRETE)
+                                        LOGÍSTICA (FRETE)
                                     </h3>
 
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Peso (kg)</label>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-1">Peso (kg)</label>
                                             <input
                                                 type="number"
                                                 step="0.01"
@@ -667,8 +744,8 @@ const AdminProducts: React.FC = () => {
                                                 placeholder="0.5"
                                             />
                                         </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Comp. (cm)</label>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-1">Comp. (cm)</label>
                                             <input
                                                 type="number"
                                                 required
@@ -678,8 +755,8 @@ const AdminProducts: React.FC = () => {
                                                 placeholder="16"
                                             />
                                         </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Larg. (cm)</label>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-1">Larg. (cm)</label>
                                             <input
                                                 type="number"
                                                 required
@@ -689,8 +766,8 @@ const AdminProducts: React.FC = () => {
                                                 placeholder="11"
                                             />
                                         </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Alt. (cm)</label>
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-1">Alt. (cm)</label>
                                             <input
                                                 type="number"
                                                 required

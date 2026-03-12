@@ -259,41 +259,46 @@ const AdminCategories: React.FC = () => {
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Nome da Categoria</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D]"
-                                        placeholder="Ex: Camisa Social"
-                                    />
+                            <div className="space-y-6 flex-1 overflow-auto px-1">
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Nome da Categoria</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={name}
+                                            onChange={(e) => setName(e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl md:rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm md:text-base transition-all"
+                                            placeholder="Ex: Camisa Social"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Categoria Pai (Opcional)</label>
+                                        <select
+                                            value={parentCategoryId || ''}
+                                            onChange={(e) => setParentCategoryId(e.target.value ? parseInt(e.target.value) : null)}
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl md:rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm md:text-base transition-all"
+                                        >
+                                            <option value="">Nenhuma (Categoria Raiz)</option>
+                                            {/* Flattened categories list for select */}
+                                            {categoriesToSelect(categories).map(cat => (
+                                                <option key={cat.id} value={cat.id} disabled={cat.id === editingCategory?.id}>
+                                                    {cat.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Categoria Pai (Opcional)</label>
-                                    <select
-                                        value={parentCategoryId || ''}
-                                        onChange={(e) => setParentCategoryId(e.target.value ? parseInt(e.target.value) : null)}
-                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D]"
+
+                                <div className="mt-auto pt-6">
+                                    <button
+                                        type="submit"
+                                        disabled={isSaving}
+                                        className="w-full py-4 bg-[#05080F] text-white rounded-xl md:rounded-2xl font-black text-sm md:text-base shadow-xl hover:bg-[#1a2436] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                                     >
-                                        <option value="">Nenhuma (Categoria Raiz)</option>
-                                        {/* Flattened categories list for select */}
-                                        {categoriesToSelect(categories).map(cat => (
-                                            <option key={cat.id} value={cat.id} disabled={cat.id === editingCategory?.id}>
-                                                {cat.name}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : 'CONFIRMAR'}
+                                    </button>
                                 </div>
-                                <button
-                                    type="submit"
-                                    disabled={isSaving}
-                                    className="w-full py-4 bg-[#05080F] text-white rounded-xl font-black text-sm shadow-xl hover:bg-[#1a2436] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                                >
-                                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : 'CONFIRMAR'}
-                                </button>
                             </div>
                         </form>
                     </div>

@@ -227,35 +227,35 @@ const AdminAffiliates: React.FC = () => {
         <AdminLayout>
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
                     <div>
-                        <h1 className="text-3xl font-black text-[#05080F]">Gestão de Afiliados</h1>
-                        <p className="text-slate-500 font-medium">Visualize, edite e gerencie todos os parceiros da plataforma.</p>
+                        <h1 className="text-2xl md:text-3xl font-black text-[#05080F]">Gestão de Afiliados</h1>
+                        <p className="text-sm md:text-base text-slate-500 font-medium">Visualize, edite e gerencie todos os parceiros da plataforma.</p>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-3 w-full sm:w-auto">
                         <button
                             onClick={handleExport}
                             disabled={isExporting}
-                            className="bg-white border border-slate-200 px-6 py-3 rounded-2xl flex items-center gap-2 font-bold text-slate-600 hover:shadow-md transition-all disabled:opacity-50"
+                            className="flex-1 sm:flex-none justify-center bg-white border border-slate-200 px-4 md:px-6 py-3 rounded-2xl flex items-center gap-2 font-bold text-slate-600 hover:shadow-md transition-all disabled:opacity-50 text-sm md:text-base"
                         >
                             {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4 text-[#FBC02D]" />}
-                            Exportar PDF
+                            <span className="whitespace-nowrap">Exportar PDF</span>
                         </button>
                         <a
                             href="/register"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="bg-[#05080F] text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-xl shadow-[#05080F]/10 hover:bg-[#1a2436] transition-all"
+                            className="flex-1 sm:flex-none justify-center bg-[#05080F] text-white px-4 md:px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-xl shadow-[#05080F]/10 hover:bg-[#1a2436] transition-all text-sm md:text-base"
                         >
                             <UserPlus className="w-4 h-4 text-[#FBC02D]" />
-                            Novo Afiliado
+                            <span className="whitespace-nowrap">Novo Afiliado</span>
                         </a>
                     </div>
                 </div>
 
                 {/* Filter & Search Bar */}
-                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between relative z-10">
-                    <div className="relative w-full md:w-96">
+                <div className="bg-white p-4 md:p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between relative z-10">
+                    <div className="relative w-full lg:w-96">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                             type="text"
@@ -268,10 +268,10 @@ const AdminAffiliates: React.FC = () => {
                             }}
                         />
                     </div>
-                    <div className="flex gap-3 w-full md:w-auto">
+                    <div className="flex gap-3 w-full lg:w-auto">
                         <button
                             onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-                            className={`flex-grow md:flex-none flex items-center justify-center gap-2 px-6 py-3 border rounded-2xl font-bold transition-all text-sm ${isFiltersOpen ? 'bg-[#FBC02D]/10 border-[#FBC02D] text-[#05080F]' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                            className={`flex-grow lg:flex-none flex items-center justify-center gap-2 px-6 py-3 border rounded-2xl font-bold transition-all text-sm ${isFiltersOpen ? 'bg-[#FBC02D]/10 border-[#FBC02D] text-[#05080F]' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                         >
                             <Filter className="w-4 h-4 text-[#FBC02D]" />
                             Filtros Avançados {(filterStatus !== 'Todos' || filterPlan !== 'Todos') && <span className="w-2 h-2 bg-[#FBC02D] rounded-full"></span>}
@@ -336,7 +336,8 @@ const AdminAffiliates: React.FC = () => {
 
                 {/* Affiliates Table */}
                 <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
+                    {/* Desktop Table View */}
+                    <div className="hidden lg:block overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-slate-50/50">
                                 <tr>
@@ -445,85 +446,182 @@ const AdminAffiliates: React.FC = () => {
                         </table>
                     </div>
 
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="p-8 border-t border-slate-50 flex justify-center gap-2">
-                            {[...Array(totalPages)].map((_, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => setCurrentPage(i + 1)}
-                                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${currentPage === i + 1 ? 'bg-[#05080F] text-white' : 'hover:bg-slate-100 text-[#05080F]'}`}
-                                >
-                                    {i + 1}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-20">
-                    <div className="bg-[#05080F] rounded-[2rem] p-6 text-white flex items-center gap-5 shadow-xl shadow-[#05080F]/10">
-                        <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-[#FBC02D]">
-                            <Users className="w-8 h-8" />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total de Afiliados</p>
-                            <h4 className="text-2xl font-black">{totalStats.total}</h4>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-[2rem] p-6 border border-slate-100 flex items-center gap-5 shadow-sm">
-                        <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600">
-                            <AlertCircle className="w-8 h-8" />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Solicitações Pendentes</p>
-                            <h4 className="text-2xl font-black text-[#05080F]">{totalStats.pending}</h4>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-[2rem] p-6 border border-slate-100 flex items-center gap-5 shadow-sm">
-                        <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-                            <Calendar className="w-8 h-8" />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Novos este Mês</p>
-                            <h4 className="text-2xl font-black text-[#05080F]">+{totalStats.newThisMonth}</h4>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Network View Modal */}
-                {viewingNetworkId && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-                        <div className="bg-[#05080F] w-full max-w-6xl rounded-[3rem] border border-white/10 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-                            <div className="p-8 border-b border-white/5 flex justify-between items-center">
-                                <div>
-                                    <h2 className="text-2xl font-black text-white">Rede de Afiliados</h2>
-                                    <p className="text-slate-400 font-medium capitalize">Visualizando rede de: <span className="text-[#FBC02D]">{viewingNetworkName}</span></p>
+                    {/* Mobile Card View */}
+                    <div className="lg:hidden divide-y divide-slate-50">
+                        {isLoading ? (
+                            [1, 2, 3].map(i => (
+                                <div key={i} className="p-4 animate-pulse">
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div className="w-12 h-12 bg-slate-100 rounded-2xl"></div>
+                                        <div className="flex-1">
+                                            <div className="h-4 w-24 bg-slate-100 rounded mb-2"></div>
+                                            <div className="h-3 w-32 bg-slate-100 rounded"></div>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="h-8 bg-slate-100 rounded-xl"></div>
+                                        <div className="h-8 bg-slate-100 rounded-xl"></div>
+                                    </div>
                                 </div>
-                                <button
-                                    onClick={() => setViewingNetworkId(null)}
-                                    className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl text-white transition-all"
-                                >
-                                    <X className="w-6 h-6" />
-                                </button>
+                            ))
+                        ) : currentData.length > 0 ? (
+                            currentData.map((aff) => (
+                                <div key={aff.id} className="p-4 space-y-4">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-[#05080F] flex items-center justify-center font-black text-[#FBC02D] text-sm shrink-0">
+                                                {aff.name.charAt(0)}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="font-black text-[#05080F] truncate">{aff.name}</p>
+                                                <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wider truncate">
+                                                    <Mail className="w-3 h-3 text-[#FBC02D]" /> {aff.email}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${getStatusColor(aff.status)}`}>
+                                            {aff.status}
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl">
+                                        <div>
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Plano</p>
+                                            <span className={`text-xs font-black uppercase tracking-tight ${getPlanColor(aff.plan)}`}>
+                                                {aff.plan}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Ganhos</p>
+                                            <p className="text-xs font-black text-emerald-600">{aff.earnings}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        {aff.status === 'Pendente' && (
+                                            <button
+                                                onClick={() => verifyAffiliate(aff.id)}
+                                                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-black uppercase tracking-wider"
+                                            >
+                                                <CheckCircle className="w-4 h-4" /> Verificar
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => {
+                                                setViewingNetworkId(aff.id);
+                                                setViewingNetworkName(aff.name);
+                                            }}
+                                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#FBC02D]/10 text-[#05080F] rounded-xl text-xs font-black uppercase tracking-wider"
+                                        >
+                                            <Network className="w-4 h-4 text-[#FBC02D]" /> Rede
+                                        </button>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => toggleStatus(aff.id, aff.raw_status)}
+                                                className={`p-2.5 rounded-xl transition-all ${aff.raw_status ? 'bg-amber-50 text-amber-500' : 'bg-emerald-50 text-emerald-500'}`}
+                                            >
+                                                {aff.raw_status ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                                            </button>
+                                            <button
+                                                onClick={() => deleteAffiliate(aff.id)}
+                                                className="p-2.5 bg-red-50 text-red-500 rounded-xl transition-all"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="py-20 text-center">
+                                <Search className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+                                <p className="text-slate-400 font-bold">Nenhum afiliado encontrado.</p>
                             </div>
-                            <div className="p-8">
-                                <AffiliateNetwork rootAffiliateId={viewingNetworkId} />
-                            </div>
-                            <div className="p-6 bg-white/5 flex justify-end">
-                                <button
-                                    onClick={() => setViewingNetworkId(null)}
-                                    className="px-8 py-3 bg-[#FBC02D] text-[#05080F] font-black rounded-2xl hover:bg-white transition-all"
-                                >
-                                    Fechar Visualização
-                                </button>
-                            </div>
-                        </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="p-8 border-t border-slate-50 flex justify-center gap-2">
+                        {[...Array(totalPages)].map((_, i) => (
+                            <button
+                                key={i}
+                                onClick={() => setCurrentPage(i + 1)}
+                                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${currentPage === i + 1 ? 'bg-[#05080F] text-white' : 'hover:bg-slate-100 text-[#05080F]'}`}
+                            >
+                                {i + 1}
+                            </button>
+                        ))}
                     </div>
                 )}
             </div>
-        </AdminLayout>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-20">
+                <div className="bg-[#05080F] rounded-[2rem] p-6 text-white flex items-center gap-5 shadow-xl shadow-[#05080F]/10">
+                    <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-[#FBC02D]">
+                        <Users className="w-8 h-8" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total de Afiliados</p>
+                        <h4 className="text-2xl font-black">{totalStats.total}</h4>
+                    </div>
+                </div>
+                <div className="bg-white rounded-[2rem] p-6 border border-slate-100 flex items-center gap-5 shadow-sm">
+                    <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600">
+                        <AlertCircle className="w-8 h-8" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Solicitações Pendentes</p>
+                        <h4 className="text-2xl font-black text-[#05080F]">{totalStats.pending}</h4>
+                    </div>
+                </div>
+                <div className="bg-white rounded-[2rem] p-6 border border-slate-100 flex items-center gap-5 shadow-sm">
+                    <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                        <Calendar className="w-8 h-8" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Novos este Mês</p>
+                        <h4 className="text-2xl font-black text-[#05080F]">+{totalStats.newThisMonth}</h4>
+                    </div>
+                </div>
+            </div>
+
+            {/* Network View Modal */}
+            {viewingNetworkId && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-[#05080F] w-full h-full md:h-auto md:max-w-6xl md:rounded-[3rem] border-0 md:border md:border-white/10 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col">
+                        <div className="p-6 md:p-8 border-b border-white/5 flex justify-between items-center shrink-0">
+                            <div>
+                                <h2 className="text-xl md:text-2xl font-black text-white">Rede de Afiliados</h2>
+                                <p className="text-xs md:text-sm text-slate-400 font-medium capitalize mt-1">
+                                    Visualizando rede de: <span className="text-[#FBC02D]">{viewingNetworkName}</span>
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setViewingNetworkId(null)}
+                                className="p-2 md:p-3 bg-white/5 hover:bg-white/10 rounded-xl md:rounded-2xl text-white transition-all"
+                            >
+                                <X className="w-5 h-5 md:w-6 md:h-6" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-auto p-4 md:p-8 min-h-0 bg-white/5">
+                            <AffiliateNetwork rootAffiliateId={viewingNetworkId} />
+                        </div>
+                        <div className="p-4 md:p-6 border-t border-white/5 flex justify-end shrink-0">
+                            <button
+                                onClick={() => setViewingNetworkId(null)}
+                                className="w-full md:w-auto px-8 py-3 bg-[#FBC02D] text-[#05080F] font-black rounded-xl md:rounded-2xl hover:bg-white transition-all text-sm md:text-base"
+                            >
+                                Fechar Visualização
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+        </AdminLayout >
     );
 };
 

@@ -149,7 +149,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                 </header>
 
                 {/* Page Content */}
-                <main className="p-8">
+                <main className="p-4 md:p-8">
                     {children}
                 </main>
             </div>
