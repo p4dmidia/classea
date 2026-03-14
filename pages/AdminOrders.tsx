@@ -86,6 +86,7 @@ const AdminOrders: React.FC = () => {
                     *,
                     order_items (*)
                 `)
+                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;

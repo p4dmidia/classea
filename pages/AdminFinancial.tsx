@@ -53,6 +53,7 @@ const AdminFinancial: React.FC = () => {
                     *,
                     affiliate:affiliates(full_name)
                 `)
+                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -77,7 +78,8 @@ const AdminFinancial: React.FC = () => {
             const { error } = await supabase
                 .from('withdrawals')
                 .update({ status: newStatus })
-                .eq('id', id);
+                .eq('id', id)
+                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b');
 
             if (error) throw error;
 
@@ -107,7 +109,8 @@ const AdminFinancial: React.FC = () => {
                     status: 'paid',
                     processed_at: new Date().toISOString()
                 })
-                .eq('status', 'approved');
+                .eq('status', 'approved')
+                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b');
 
             if (error) throw error;
 

@@ -63,6 +63,7 @@ const AffiliateFinancial: React.FC = () => {
                 .from('user_settings')
                 .select('available_balance, frozen_balance, total_earnings, pix_key')
                 .eq('user_id', user?.id)
+                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
                 .single();
 
             if (settingsError) throw settingsError;
@@ -72,6 +73,7 @@ const AffiliateFinancial: React.FC = () => {
                 .from('withdrawals')
                 .select('*')
                 .eq('user_id', user?.id)
+                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
                 .order('created_at', { ascending: false });
 
             if (withdrawError) throw withdrawError;
@@ -126,6 +128,7 @@ const AffiliateFinancial: React.FC = () => {
                 .from('withdrawals')
                 .insert([{
                     user_id: user?.id,
+                    organization_id: '5111af72-27a5-41f2-8957-3f9bf461876b',
                     amount_requested: amount,
                     net_amount: amount,
                     pix_key: pixKey,
@@ -161,7 +164,8 @@ const AffiliateFinancial: React.FC = () => {
             const { error } = await supabase
                 .from('user_settings')
                 .update({ pix_key: newPixKey.trim() })
-                .eq('user_id', user?.id);
+                .eq('user_id', user?.id)
+                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b');
 
             if (error) throw error;
 

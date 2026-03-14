@@ -108,6 +108,7 @@ const AdminProducts: React.FC = () => {
                 *,
                 product_categories (name, parent_id)
             `)
+            .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -122,6 +123,7 @@ const AdminProducts: React.FC = () => {
         const { data, error } = await supabase
             .from('product_categories')
             .select('*')
+            .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
             .order('name');
 
         if (error) {
@@ -226,7 +228,8 @@ const AdminProducts: React.FC = () => {
                 length: parseFloat(formData.length) || 16,
                 width: parseFloat(formData.width) || 11,
                 height: parseFloat(formData.height) || 2,
-                origin_zip: formData.origin_zip || '82820-160'
+                origin_zip: formData.origin_zip || '82820-160',
+                organization_id: '5111af72-27a5-41f2-8957-3f9bf461876b'
             };
 
             if (editingProduct) {

@@ -71,6 +71,7 @@ const RegisterPage: React.FC = () => {
                         login: formData.login,
                         registration_type: registrationType,
                         sponsor_code: sponsorCode,
+                        organization_id: '5111af72-27a5-41f2-8957-3f9bf461876b',
                     }
                 }
             });

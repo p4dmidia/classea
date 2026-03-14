@@ -97,6 +97,7 @@ const CheckoutPage: React.FC = () => {
                 .from('orders')
                 .insert([{
                     id: orderId,
+                    organization_id: '5111af72-27a5-41f2-8957-3f9bf461876b',
                     customer_name: customerInfo.name,
                     customer_email: customerInfo.email,
                     customer_phone: customerInfo.phone,
@@ -116,6 +117,7 @@ const CheckoutPage: React.FC = () => {
                 .from('order_items')
                 .insert(cart.map(item => ({
                     order_id: orderId,
+                    organization_id: '5111af72-27a5-41f2-8957-3f9bf461876b',
                     product_id: item.id,
                     product_name: item.name,
                     quantity: item.quantity,

@@ -51,6 +51,7 @@ const AdminAffiliates: React.FC = () => {
             const { data: affData, error: affError } = await supabase
                 .from('affiliates')
                 .select('*')
+                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
                 .order('created_at', { ascending: false });
 
             if (affError) throw affError;
@@ -620,8 +621,7 @@ const AdminAffiliates: React.FC = () => {
                     </div>
                 </div>
             )}
-        </div>
-        </AdminLayout >
+        </AdminLayout>
     );
 };
 

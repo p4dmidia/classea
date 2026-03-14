@@ -40,6 +40,7 @@ const AffiliateDashboard: React.FC = () => {
                     .from('affiliates')
                     .select('*')
                     .eq('user_id', user.id)
+                    .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
                     .single();
 
                 if (affErr) throw affErr;
@@ -50,6 +51,7 @@ const AffiliateDashboard: React.FC = () => {
                     .from('user_settings')
                     .select('*')
                     .eq('user_id', user.id)
+                    .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
                     .single();
 
                 if (walletErr) throw walletErr;
