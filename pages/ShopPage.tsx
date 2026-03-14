@@ -75,7 +75,7 @@ const ShopPage: React.FC = () => {
             const from = (page - 1) * productsPerPage;
             const to = from + productsPerPage - 1;
 
-            // Using join to filter by category id and descendant ids
+            console.log('DEBUG: Fetching products for org:', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
             let query = supabase
                 .from('products')
                 .select(`
@@ -88,6 +88,7 @@ const ShopPage: React.FC = () => {
                 .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
 
             const catId = searchParams.get('category_id');
+            console.log('DEBUG: catId from URL:', catId);
             if (catId) {
                 // Fetch descendants recursively
                 const { data: descendantIds, error: rpcError } = await supabase
@@ -137,6 +138,7 @@ const ShopPage: React.FC = () => {
 
                     if (fallback.error) throw fallback.error;
 
+                    console.log('DEBUG: Fallback data count:', fallback.data?.length);
                     const formattedFallback = fallback.data?.map(p => ({
                         ...p,
                         category: p.product_categories?.name || 'Sem Categoria',
@@ -152,6 +154,7 @@ const ShopPage: React.FC = () => {
                 throw error;
             }
 
+            console.log('DEBUG: Products fetched:', data?.length, 'Count:', count);
             const formatted = data?.map(p => ({
                 ...p,
                 category: p.product_categories?.name || 'Sem Categoria',

@@ -17,6 +17,7 @@ const FeaturedProducts: React.FC = () => {
 
   const fetchFeaturedProducts = async () => {
     setIsLoading(true);
+    console.log('DEBUG: Fetching featured for org:', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
     try {
       const { data, error } = await supabase
         .from('products')
@@ -30,6 +31,7 @@ const FeaturedProducts: React.FC = () => {
 
       if (error) throw error;
 
+      console.log('DEBUG: Featured data count:', data?.length);
       const formatted = data?.map(p => ({
         ...p,
         category: p.product_categories?.name || 'Destaque'
