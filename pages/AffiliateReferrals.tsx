@@ -64,7 +64,7 @@ const AffiliateReferrals: React.FC = () => {
                 .from('affiliates')
                 .select('id')
                 .eq('user_id', user?.id)
-                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
+                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
                 .single();
 
             if (affError) throw affError;
@@ -75,7 +75,7 @@ const AffiliateReferrals: React.FC = () => {
                 .from('affiliates')
                 .select('*')
                 .eq('sponsor_id', affData.id)
-                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
+                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;

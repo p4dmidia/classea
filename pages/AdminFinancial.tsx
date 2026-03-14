@@ -53,7 +53,7 @@ const AdminFinancial: React.FC = () => {
                     *,
                     affiliate:affiliates(full_name)
                 `)
-                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
+                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -79,7 +79,7 @@ const AdminFinancial: React.FC = () => {
                 .from('withdrawals')
                 .update({ status: newStatus })
                 .eq('id', id)
-                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b');
+                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
 
             if (error) throw error;
 
@@ -110,7 +110,7 @@ const AdminFinancial: React.FC = () => {
                     processed_at: new Date().toISOString()
                 })
                 .eq('status', 'approved')
-                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b');
+                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
 
             if (error) throw error;
 

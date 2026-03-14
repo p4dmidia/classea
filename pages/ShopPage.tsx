@@ -56,7 +56,7 @@ const ShopPage: React.FC = () => {
             const { data, error } = await supabase
                 .from('product_categories')
                 .select('id, name, parent_id')
-                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
+                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
                 .order('name');
 
             if (error) throw error;
@@ -85,7 +85,7 @@ const ShopPage: React.FC = () => {
                         name
                     )
                 `, { count: 'exact' })
-                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b');
+                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
 
             const catId = searchParams.get('category_id');
             if (catId) {
@@ -131,7 +131,7 @@ const ShopPage: React.FC = () => {
                     const fallback = await supabase
                         .from('products')
                         .select(`*, product_categories (name)`, { count: 'exact' })
-                        .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
+                        .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
                         .order('created_at', { ascending: false })
                         .range(from, to);
 

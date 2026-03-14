@@ -121,7 +121,7 @@ const AdminCategories: React.FC = () => {
             const { data, error } = await supabase
                 .from('product_categories')
                 .select('*')
-                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
+                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
                 .order('name');
 
             if (error) throw error;
@@ -170,7 +170,7 @@ const AdminCategories: React.FC = () => {
             } else {
                 const { error } = await supabase
                     .from('product_categories')
-                    .insert([{ name, parent_id: parentCategoryId, organization_id: '5111af72-27a5-41f2-8957-3f9bf461876b' }]);
+                    .insert([{ name, parent_id: parentCategoryId, organization_id: '5111af72-27a5-41fd-8ed9-8c51b78b4fdd' }]);
                 if (error) throw error;
                 toast.success('Categoria criada!');
             }

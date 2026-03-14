@@ -24,6 +24,7 @@ const FeaturedProducts: React.FC = () => {
           *,
           product_categories (name)
         `)
+        .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
         .limit(4)
         .order('created_at', { ascending: false });
 

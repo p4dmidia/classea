@@ -35,7 +35,7 @@ const ProductDetails: React.FC = () => {
                 .from('products')
                 .select('*, product_categories(name)')
                 .eq('id', id)
-                .eq('organization_id', '5111af72-27a5-41f2-8957-3f9bf461876b')
+                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
                 .single();
 
             if (error) throw error;
