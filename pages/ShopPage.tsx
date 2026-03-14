@@ -98,14 +98,48 @@ const ShopPage: React.FC = () => {
                     const idList = descendantIds.map((d: any) => d.id);
                     query = query.in('category_id', idList);
                 } else {
-                    // Fallback to direct id if RPC fails or returns empty
-                    query = query.eq('category_id', parseInt(catId));
+                    // Client-side recursion fallback if RPC fails or returns empty
+                    console.log('DEBUG: RPC failed or empty, using client-side recursion for catId:', catId);
+                    
+                    const fetchChildIds = async (parentId: number): Promise<number[]> => {
+                        const { data: children } = await supabase
+                            .from('product_categories')
+                            .select('id')
+                            .eq('parent_id', parentId)
+                            .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
+                        
+                        let ids = [parentId];
+                        if (children && children.length > 0) {
+                            for (const child of children) {
+                                const childIds = await fetchChildIds(child.id);
+                                ids = [...ids, ...childIds];
+                            }
+                        }
+                        return ids;
+                    };
+
+                    const idList = await fetchChildIds(parseInt(catId));
+                    query = query.in('category_id', idList);
                 }
             }
 
             const q = searchParams.get('q');
             if (q) {
-                query = query.ilike('name', `%${q}%`);
+                console.log('DEBUG: Searching for:', q);
+                // Smart Search: Also find categories that match the term
+                const { data: matchingCats } = await supabase
+                    .from('product_categories')
+                    .select('id')
+                    .ilike('name', `%${q}%`)
+                    .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
+
+                const catIds = matchingCats?.map(c => c.id) || [];
+                
+                if (catIds.length > 0) {
+                    query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%,category_id.in.(${catIds.join(',')})`);
+                } else {
+                    query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
+                }
             }
 
             const min = searchParams.get('min');

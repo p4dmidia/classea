@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { Search, User, ShoppingCart, Menu, X } from 'lucide-react';
+import { Search, User, ShoppingCart, Menu, X, ChevronDown } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import { useCart } from './CartContext';
 
 const Header: React.FC = () => {
@@ -18,15 +19,50 @@ const Header: React.FC = () => {
     }
   };
 
-  const categories = [
-    { label: 'Todos', path: '/shop' },
-    { label: 'Colchões', path: '/shop?category=Colchões' },
-    { label: 'Acessórios', path: '/shop?category=Acessórios' },
-    { label: 'Conforto', path: '/shop?category=Conforto' },
-    { label: 'Camas', path: '/shop?category=Camas' },
-    { label: 'Enxoval', path: '/shop?category=Enxoval' },
-    { label: 'Consórcio', path: '/shop?category=Consórcio', icon: true },
-  ];
+  const [categories, setCategories] = useState<{ label: string; path: string; icon?: boolean; id?: number }[]>([
+    { label: 'Todos', path: '/shop' }
+  ]);
+
+  React.useEffect(() => {
+    fetchMainCategories();
+  }, []);
+
+  const fetchMainCategories = async () => {
+    try {
+      // Fetch only top level categories (parent_id is null) for the organization
+      const { data, error } = await supabase
+        .from('product_categories')
+        .select('id, name')
+        .is('parent_id', null)
+        .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+        .order('name');
+
+      if (error) throw error;
+
+      if (data) {
+        const dynamicCats = data.map(cat => ({
+          label: cat.name,
+          path: `/shop?category_id=${cat.id}`,
+          id: cat.id
+        }));
+        setCategories([
+          { label: 'Todos', path: '/shop' },
+          ...dynamicCats,
+          { label: 'Consórcio', path: '/consorcio', icon: true } 
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching header categories:', error);
+      // Fallback to basic categories if error
+      setCategories([
+        { label: 'Todos', path: '/shop' },
+        { label: 'Colchões', path: '/shop?category_id=49' },
+        { label: 'Calçados', path: '/shop?category_id=19' },
+        { label: 'Vestuário', path: '/shop?category_id=5' },
+        { label: 'Acessórios', path: '/shop?category_id=1' }
+      ]);
+    }
+  };
 
   return (
     <header className="w-full">
@@ -86,8 +122,11 @@ const Header: React.FC = () => {
         <div className="container mx-auto px-4 overflow-x-auto">
           <ul className="flex items-center gap-6 py-4 whitespace-nowrap text-xs md:text-sm font-medium">
             {categories.map((cat, idx) => {
-              const currentCat = searchParams.get('category') || 'Todos';
-              const isActive = (cat.label === 'Todos' && !searchParams.get('category')) || cat.label === currentCat;
+              const currentCatId = searchParams.get('category_id');
+              const isPathActive = window.location.pathname === cat.path;
+              const isActive = (cat.label === 'Todos' && !currentCatId && window.location.pathname === '/shop') || 
+                               (cat.id && currentCatId === cat.id.toString()) ||
+                               (cat.path === '/consorcio' && window.location.pathname === '/consorcio');
 
               return (
                 <li key={idx}>
