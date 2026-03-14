@@ -72,6 +72,7 @@ const AdminProducts: React.FC = () => {
     // Form States
     const [formData, setFormData] = useState({
         name: '',
+        parent_category_id: '',
         category_id: '',
         price: '',
         stock_quantity: '',
@@ -169,6 +170,7 @@ const AdminProducts: React.FC = () => {
         setEditingProduct(prod);
         setFormData({
             name: prod.name,
+            parent_category_id: prod.product_categories?.parent_id?.toString() || '',
             category_id: prod.category_id.toString(),
             price: prod.price.toString(),
             stock_quantity: prod.stock_quantity.toString(),
@@ -218,7 +220,7 @@ const AdminProducts: React.FC = () => {
 
             const productData = {
                 name: formData.name,
-                category_id: parseInt(formData.category_id),
+                category_id: parseInt(formData.category_id || formData.parent_category_id),
                 price: parsedPrice,
                 stock_quantity: parseInt(formData.stock_quantity),
                 description: formData.description,
@@ -297,6 +299,7 @@ const AdminProducts: React.FC = () => {
     const resetForm = () => {
         setFormData({
             name: '',
+            parent_category_id: '',
             category_id: '',
             price: '',
             stock_quantity: '',
@@ -691,15 +694,29 @@ const AdminProducts: React.FC = () => {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Categoria</label>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Categoria Principal</label>
                                         <select
                                             required
-                                            value={formData.category_id}
-                                            onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                                            value={formData.parent_category_id}
+                                            onChange={(e) => setFormData({ ...formData, parent_category_id: e.target.value, category_id: '' })}
                                             className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
                                         >
                                             <option value="">Selecionar...</option>
-                                            {categoriesToSelect(categories).map(cat => (
+                                            {categories.map(cat => (
+                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Subcategoria (Opcional)</label>
+                                        <select
+                                            value={formData.category_id}
+                                            onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
+                                            disabled={!formData.parent_category_id}
+                                        >
+                                            <option value="">Mesma da Principal</option>
+                                            {categories.find(c => c.id.toString() === formData.parent_category_id)?.children?.map(cat => (
                                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
                                             ))}
                                         </select>

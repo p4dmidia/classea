@@ -126,17 +126,39 @@ const ShopPage: React.FC = () => {
             const q = searchParams.get('q');
             if (q) {
                 console.log('DEBUG: Searching for:', q);
-                // Smart Search: Also find categories that match the term
-                const { data: matchingCats } = await supabase
+                // Smart Search: Find categories that match the term
+                const { data: matchedCats } = await supabase
                     .from('product_categories')
                     .select('id')
                     .ilike('name', `%${q}%`)
                     .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
 
-                const catIds = matchingCats?.map(c => c.id) || [];
+                let allSearchCatIds: number[] = [];
+                if (matchedCats && matchedCats.length > 0) {
+                    // Recursive function to get all descendants for multiple root IDs
+                    const fetchAllDescendants = async (ids: number[]): Promise<number[]> => {
+                        let result = [...ids];
+                        for (const id of ids) {
+                            const { data: children } = await supabase
+                                .from('product_categories')
+                                .select('id')
+                                .eq('parent_id', id)
+                                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
+                            
+                            if (children && children.length > 0) {
+                                const childIds = children.map(c => c.id);
+                                const deeperIds = await fetchAllDescendants(childIds);
+                                result = [...result, ...deeperIds];
+                            }
+                        }
+                        return Array.from(new Set(result));
+                    };
+
+                    allSearchCatIds = await fetchAllDescendants(matchedCats.map(c => c.id));
+                }
                 
-                if (catIds.length > 0) {
-                    query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%,category_id.in.(${catIds.join(',')})`);
+                if (allSearchCatIds.length > 0) {
+                    query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%,category_id.in.(${allSearchCatIds.join(',')})`);
                 } else {
                     query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
                 }
@@ -258,7 +280,18 @@ const ShopPage: React.FC = () => {
         toast.success(`${product.name} adicionado ao carrinho!`);
     };
 
-    const currentCategoryName = activeCategoryId ? categories.find(c => c.id === activeCategoryId)?.name : '';
+    const getCategoryPath = (catId: number | null): string => {
+        if (!catId) return '';
+        const cat = categories.find(c => c.id === catId);
+        if (!cat) return '';
+        if (cat.parent_id) {
+            const parent = categories.find(p => p.id === cat.parent_id);
+            if (parent) return `${parent.name} > ${cat.name}`;
+        }
+        return cat.name;
+    };
+
+    const currentCategoryName = getCategoryPath(activeCategoryId);
 
     return (
         <div className="bg-white min-h-screen">

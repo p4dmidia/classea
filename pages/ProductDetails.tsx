@@ -33,7 +33,18 @@ const ProductDetails: React.FC = () => {
         try {
             const { data, error } = await supabase
                 .from('products')
-                .select('*, product_categories(name)')
+                .select(`
+                    *,
+                    product_categories (
+                        id,
+                        name,
+                        parent_id,
+                        parent:parent_id (
+                            id,
+                            name
+                        )
+                    )
+                `)
                 .eq('id', id)
                 .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
                 .single();
@@ -41,10 +52,19 @@ const ProductDetails: React.FC = () => {
             if (error) throw error;
 
             // Format data
+            let categoryLabel = 'Geral';
+            if (data.product_categories) {
+                if (data.product_categories.parent) {
+                    categoryLabel = `${data.product_categories.parent.name} > ${data.product_categories.name}`;
+                } else {
+                    categoryLabel = data.product_categories.name;
+                }
+            }
+
             const formatted = {
                 ...data,
-                category: data.product_categories?.name || 'Geral',
-                image_url: data.image_url || data.image || 'https://placehold.co/600x600?text=Classe+A'
+                category: categoryLabel,
+                image_url: (data.image_url || data.image || '').split(',')[0].trim() || 'https://placehold.co/600x600?text=Classe+A'
             };
 
             setProduct(formatted);
