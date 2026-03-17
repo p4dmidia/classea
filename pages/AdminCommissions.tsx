@@ -42,6 +42,10 @@ const AdminCommissions: React.FC = () => {
         { level: 7, value: 0 },
     ]);
 
+    // Vendas State (Vendedor)
+    const [salesSellerValue, setSalesSellerValue] = useState(20);
+    const [salesReferrerValue, setSalesReferrerValue] = useState(3);
+
     // Colchões State
     const [mattressType, setMattressType] = useState<'percent' | 'money'>('percent');
     const [mattressGens, setMattressGens] = useState(6);
@@ -73,6 +77,7 @@ const AdminCommissions: React.FC = () => {
             if (data && data.length > 0) {
                 const geral = data.find(c => c.key === 'geral');
                 const mattress = data.find(c => c.key === 'mattress');
+                const sales = data.find(c => c.key === 'sales');
 
                 if (geral) {
                     setGeralType(geral.type);
@@ -84,6 +89,13 @@ const AdminCommissions: React.FC = () => {
                     setMattressType(mattress.type);
                     setMattressGens(mattress.active_generations);
                     setMattressLevels(mattress.levels);
+                }
+
+                if (sales) {
+                    const seller = sales.levels.find((l: any) => l.level === 0);
+                    const referrer = sales.levels.find((l: any) => l.level === 1);
+                    if (seller) setSalesSellerValue(seller.value);
+                    if (referrer) setSalesReferrerValue(referrer.value);
                 }
             }
         } catch (error) {
@@ -110,6 +122,16 @@ const AdminCommissions: React.FC = () => {
                     type: mattressType,
                     active_generations: mattressGens,
                     levels: mattressLevels,
+                    updated_at: new Date().toISOString()
+                },
+                {
+                    key: 'sales',
+                    type: 'percent',
+                    active_generations: 1,
+                    levels: [
+                        { level: 0, value: salesSellerValue }, // 0 = Vendedor
+                        { level: 1, value: salesReferrerValue } // 1 = Indicador
+                    ],
                     updated_at: new Date().toISOString()
                 }
             ];
@@ -326,6 +348,48 @@ const AdminCommissions: React.FC = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
                                 {renderLevelInputs('mattress', mattressGens, mattressLevels, mattressType)}
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-sm p-6 md:p-10">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-10">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 md:p-4 bg-emerald-50 rounded-xl md:rounded-2xl text-emerald-600">
+                                <TrendingUp className="w-5 h-5 md:w-6 md:h-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg md:text-xl font-black text-[#05080F]">Comissão de Vendedor (Vendas)</h3>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Configuração para tipo "Vendedor"</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center px-1">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Comissão do Vendedor: <span className="text-[#05080F]">{salesSellerValue}%</span></label>
+                            </div>
+                            <input
+                                type="range" min="0" max="50"
+                                value={salesSellerValue}
+                                onChange={(e) => setSalesSellerValue(parseInt(e.target.value))}
+                                className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                            />
+                            <p className="text-[10px] text-slate-400 font-medium italic">* Porcentagem que o Vendedor recebe sobre suas próprias vendas.</p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center px-1">
+                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Comissão do Indicador: <span className="text-[#05080F]">{salesReferrerValue}%</span></label>
+                            </div>
+                            <input
+                                type="range" min="0" max="10"
+                                value={salesReferrerValue}
+                                onChange={(e) => setSalesReferrerValue(parseInt(e.target.value))}
+                                className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-[#FBC02D]"
+                            />
+                            <p className="text-[10px] text-slate-400 font-medium italic">* Porcentagem que a pessoa que indicou o vendedor recebe.</p>
                         </div>
                     </div>
                 </div>

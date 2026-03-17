@@ -33,13 +33,21 @@ interface Referral {
 }
 
 const AffiliateReferrals: React.FC = () => {
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
     const [loading, setLoading] = useState(true);
     const [referrals, setReferrals] = useState<Referral[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('Todos');
     const [affiliateId, setAffiliateId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'list' | 'network'>('list');
+
+    const isSalesType = profile?.registration_type === 'sales';
+
+    useEffect(() => {
+        if (isSalesType && viewMode === 'network') {
+            setViewMode('list');
+        }
+    }, [profile, viewMode]);
 
     // Estados para estatísticas
     const [stats, setStats] = useState([
@@ -175,13 +183,15 @@ const AffiliateReferrals: React.FC = () => {
                             <List className="w-4 h-4" />
                             Lista
                         </button>
-                        <button
-                            onClick={() => setViewMode('network')}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${viewMode === 'network' ? 'bg-[#0B1221] text-white' : 'text-slate-400 hover:text-[#0B1221]'}`}
-                        >
-                            <Network className="w-4 h-4" />
-                            Rede
-                        </button>
+                        {!isSalesType && (
+                            <button
+                                onClick={() => setViewMode('network')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${viewMode === 'network' ? 'bg-[#0B1221] text-white' : 'text-slate-400 hover:text-[#0B1221]'}`}
+                            >
+                                <Network className="w-4 h-4" />
+                                Rede
+                            </button>
+                        )}
                     </div>
                     <button
                         onClick={fetchReferrals}
