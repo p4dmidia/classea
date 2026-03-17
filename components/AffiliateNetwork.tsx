@@ -40,12 +40,15 @@ export const AffiliateNetwork: React.FC<AffiliateNetworkProps> = ({ rootAffiliat
                 .eq('name', 'Classe A')
                 .single();
             const orgId = orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
+            console.log('DEBUG: Buscando rede para org:', orgId);
 
             // 2. Fetch all relevant affiliates for this organization
             const { data: allAffiliates, error } = await supabase
                 .from('affiliates')
                 .select('id, full_name, email, sponsor_id')
                 .eq('organization_id', orgId);
+            
+            console.log('DEBUG: Afiliados encontrados na rede:', allAffiliates?.length);
 
             if (error) throw error;
 

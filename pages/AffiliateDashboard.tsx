@@ -44,8 +44,13 @@ const AffiliateDashboard: React.FC = () => {
                     .eq('user_id', user.id)
                     .single();
 
-                if (affErr) throw affErr;
+                if (affErr) {
+                    console.error('DEBUG: Erro ao buscar dados do afiliado:', affErr);
+                    throw affErr;
+                }
+                
                 setAffiliateData(aff);
+                console.log('DEBUG: Afiliado logado:', { aff_id: aff.id, user_id: aff.user_id, org_id: aff.organization_id });
 
                 const effectiveOrgId = aff.organization_id || profile?.organization_id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
 
@@ -69,17 +74,18 @@ const AffiliateDashboard: React.FC = () => {
                 }
 
                 // 4. Buscar indicações ativas (contagem)
-                const { count: activeCount } = await supabase
+                const { count: activeCount, error: activeErr } = await supabase
                     .from('affiliates')
                     .select('*', { count: 'exact', head: true })
                     .eq('sponsor_id', aff.id)
                     .eq('organization_id', effectiveOrgId)
                     .eq('is_active', true);
                 
+                if (activeErr) console.error('Erro ao contar indicações:', activeErr);
                 setActiveReferralsCount(activeCount || 0);
 
                 // 5. Buscar últimas indicações
-                const { data: recent } = await supabase
+                const { data: recent, error: recentErr } = await supabase
                     .from('affiliates')
                     .select('id, full_name, created_at, is_active')
                     .eq('sponsor_id', aff.id)
@@ -87,7 +93,13 @@ const AffiliateDashboard: React.FC = () => {
                     .order('created_at', { ascending: false })
                     .limit(5);
                 
+                if (recentErr) console.error('Erro ao buscar indicações recentes:', recentErr);
                 setRecentReferrals(recent || []);
+                
+                console.log('DEBUG: Resultados indicações:', { 
+                    totalAtivas: activeCount, 
+                    recentes: recent?.length 
+                });
 
             } catch (err: any) {
                 console.error('Erro ao carregar dados do dashboard:', err);
