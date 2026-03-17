@@ -33,12 +33,19 @@ export const AffiliateNetwork: React.FC<AffiliateNetworkProps> = ({ rootAffiliat
 
     const buildTree = async (rootId: string): Promise<AffiliateNode | null> => {
         try {
-            // Fetch all relevant affiliates to build tree in memory (more efficient for smaller trees)
-            // For very large trees, we might need a different approach
+            // 1. Fetch organization ID
+            const { data: orgData } = await supabase
+                .from('organizations')
+                .select('id')
+                .eq('name', 'Classe A')
+                .single();
+            const orgId = orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
+
+            // 2. Fetch all relevant affiliates for this organization
             const { data: allAffiliates, error } = await supabase
                 .from('affiliates')
                 .select('id, full_name, email, sponsor_id')
-                .filter('is_active', 'eq', true);
+                .eq('organization_id', orgId);
 
             if (error) throw error;
 

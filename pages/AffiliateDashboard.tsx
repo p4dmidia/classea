@@ -26,6 +26,8 @@ const AffiliateDashboard: React.FC = () => {
     const [affiliateData, setAffiliateData] = useState<any>(null);
     const [walletData, setWalletData] = useState<any>(null);
     const [consortiumStatus, setConsortiumStatus] = useState<any>(null);
+    const [activeReferralsCount, setActiveReferralsCount] = useState(0);
+    const [recentReferrals, setRecentReferrals] = useState<any[]>([]);
     const [copied, setCopied] = useState(false);
 
     useEffect(() => {
@@ -65,6 +67,27 @@ const AffiliateDashboard: React.FC = () => {
                 if (!statusErr && status && status.length > 0) {
                     setConsortiumStatus(status[0]);
                 }
+
+                // 4. Buscar indicações ativas (contagem)
+                const { count: activeCount } = await supabase
+                    .from('affiliates')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('sponsor_id', aff.id)
+                    .eq('organization_id', effectiveOrgId)
+                    .eq('is_active', true);
+                
+                setActiveReferralsCount(activeCount || 0);
+
+                // 5. Buscar últimas indicações
+                const { data: recent } = await supabase
+                    .from('affiliates')
+                    .select('id, full_name, created_at, is_active')
+                    .eq('sponsor_id', aff.id)
+                    .eq('organization_id', effectiveOrgId)
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+                
+                setRecentReferrals(recent || []);
 
             } catch (err: any) {
                 console.error('Erro ao carregar dados do dashboard:', err);
@@ -115,7 +138,7 @@ const AffiliateDashboard: React.FC = () => {
         },
         {
             label: 'Indicações Ativas',
-            value: '0', // TODO: Implementar contagem real de indicações
+            value: activeReferralsCount.toString(),
             icon: Users,
             color: 'text-blue-500'
         },
@@ -286,29 +309,27 @@ const AffiliateDashboard: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {recentCommissions.length > 0 ? (
-                                        recentCommissions.map((item) => (
+                                    {recentReferrals.length > 0 ? (
+                                        recentReferrals.map((item) => (
                                             <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
                                                 <td className="py-5 px-2">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-[#0B1221] font-bold text-xs">
-                                                            {item.name.split(' ').map(n => n[0]).join('')}
+                                                        <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-[#0B1221] font-bold text-xs uppercase">
+                                                            {(item.full_name || 'A').split(' ').map((n: any) => n[0]).join('').slice(0, 2)}
                                                         </div>
-                                                        <span className="font-bold text-[#0B1221]">{item.name}</span>
+                                                        <span className="font-bold text-[#0B1221]">{item.full_name}</span>
                                                     </div>
                                                 </td>
                                                 <td className="py-5 px-2 text-sm text-slate-500 font-medium">
                                                     <div className="flex items-center gap-1">
                                                         <Clock className="w-3.5 h-3.5" />
-                                                        {item.date}
+                                                        {new Date(item.created_at).toLocaleDateString('pt-BR')}
                                                     </div>
                                                 </td>
-                                                <td className="py-5 px-2 font-black text-[#0B1221]">{item.value}</td>
+                                                <td className="py-5 px-2 font-black text-[#0B1221]">Afiliado</td>
                                                 <td className="py-5 px-2 text-right">
-                                                    <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${item.status === 'Confirmado' ? 'bg-emerald-50 text-emerald-600' :
-                                                        item.status === 'Pendente' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
-                                                        }`}>
-                                                        {item.status}
+                                                    <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${item.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                                                        {item.is_active ? 'Ativo' : 'Pendente'}
                                                     </span>
                                                 </td>
                                             </tr>
