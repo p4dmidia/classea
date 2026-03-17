@@ -31,6 +31,15 @@ const ProductDetails: React.FC = () => {
     const fetchProduct = async () => {
         setIsLoading(true);
         try {
+            // Busca o ID da organização Classe A primeiro
+            const { data: orgData } = await supabase
+                .from('organizations')
+                .select('id')
+                .eq('name', 'Classe A')
+                .single();
+            
+            const effectiveOrgId = orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
+
             const { data, error } = await supabase
                 .from('products')
                 .select(`
@@ -46,7 +55,7 @@ const ProductDetails: React.FC = () => {
                     )
                 `)
                 .eq('id', id)
-                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+                .eq('organization_id', effectiveOrgId)
                 .single();
 
             if (error) throw error;

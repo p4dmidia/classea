@@ -39,6 +39,7 @@ const AdminFinancial: React.FC = () => {
     const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'paid' | 'rejected'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [processingLot, setProcessingLot] = useState(false);
+    const [orgIdState, setOrgIdState] = useState<string>('5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
 
     useEffect(() => {
         fetchRequests();
@@ -47,13 +48,23 @@ const AdminFinancial: React.FC = () => {
     const fetchRequests = async () => {
         setIsLoading(true);
         try {
+            // 0. Fetch Classe A Organization ID
+            const { data: orgData } = await supabase
+                .from('organizations')
+                .select('id')
+                .eq('name', 'Classe A')
+                .single();
+            
+            const effectiveOrgId = orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
+            setOrgIdState(effectiveOrgId);
+
             const { data, error } = await supabase
                 .from('withdrawals')
                 .select(`
                     *,
                     affiliate:affiliates(full_name)
                 `)
-                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+                .eq('organization_id', effectiveOrgId)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -79,7 +90,7 @@ const AdminFinancial: React.FC = () => {
                 .from('withdrawals')
                 .update({ status: newStatus })
                 .eq('id', id)
-                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
+                .eq('organization_id', orgIdState);
 
             if (error) throw error;
 
@@ -110,7 +121,7 @@ const AdminFinancial: React.FC = () => {
                     processed_at: new Date().toISOString()
                 })
                 .eq('status', 'approved')
-                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
+                .eq('organization_id', orgIdState);
 
             if (error) throw error;
 

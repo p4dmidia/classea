@@ -21,7 +21,7 @@ import { useAuth } from '../components/AuthContext';
 import toast from 'react-hot-toast';
 
 const AffiliateDashboard: React.FC = () => {
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
     const [loading, setLoading] = useState(true);
     const [affiliateData, setAffiliateData] = useState<any>(null);
     const [walletData, setWalletData] = useState<any>(null);
@@ -40,18 +40,19 @@ const AffiliateDashboard: React.FC = () => {
                     .from('affiliates')
                     .select('*')
                     .eq('user_id', user.id)
-                    .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
                     .single();
 
                 if (affErr) throw affErr;
                 setAffiliateData(aff);
+
+                const effectiveOrgId = aff.organization_id || profile?.organization_id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
 
                 // 2. Buscar dados Financeiros
                 const { data: wallet, error: walletErr } = await supabase
                     .from('user_settings')
                     .select('*')
                     .eq('user_id', user.id)
-                    .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+                    .eq('organization_id', effectiveOrgId)
                     .single();
 
                 if (walletErr) throw walletErr;

@@ -32,6 +32,7 @@ const RegisterPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [sponsorCode, setSponsorCode] = useState<string | null>(null);
+    const [orgId, setOrgId] = useState<string | null>(null);
 
     React.useEffect(() => {
         // Tenta capturar o código do patrocinador do cookie
@@ -40,6 +41,17 @@ const RegisterPage: React.FC = () => {
             console.log('Sponsor detected from cookie:', ref);
             setSponsorCode(ref);
         }
+
+        // Busca o ID da organização Classe A
+        const fetchOrgId = async () => {
+            const { data } = await supabase
+                .from('organizations')
+                .select('id')
+                .eq('name', 'Classe A')
+                .single();
+            if (data) setOrgId(data.id);
+        };
+        fetchOrgId();
     }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -71,7 +83,7 @@ const RegisterPage: React.FC = () => {
                         login: formData.login,
                         registration_type: registrationType,
                         sponsor_code: sponsorCode,
-                        organization_id: '5111af72-27a5-41fd-8ed9-8c51b78b4fdd',
+                        organization_id: orgId || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd',
                     }
                 }
             });

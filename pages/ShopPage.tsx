@@ -25,10 +25,23 @@ const ShopPage: React.FC = () => {
     const [minPrice, setMinPrice] = useState<string>(searchParams.get('min') || '');
     const [maxPrice, setMaxPrice] = useState<string>(searchParams.get('max') || '');
     const [onlyInStock, setOnlyInStock] = useState<boolean>(searchParams.get('stock') === 'true');
+    const [orgId, setOrgId] = useState<string | null>(null);
 
     useEffect(() => {
         console.log("%c Classe A App Version: 4.5.3 - Image Encoding & Placeholder Fix ", "background: #FBC02D; color: #0B1221; font-weight: bold; padding: 4px; border-radius: 4px;");
-        fetchCategories();
+        
+        const fetchPrimaryOrg = async () => {
+            const { data } = await supabase
+                .from('organizations')
+                .select('id')
+                .eq('name', 'Classe A')
+                .single();
+            if (data) setOrgId(data.id);
+        };
+
+        fetchPrimaryOrg().then(() => {
+            fetchCategories();
+        });
     }, []);
 
     useEffect(() => {
@@ -56,7 +69,7 @@ const ShopPage: React.FC = () => {
             const { data, error } = await supabase
                 .from('product_categories')
                 .select('id, name, parent_id')
-                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+                .eq('organization_id', orgId || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
                 .order('name');
 
             if (error) throw error;
@@ -71,11 +84,12 @@ const ShopPage: React.FC = () => {
     const fetchProducts = async () => {
         setIsLoading(true);
         try {
-            const page = parseInt(searchParams.get('page') || '1');
-            const from = (page - 1) * productsPerPage;
+            const pageNum = parseInt(searchParams.get('page') || '1');
+            const from = (pageNum - 1) * productsPerPage;
             const to = from + productsPerPage - 1;
 
-            console.log('DEBUG: Fetching products for org:', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
+            const effectiveOrgId = orgId || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
+            console.log('DEBUG: Fetching products for org:', effectiveOrgId);
             let query = supabase
                 .from('products')
                 .select(`
@@ -85,7 +99,7 @@ const ShopPage: React.FC = () => {
                         name
                     )
                 `, { count: 'exact' })
-                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
+                .eq('organization_id', effectiveOrgId);
 
             const catId = searchParams.get('category_id');
             console.log('DEBUG: catId from URL:', catId);
@@ -106,7 +120,7 @@ const ShopPage: React.FC = () => {
                             .from('product_categories')
                             .select('id')
                             .eq('parent_id', parentId)
-                            .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
+                            .eq('organization_id', effectiveOrgId);
                         
                         let ids = [parentId];
                         if (children && children.length > 0) {
@@ -131,7 +145,7 @@ const ShopPage: React.FC = () => {
                     .from('product_categories')
                     .select('id')
                     .ilike('name', `%${q}%`)
-                    .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
+                    .eq('organization_id', effectiveOrgId);
 
                 let allSearchCatIds: number[] = [];
                 if (matchedCats && matchedCats.length > 0) {
@@ -143,7 +157,7 @@ const ShopPage: React.FC = () => {
                                 .from('product_categories')
                                 .select('id')
                                 .eq('parent_id', id)
-                                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
+                                .eq('organization_id', effectiveOrgId);
                             
                             if (children && children.length > 0) {
                                 const childIds = children.map(c => c.id);
@@ -188,7 +202,7 @@ const ShopPage: React.FC = () => {
                     const fallback = await supabase
                         .from('products')
                         .select(`*, product_categories (name)`, { count: 'exact' })
-                        .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+                        .eq('organization_id', effectiveOrgId)
                         .order('created_at', { ascending: false })
                         .range(from, to);
 

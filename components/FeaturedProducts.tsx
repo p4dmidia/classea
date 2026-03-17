@@ -17,15 +17,24 @@ const FeaturedProducts: React.FC = () => {
 
   const fetchFeaturedProducts = async () => {
     setIsLoading(true);
-    console.log('DEBUG: Fetching featured for org:', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
     try {
+      // Primeiro busca a organização Classe A
+      const { data: orgData } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('name', 'Classe A')
+          .single();
+      
+      const effectiveOrgId = orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
+      console.log('DEBUG: Fetching featured for org:', effectiveOrgId);
+
       const { data, error } = await supabase
         .from('products')
         .select(`
           *,
           product_categories (name)
         `)
-        .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+        .eq('organization_id', effectiveOrgId)
         .limit(4)
         .order('created_at', { ascending: false });
 

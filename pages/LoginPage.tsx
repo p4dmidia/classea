@@ -25,11 +25,18 @@ const LoginPage: React.FC = () => {
         try {
             // Se não for um e-mail (não tem @), tenta buscar o e-mail pelo login/username
             if (!loginIdentifier.includes('@')) {
+                // Primeiro busca a organização padrão Classe A
+                const { data: orgData } = await supabase
+                    .from('organizations')
+                    .select('id')
+                    .eq('name', 'Classe A')
+                    .single();
+
                 const { data: affiliateData, error: lookupError } = await supabase
                     .from('affiliates')
                     .select('email')
                     .ilike('referral_code', loginIdentifier)
-                    .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+                    .eq('organization_id', orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
                     .single();
 
                 if (lookupError || !affiliateData) {

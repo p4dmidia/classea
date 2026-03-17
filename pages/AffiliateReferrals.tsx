@@ -70,20 +70,22 @@ const AffiliateReferrals: React.FC = () => {
             // 1. Pegar o ID de afiliado do usuário logado
             const { data: affData, error: affError } = await supabase
                 .from('affiliates')
-                .select('id')
+                .select('id, organization_id')
                 .eq('user_id', user?.id)
-                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
                 .single();
 
             if (affError) throw affError;
             setAffiliateId(affData.id);
+
+            const effectiveOrgId = affData.organization_id || profile?.organization_id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
+            console.log('Using Organization ID for referrals:', effectiveOrgId);
 
             // 2. Buscar indicações (downline)
             const { data, error } = await supabase
                 .from('affiliates')
                 .select('*')
                 .eq('sponsor_id', affData.id)
-                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+                .eq('organization_id', effectiveOrgId)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;

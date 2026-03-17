@@ -47,11 +47,20 @@ const AdminAffiliates: React.FC = () => {
     const fetchAffiliates = async () => {
         setIsLoading(true);
         try {
+            // 0. Fetch Classe A Organization ID
+            const { data: orgData } = await supabase
+                .from('organizations')
+                .select('id')
+                .eq('name', 'Classe A')
+                .single();
+            
+            const effectiveOrgId = orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
+
             // 1. Fetch Affiliates separately
             const { data: affData, error: affError } = await supabase
                 .from('affiliates')
                 .select('*')
-                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+                .eq('organization_id', effectiveOrgId)
                 .order('created_at', { ascending: false });
 
             if (affError) throw affError;

@@ -37,6 +37,19 @@ const CheckoutPage: React.FC = () => {
     const [shippingOptions, setShippingOptions] = useState<any[]>([]);
     const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
     const [selectedShipping, setSelectedShipping] = useState<any>(null);
+    const [orgId, setOrgId] = useState<string | null>(null);
+
+    React.useEffect(() => {
+        const fetchOrg = async () => {
+            const { data } = await supabase
+                .from('organizations')
+                .select('id')
+                .eq('name', 'Classe A')
+                .single();
+            if (data) setOrgId(data.id);
+        };
+        fetchOrg();
+    }, []);
 
     const isConsorcioInCart = cart.some(item => item.category === 'Consórcio');
     const subtotal = cartTotal;
@@ -97,7 +110,7 @@ const CheckoutPage: React.FC = () => {
                 .from('orders')
                 .insert([{
                     id: orderId,
-                    organization_id: '5111af72-27a5-41fd-8ed9-8c51b78b4fdd',
+                    organization_id: orgId || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd',
                     customer_name: customerInfo.name,
                     customer_email: customerInfo.email,
                     customer_phone: customerInfo.phone,
@@ -117,7 +130,7 @@ const CheckoutPage: React.FC = () => {
                 .from('order_items')
                 .insert(cart.map(item => ({
                     order_id: orderId,
-                    organization_id: '5111af72-27a5-41fd-8ed9-8c51b78b4fdd',
+                    organization_id: orgId || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd',
                     product_id: item.id,
                     product_name: item.name,
                     quantity: item.quantity,

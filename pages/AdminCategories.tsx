@@ -110,6 +110,7 @@ const AdminCategories: React.FC = () => {
     // Form States
     const [name, setName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [orgIdState, setOrgIdState] = useState<string>('5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
 
     useEffect(() => {
         fetchData();
@@ -118,10 +119,20 @@ const AdminCategories: React.FC = () => {
     const fetchData = async () => {
         setIsLoading(true);
         try {
+            // 0. Fetch Classe A Organization ID
+            const { data: orgData } = await supabase
+                .from('organizations')
+                .select('id')
+                .eq('name', 'Classe A')
+                .single();
+            
+            const effectiveOrgId = orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
+            setOrgIdState(effectiveOrgId); // Adicionaremos este state
+
             const { data, error } = await supabase
                 .from('product_categories')
                 .select('*')
-                .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+                .eq('organization_id', effectiveOrgId)
                 .order('name');
 
             if (error) throw error;
@@ -170,7 +181,7 @@ const AdminCategories: React.FC = () => {
             } else {
                 const { error } = await supabase
                     .from('product_categories')
-                    .insert([{ name, parent_id: parentCategoryId, organization_id: '5111af72-27a5-41fd-8ed9-8c51b78b4fdd' }]);
+                    .insert([{ name, parent_id: parentCategoryId, organization_id: orgIdState }]);
                 if (error) throw error;
                 toast.success('Categoria criada!');
             }

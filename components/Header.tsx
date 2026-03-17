@@ -24,17 +24,27 @@ const Header: React.FC = () => {
   ]);
 
   React.useEffect(() => {
-    fetchMainCategories();
+    const fetchOrg = async () => {
+      const { data } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('name', 'Classe A')
+          .single();
+      
+      const orgId = data?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
+      fetchMainCategories(orgId);
+    };
+    fetchOrg();
   }, []);
 
-  const fetchMainCategories = async () => {
+  const fetchMainCategories = async (orgId: string) => {
     try {
       // Fetch only top level categories (parent_id is null) for the organization
       const { data, error } = await supabase
         .from('product_categories')
         .select('id, name')
         .is('parent_id', null)
-        .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+        .eq('organization_id', orgId)
         .order('name');
 
       if (error) throw error;

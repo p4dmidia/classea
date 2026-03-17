@@ -68,6 +68,7 @@ const AdminProducts: React.FC = () => {
     const [categories, setCategories] = useState<Category[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [orgIdState, setOrgIdState] = useState<string>('5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
 
     // Form States
     const [formData, setFormData] = useState({
@@ -96,20 +97,30 @@ const AdminProducts: React.FC = () => {
     const fetchInitialData = async () => {
         setIsLoading(true);
         try {
-            await Promise.all([fetchProducts(), fetchCategories()]);
+            // 0. Fetch Classe A Organization ID
+            const { data: orgData } = await supabase
+                .from('organizations')
+                .select('id')
+                .eq('name', 'Classe A')
+                .single();
+            
+            const effectiveOrgId = orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
+            setOrgIdState(effectiveOrgId);
+
+            await Promise.all([fetchProducts(effectiveOrgId), fetchCategories(effectiveOrgId)]);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const fetchProducts = async () => {
+    const fetchProducts = async (effectiveOrgId: string) => {
         const { data, error } = await supabase
             .from('products')
             .select(`
                 *,
                 product_categories (name, parent_id)
             `)
-            .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+            .eq('organization_id', effectiveOrgId)
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -120,11 +131,11 @@ const AdminProducts: React.FC = () => {
         }
     };
 
-    const fetchCategories = async () => {
+    const fetchCategories = async (effectiveOrgId: string) => {
         const { data, error } = await supabase
             .from('product_categories')
             .select('*')
-            .eq('organization_id', '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+            .eq('organization_id', effectiveOrgId)
             .order('name');
 
         if (error) {
@@ -231,7 +242,7 @@ const AdminProducts: React.FC = () => {
                 width: parseFloat(formData.width) || 11,
                 height: parseFloat(formData.height) || 2,
                 origin_zip: formData.origin_zip || '82820-160',
-                organization_id: '5111af72-27a5-41fd-8ed9-8c51b78b4fdd'
+                organization_id: orgIdState
             };
 
             if (editingProduct) {
@@ -251,8 +262,8 @@ const AdminProducts: React.FC = () => {
 
             setIsNewModalOpen(false);
             resetForm();
-            fetchProducts();
-            fetchCategories();
+            fetchProducts(orgIdState);
+            fetchCategories(orgIdState);
         } catch (error: any) {
             toast.error(editingProduct ? 'Erro ao atualizar produto' : 'Erro ao cadastrar produto');
             console.error(error);
@@ -273,8 +284,8 @@ const AdminProducts: React.FC = () => {
             if (error) throw error;
 
             toast.success('Produto removido');
-            fetchProducts();
-            fetchCategories();
+            fetchProducts(orgIdState);
+            fetchCategories(orgIdState);
         } catch (error) {
             toast.error('Erro ao excluir produto');
         }
@@ -290,7 +301,7 @@ const AdminProducts: React.FC = () => {
             if (error) throw error;
 
             toast.success(`Produto ${!currentStatus ? 'ativado' : 'desativado'}`);
-            fetchProducts();
+            fetchProducts(orgIdState);
         } catch (error) {
             toast.error('Erro ao atualizar status');
         }
