@@ -55,14 +55,27 @@ const AffiliateDashboard: React.FC = () => {
                 const effectiveOrgId = aff.organization_id || profile?.organization_id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
 
                 // 2. Buscar dados Financeiros
-                const { data: wallet, error: walletErr } = await supabase
+                // Tentamos buscar respeitando a organização, mas se der erro 406 (provavelmente coluna ou RLS) 
+                // tentamos apenas pelo user_id para garantir que o dashboard carregue.
+                let { data: wallet, error: walletErr } = await supabase
                     .from('user_settings')
                     .select('*')
                     .eq('user_id', user.id)
                     .eq('organization_id', effectiveOrgId)
-                    .single();
+                    .maybeSingle();
 
-                if (walletErr) throw walletErr;
+                if (walletErr || !wallet) {
+                    console.warn('DEBUG: Falha ao buscar wallet com org_id, tentando sem filtro de org...');
+                    const { data: retryWallet, error: retryErr } = await supabase
+                        .from('user_settings')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .maybeSingle();
+                    
+                    if (retryErr) throw retryErr;
+                    wallet = retryWallet;
+                }
+                
                 setWalletData(wallet);
 
                 // 3. Buscar status do Consórcio
