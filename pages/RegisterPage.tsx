@@ -7,6 +7,7 @@ import {
     Lock,
     Mail,
     AtSign,
+    Phone,
     Briefcase,
     ShoppingCart,
     FileText,
@@ -26,6 +27,9 @@ const RegisterPage: React.FC = () => {
         email: '',
         senha: '',
         confirmarSenha: '',
+        whatsapp: '',
+        cpf: '',
+        cnpj: '',
         aceiteContrato: false
     });
 
@@ -71,6 +75,11 @@ const RegisterPage: React.FC = () => {
             return;
         }
 
+        if (!formData.cpf && !formData.cnpj) {
+            setError('Por favor, informe o seu CPF ou CNPJ.');
+            return;
+        }
+
         setLoading(true);
         try {
             const { data, error: signUpError } = await supabase.auth.signUp({
@@ -84,6 +93,9 @@ const RegisterPage: React.FC = () => {
                         registration_type: registrationType,
                         sponsor_code: sponsorCode,
                         organization_id: orgId || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd',
+                        cpf: formData.cpf || null,
+                        cnpj: formData.cnpj || null,
+                        whatsapp: formData.whatsapp || null
                     }
                 }
             });
@@ -252,6 +264,45 @@ const RegisterPage: React.FC = () => {
                                                         value={formData.email} onChange={handleChange}
                                                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] transition-all"
                                                         placeholder="exemplo@email.com"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="md:col-span-2 space-y-2">
+                                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">WhatsApp / Celular</label>
+                                                <div className="relative">
+                                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FBC02D]" />
+                                                    <input
+                                                        type="text" name="whatsapp" required
+                                                        value={formData.whatsapp} onChange={handleChange}
+                                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] transition-all"
+                                                        placeholder="(00) 00000-0000"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CPF (Pessoa Física)</label>
+                                                <div className="relative">
+                                                    <FileText className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FBC02D]" />
+                                                    <input
+                                                        type="text" name="cpf"
+                                                        value={formData.cpf} onChange={handleChange}
+                                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] transition-all"
+                                                        placeholder="000.000.000-00"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CNPJ (Pessoa Jurídica)</label>
+                                                <div className="relative">
+                                                    <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FBC02D]" />
+                                                    <input
+                                                        type="text" name="cnpj"
+                                                        value={formData.cnpj} onChange={handleChange}
+                                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] transition-all"
+                                                        placeholder="00.000.000/0000-00"
                                                     />
                                                 </div>
                                             </div>

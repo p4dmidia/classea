@@ -15,8 +15,11 @@ import {
     Download,
     X,
     Loader2,
+    Lock,
     Network,
-    Eye
+    Eye,
+    Pencil,
+    Shield
 } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import jsPDF from 'jspdf';
@@ -39,6 +42,9 @@ const AdminAffiliates: React.FC = () => {
     const [viewingNetworkId, setViewingNetworkId] = useState<string | null>(null);
     const [viewingNetworkName, setViewingNetworkName] = useState<string>('');
     const [viewingAffiliate, setViewingAffiliate] = useState<any | null>(null);
+    const [editingAffiliate, setEditingAffiliate] = useState<any | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
 
     const itemsPerPage = 8;
 
@@ -80,11 +86,24 @@ const AdminAffiliates: React.FC = () => {
             if (userIds.length > 0) {
                 const { data, error: profilesError } = await supabase
                     .from('user_profiles')
-                    .select('id, registration_type')
+                    .select('id, registration_type, role, cnpj')
                     .in('id', userIds);
 
-                if (profilesError) throw profilesError;
-                profilesData = data || [];
+                if (profilesError) {
+                    // Se for erro de coluna inexistente (PGRST204), tenta sem o CNPJ
+                    if (profilesError.message?.includes('cnpj') || profilesError.code === 'PGRST204') {
+                        const { data: retryData, error: retryError } = await supabase
+                            .from('user_profiles')
+                            .select('id, registration_type, role')
+                            .in('id', userIds);
+                        if (retryError) throw retryError;
+                        profilesData = retryData || [];
+                    } else {
+                        throw profilesError;
+                    }
+                } else {
+                    profilesData = data || [];
+                }
             }
 
             // Create lookup maps
@@ -111,8 +130,10 @@ const AdminAffiliates: React.FC = () => {
                     raw_verified: aff.is_verified,
                     user_id: aff.user_id,
                     created_at: aff.created_at,
-                    cpf: aff.cpf || 'Não informado',
-                    registration_type: profilesMap.get(aff.user_id)?.registration_type || 'business'
+                    cpf: aff.cpf || '',
+                    cnpj: aff.cnpj || profilesMap.get(aff.user_id)?.cnpj || '',
+                    registration_type: profilesMap.get(aff.user_id)?.registration_type || 'business',
+                    role: profilesMap.get(aff.user_id)?.role || 'affiliate'
                 };
             });
 
@@ -170,14 +191,128 @@ const AdminAffiliates: React.FC = () => {
         }
     };
 
-    const deleteAffiliate = async (id: string) => {
-        if (!window.confirm('Tem certeza que deseja excluir este afiliado? Esta ação não pode ser desfeita.')) return;
+    const handleSaveEdit = async () => {
+        if (!editingAffiliate) return;
+        setIsSaving(true);
+        try {
+            // 1. Update Affiliates table
+            const affUpdate: any = {
+                full_name: editingAffiliate.name,
+                email: editingAffiliate.email,
+                whatsapp: editingAffiliate.phone,
+                cpf: editingAffiliate.cpf || null,
+                is_active: editingAffiliate.raw_status,
+                position_slot: editingAffiliate.plan.includes('Slot') ? parseInt(editingAffiliate.plan.split(' ')[1]) : null
+            };
+
+            // Only include cnpj if it likely exists
+            if (editingAffiliate.cnpj !== undefined) {
+                affUpdate.cnpj = editingAffiliate.cnpj || null;
+            }
+
+            console.log('Iniciando atualização do afiliado:', editingAffiliate.id);
+            console.log('Dados p/ Affiliates:', affUpdate);
+
+            const { data: affRes, error: affError } = await supabase
+                .from('affiliates')
+                .update(affUpdate)
+                .eq('id', editingAffiliate.id)
+                .select();
+
+            console.log('Resposta Affiliates:', { affRes, affError });
+
+            if (affError) {
+                // If it fails because of cnpj, retry without it
+                if (affError.message?.includes('cnpj') || affError.code === 'PGRST204') {
+                    console.warn('Coluna cnpj não existe em affiliates, tentando novamente sem ela...');
+                    delete affUpdate.cnpj;
+                    const { data: affRetryRes, error: affRetryError } = await supabase
+                        .from('affiliates')
+                        .update(affUpdate)
+                        .eq('id', editingAffiliate.id)
+                        .select();
+                    
+                    console.log('Resposta Retry Affiliates:', { affRetryRes, affRetryError });
+                    if (affRetryError) throw affRetryError;
+                } else {
+                    throw affError;
+                }
+            }
+
+            // 2. Update User Profiles
+            const profileUpdate: any = {
+                registration_type: editingAffiliate.registration_type,
+                role: editingAffiliate.role
+            };
+
+            if (editingAffiliate.cnpj !== undefined) {
+                profileUpdate.cnpj = editingAffiliate.cnpj || null;
+            }
+
+            console.log('Dados p/ User Profiles:', profileUpdate);
+            const { data: profileRes, error: profileError } = await supabase
+                .from('user_profiles')
+                .update(profileUpdate)
+                .eq('id', editingAffiliate.user_id)
+                .select();
+
+            console.log('Resposta User Profiles:', { profileRes, profileError });
+
+            if (profileError) {
+                // If it fails because of cnpj, retry without it
+                if (profileError.message?.includes('cnpj') || profileError.code === 'PGRST204') {
+                    console.warn('Coluna cnpj não existe em user_profiles, tentando novamente sem ela...');
+                    delete profileUpdate.cnpj;
+                    const { data: retryData, error: retryError } = await supabase
+                        .from('user_profiles')
+                        .update(profileUpdate)
+                        .eq('id', editingAffiliate.user_id)
+                        .select();
+                    
+                    if (retryError) throw retryError;
+                    if (retryData && retryData.length > 0) {
+                        // Success in retry
+                    }
+                } else {
+                    throw profileError;
+                }
+            }
+
+            // 3. Update Password if provided
+            if (newPassword.trim()) {
+                const { error: pwdError } = await supabase.rpc('admin_update_user_password', {
+                    target_user_id: editingAffiliate.user_id,
+                    new_password: newPassword.trim()
+                });
+
+                if (pwdError) throw pwdError;
+            }
+
+            toast.success('Afiliado atualizado com sucesso!');
+            setEditingAffiliate(null);
+            setNewPassword('');
+            fetchAffiliates();
+        } catch (error: any) {
+            console.error('Error updating affiliate:', error);
+            toast.error(error.message || 'Erro ao atualizar dados.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const deleteAffiliate = async (aff: any) => {
+        if (aff.role === 'admin') {
+            toast.error('Não é permitido excluir usuários com nível de administrador.');
+            return;
+        }
+
+        if (!window.confirm(`Tem certeza que deseja excluir o afiliado ${aff.name}? Esta ação não pode ser desfeita.`)) return;
 
         try {
             const { error } = await supabase
                 .from('affiliates')
                 .delete()
-                .eq('id', id);
+                .eq('id', aff.id);
 
             if (error) throw error;
 
@@ -430,6 +565,13 @@ const AdminAffiliates: React.FC = () => {
                                                     >
                                                         <Eye className="w-5 h-5" />
                                                     </button>
+                                                    <button
+                                                        onClick={() => setEditingAffiliate({ ...aff })}
+                                                        className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all"
+                                                        title="Editar"
+                                                    >
+                                                        <Pencil className="w-5 h-5" />
+                                                    </button>
                                                     {aff.status === 'Pendente' && (
                                                         <button
                                                             onClick={() => verifyAffiliate(aff.id)}
@@ -457,9 +599,10 @@ const AdminAffiliates: React.FC = () => {
                                                         {aff.raw_status ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
                                                     </button>
                                                     <button
-                                                        onClick={() => deleteAffiliate(aff.id)}
-                                                        className="p-2 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                                                        title="Excluir"
+                                                        onClick={() => deleteAffiliate(aff)}
+                                                        className={`p-2 rounded-xl transition-all ${aff.role === 'admin' ? 'opacity-20 cursor-not-allowed text-slate-400' : 'text-red-400 hover:text-red-500 hover:bg-red-50'}`}
+                                                        title={aff.role === 'admin' ? "Admins não podem ser excluídos" : "Excluir"}
+                                                        disabled={aff.role === 'admin'}
                                                     >
                                                         <X className="w-5 h-5" />
                                                     </button>
@@ -539,6 +682,12 @@ const AdminAffiliates: React.FC = () => {
                                         >
                                             <Eye className="w-4 h-4" /> Detalhes
                                         </button>
+                                        <button
+                                            onClick={() => setEditingAffiliate({ ...aff })}
+                                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-black uppercase tracking-wider"
+                                        >
+                                            <Pencil className="w-4 h-4" /> Editar
+                                        </button>
                                         {aff.status === 'Pendente' && (
                                             <button
                                                 onClick={() => verifyAffiliate(aff.id)}
@@ -564,8 +713,9 @@ const AdminAffiliates: React.FC = () => {
                                                 {aff.raw_status ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
                                             </button>
                                             <button
-                                                onClick={() => deleteAffiliate(aff.id)}
-                                                className="p-2.5 bg-red-50 text-red-500 rounded-xl transition-all"
+                                                onClick={() => deleteAffiliate(aff)}
+                                                className={`p-2.5 rounded-xl transition-all ${aff.role === 'admin' ? 'bg-slate-50 text-slate-200' : 'bg-red-50 text-red-500'}`}
+                                                disabled={aff.role === 'admin'}
                                             >
                                                 <X className="w-4 h-4" />
                                             </button>
@@ -773,6 +923,183 @@ const AdminAffiliates: React.FC = () => {
                                 className="flex-1 py-4 bg-[#05080F] text-white font-black rounded-2xl hover:bg-[#1a2436] transition-all shadow-lg shadow-[#05080F]/10 uppercase tracking-widest text-xs flex items-center justify-center gap-2"
                             >
                                 <Network className="w-4 h-4 text-[#FBC02D]" /> Ver Rede
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Edit Affiliate Modal */}
+            {editingAffiliate && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-3xl rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col border border-slate-100">
+                        {/* Modal Header */}
+                        <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-indigo-50/30">
+                            <div className="flex items-center gap-4">
+                                <div className="w-16 h-16 rounded-[2rem] bg-indigo-600 flex items-center justify-center text-2xl font-black text-white">
+                                    <Pencil className="w-8 h-8" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-black text-[#05080F]">Editar Afiliado</h2>
+                                    <p className="text-sm text-slate-500 font-bold uppercase tracking-widest">Alterar informações de cadastro</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setEditingAffiliate(null);
+                                    setNewPassword('');
+                                }}
+                                className="p-3 bg-white hover:bg-slate-100 rounded-2xl text-slate-400 transition-all border border-slate-100"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-8 space-y-6 overflow-y-auto max-h-[60vh]">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Basic Info */}
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Nome Completo</label>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
+                                            value={editingAffiliate.name}
+                                            onChange={(e) => setEditingAffiliate({ ...editingAffiliate, name: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">E-mail</label>
+                                        <input
+                                            type="email"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
+                                            value={editingAffiliate.email}
+                                            onChange={(e) => setEditingAffiliate({ ...editingAffiliate, email: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">WhatsApp / Celular</label>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
+                                            value={editingAffiliate.phone}
+                                            onChange={(e) => setEditingAffiliate({ ...editingAffiliate, phone: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">CPF</label>
+                                            <input
+                                                type="text"
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
+                                                value={editingAffiliate.cpf}
+                                                onChange={(e) => setEditingAffiliate({ ...editingAffiliate, cpf: e.target.value })}
+                                                placeholder="000.000.000-00"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">CNPJ</label>
+                                            <input
+                                                type="text"
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
+                                                value={editingAffiliate.cnpj}
+                                                onChange={(e) => setEditingAffiliate({ ...editingAffiliate, cnpj: e.target.value })}
+                                                placeholder="00.000.000/0000-00"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Plan & Role Info */}
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Nível de Acesso</label>
+                                        <select
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
+                                            value={editingAffiliate.role}
+                                            onChange={(e) => setEditingAffiliate({ ...editingAffiliate, role: e.target.value })}
+                                        >
+                                            <option value="affiliate">Afiliado Comum</option>
+                                            <option value="admin">Administrador</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Tipo de Cadastro</label>
+                                        <select
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
+                                            value={editingAffiliate.registration_type}
+                                            onChange={(e) => setEditingAffiliate({ ...editingAffiliate, registration_type: e.target.value })}
+                                        >
+                                            <option value="sales">Parceiro de Vendas (20%)</option>
+                                            <option value="business">Diamante (Rede)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Plano / Slot</label>
+                                        <select
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
+                                            value={editingAffiliate.plan}
+                                            onChange={(e) => setEditingAffiliate({ ...editingAffiliate, plan: e.target.value })}
+                                        >
+                                            <option>Membro</option>
+                                            <option>Slot 1</option>
+                                            <option>Slot 2</option>
+                                            <option>Slot 3</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Nova Senha (deixe vazio para manter)</label>
+                                        <div className="relative">
+                                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                            <input
+                                                type="password"
+                                                placeholder="Digite a nova senha..."
+                                                className="w-full bg-slate-50 border border-orange-100 rounded-xl py-3 pl-12 pr-4 text-sm font-bold text-[#05080F] outline-none focus:border-orange-500 transition-all"
+                                                value={newPassword}
+                                                onChange={(e) => setNewPassword(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-start gap-3">
+                                <Shield className="w-5 h-5 text-amber-600 mt-0.5" />
+                                <div>
+                                    <p className="text-xs font-black text-amber-900 uppercase tracking-tight">Aviso de Segurança</p>
+                                    <p className="text-[10px] font-medium text-amber-700 leading-relaxed mt-1">
+                                        Alterar a senha de um usuário é uma ação crítica. Certifique-se de que o usuário solicitou esta alteração ou que há um motivo administrativo válido.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-8 border-t border-slate-50 bg-slate-50/50 flex gap-4">
+                            <button
+                                onClick={() => {
+                                    setEditingAffiliate(null);
+                                    setNewPassword('');
+                                }}
+                                disabled={isSaving}
+                                className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition-all uppercase tracking-widest text-xs disabled:opacity-50"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleSaveEdit}
+                                disabled={isSaving}
+                                className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 uppercase tracking-widest text-xs flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {isSaving ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" /> Salvando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle className="w-4 h-4" /> Salvar Alterações
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>
