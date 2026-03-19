@@ -58,10 +58,10 @@ const AdminAffiliates: React.FC = () => {
             
             const effectiveOrgId = orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
 
-            // 1. Fetch Affiliates separately
+            // 1. Fetch Affiliates
             const { data: affData, error: affError } = await supabase
                 .from('affiliates')
-                .select('*, user_profiles(registration_type)')
+                .select('*')
                 .eq('organization_id', effectiveOrgId)
                 .order('created_at', { ascending: false });
 
@@ -76,9 +76,23 @@ const AdminAffiliates: React.FC = () => {
 
             if (settingsError) throw settingsError;
 
-            // Create a lookup map for settings
+            let profilesData: any[] = [];
+            if (userIds.length > 0) {
+                const { data, error: profilesError } = await supabase
+                    .from('user_profiles')
+                    .select('id, registration_type')
+                    .in('id', userIds);
+
+                if (profilesError) throw profilesError;
+                profilesData = data || [];
+            }
+
+            // Create lookup maps
             const settingsMap = new Map();
             settingsData?.forEach(s => settingsMap.set(s.user_id, s));
+
+            const profilesMap = new Map();
+            profilesData?.forEach(p => profilesMap.set(p.id, p));
 
             const formattedAffs = affData.map(aff => {
                 const settings = settingsMap.get(aff.user_id);
@@ -98,7 +112,7 @@ const AdminAffiliates: React.FC = () => {
                     user_id: aff.user_id,
                     created_at: aff.created_at,
                     cpf: aff.cpf || 'Não informado',
-                    registration_type: (aff.user_profiles as any)?.registration_type || 'Empresarial'
+                    registration_type: profilesMap.get(aff.user_id)?.registration_type || 'business'
                 };
             });
 
