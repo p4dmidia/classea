@@ -54,7 +54,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 4. Update the trigger function to capture CPF and CNPJ
+-- 5. Update the trigger function to be more robust and capture all fields
 CREATE OR REPLACE FUNCTION public.handle_new_affiliate_user()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -63,8 +63,10 @@ CREATE OR REPLACE FUNCTION public.handle_new_affiliate_user()
  AS $function$
  DECLARE
    v_full_name text;
+   v_sponsor_id uuid;
+   v_org_id uuid;
  BEGIN
-   -- Build full name safely
+   -- 1. Determine Full Name
    v_full_name := TRIM(CONCAT_WS(' ', 
      new.raw_user_meta_data ->> 'nome', 
      new.raw_user_meta_data ->> 'sobrenome'
@@ -73,21 +75,44 @@ CREATE OR REPLACE FUNCTION public.handle_new_affiliate_user()
    IF v_full_name = '' THEN
      v_full_name := 'Novo Afiliado';
    END IF;
+
+   -- 2. Resolve Organization ID
+   BEGIN
+     v_org_id := (new.raw_user_meta_data ->> 'organization_id')::uuid;
+   EXCEPTION WHEN OTHERS THEN
+     v_org_id := '5111af72-27a5-41fd-8ed9-8c51b78b4fdd'; -- Default Org ID for Classe A
+   END;
+
+   -- 3. Resolve Sponsor ID if sponsor_code provided
+   IF new.raw_user_meta_data ->> 'sponsor_code' IS NOT NULL THEN
+     SELECT id INTO v_sponsor_id 
+     FROM public.affiliates 
+     WHERE referral_code = new.raw_user_meta_data ->> 'sponsor_code';
+   END IF;
  
-   -- 1. Create Profile
-   INSERT INTO public.user_profiles (id, email, role, cpf, cnpj, created_at, updated_at)
+   -- 4. Create User Profile
+   INSERT INTO public.user_profiles (
+     id, email, role, cpf, cnpj, registration_type, 
+     organization_id, sponsor_id, created_at, updated_at
+   )
    VALUES (
      new.id, 
      new.email, 
      COALESCE(new.raw_user_meta_data ->> 'role', 'affiliate'),
      new.raw_user_meta_data ->> 'cpf',
      new.raw_user_meta_data ->> 'cnpj',
+     new.raw_user_meta_data ->> 'registration_type',
+     v_org_id,
+     v_sponsor_id,
      new.created_at, 
      new.created_at
    );
  
-   -- 2. Create Affiliate
-   INSERT INTO public.affiliates (user_id, email, full_name, referral_code, cpf, cnpj, whatsapp, created_at, updated_at)
+   -- 5. Create Affiliate
+   INSERT INTO public.affiliates (
+     user_id, email, full_name, referral_code, cpf, cnpj, whatsapp, 
+     organization_id, sponsor_id, created_at, updated_at
+   )
    VALUES (
      new.id,
      new.email,
@@ -96,11 +121,13 @@ CREATE OR REPLACE FUNCTION public.handle_new_affiliate_user()
      new.raw_user_meta_data ->> 'cpf',
      new.raw_user_meta_data ->> 'cnpj',
      new.raw_user_meta_data ->> 'whatsapp',
+     v_org_id,
+     v_sponsor_id,
      new.created_at,
      new.updated_at
    );
  
-   -- 3. Create Settings
+   -- 6. Create Settings
    INSERT INTO public.user_settings (user_id, created_at, updated_at)
    VALUES (
      new.id,
