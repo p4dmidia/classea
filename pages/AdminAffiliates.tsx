@@ -15,7 +15,8 @@ import {
     Download,
     X,
     Loader2,
-    Network
+    Network,
+    Eye
 } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import jsPDF from 'jspdf';
@@ -37,6 +38,7 @@ const AdminAffiliates: React.FC = () => {
     const [totalStats, setTotalStats] = useState({ total: 0, pending: 0, newThisMonth: 0 });
     const [viewingNetworkId, setViewingNetworkId] = useState<string | null>(null);
     const [viewingNetworkName, setViewingNetworkName] = useState<string>('');
+    const [viewingAffiliate, setViewingAffiliate] = useState<any | null>(null);
 
     const itemsPerPage = 8;
 
@@ -59,7 +61,7 @@ const AdminAffiliates: React.FC = () => {
             // 1. Fetch Affiliates separately
             const { data: affData, error: affError } = await supabase
                 .from('affiliates')
-                .select('*')
+                .select('*, user_profiles(registration_type)')
                 .eq('organization_id', effectiveOrgId)
                 .order('created_at', { ascending: false });
 
@@ -94,7 +96,9 @@ const AdminAffiliates: React.FC = () => {
                     raw_status: aff.is_active,
                     raw_verified: aff.is_verified,
                     user_id: aff.user_id,
-                    created_at: aff.created_at
+                    created_at: aff.created_at,
+                    cpf: aff.cpf || 'Não informado',
+                    registration_type: (aff.user_profiles as any)?.registration_type || 'Empresarial'
                 };
             });
 
@@ -405,6 +409,13 @@ const AdminAffiliates: React.FC = () => {
                                             </td>
                                             <td className="py-6 px-8 text-right">
                                                 <div className="flex items-center justify-end gap-2">
+                                                    <button
+                                                        onClick={() => setViewingAffiliate(aff)}
+                                                        className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
+                                                        title="Ver Detalhes"
+                                                    >
+                                                        <Eye className="w-5 h-5" />
+                                                    </button>
                                                     {aff.status === 'Pendente' && (
                                                         <button
                                                             onClick={() => verifyAffiliate(aff.id)}
@@ -508,6 +519,12 @@ const AdminAffiliates: React.FC = () => {
                                     </div>
 
                                     <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setViewingAffiliate(aff)}
+                                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-50 text-blue-600 rounded-xl text-xs font-black uppercase tracking-wider"
+                                        >
+                                            <Eye className="w-4 h-4" /> Detalhes
+                                        </button>
                                         {aff.status === 'Pendente' && (
                                             <button
                                                 onClick={() => verifyAffiliate(aff.id)}
@@ -625,6 +642,123 @@ const AdminAffiliates: React.FC = () => {
                                 className="w-full md:w-auto px-8 py-3 bg-[#FBC02D] text-[#05080F] font-black rounded-xl md:rounded-2xl hover:bg-white transition-all text-sm md:text-base"
                             >
                                 Fechar Visualização
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Affiliate Details Modal */}
+            {viewingAffiliate && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-2xl rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col border border-slate-100">
+                        {/* Modal Header */}
+                        <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                            <div className="flex items-center gap-4">
+                                <div className="w-16 h-16 rounded-[2rem] bg-[#05080F] flex items-center justify-center text-2xl font-black text-[#FBC02D]">
+                                    {viewingAffiliate.name.charAt(0)}
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-black text-[#05080F]">{viewingAffiliate.name}</h2>
+                                    <p className="text-sm text-slate-500 font-bold uppercase tracking-widest flex items-center gap-2">
+                                        <div className={`w-2 h-2 rounded-full ${viewingAffiliate.raw_status ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
+                                        {viewingAffiliate.status}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setViewingAffiliate(null)}
+                                className="p-3 bg-white hover:bg-slate-100 rounded-2xl text-slate-400 transition-all border border-slate-100"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-8 space-y-8 overflow-y-auto">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Basic Info */}
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">E-mail</label>
+                                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <Mail className="w-4 h-4 text-[#FBC02D]" />
+                                            <span className="text-sm font-bold text-[#05080F] font-mono">{viewingAffiliate.email}</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">WhatsApp / Celular</label>
+                                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <Phone className="w-4 h-4 text-[#FBC02D]" />
+                                            <span className="text-sm font-bold text-[#05080F]">{viewingAffiliate.phone}</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">CPF</label>
+                                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <AlertCircle className="w-4 h-4 text-[#FBC02D]" />
+                                            <span className="text-sm font-bold text-[#05080F]">{viewingAffiliate.cpf}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Plan & Status */}
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Tipo de Cadastro</label>
+                                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <Users className="w-4 h-4 text-[#FBC02D]" />
+                                            <span className="text-sm font-bold text-[#05080F] uppercase tracking-tighter">
+                                                {viewingAffiliate.registration_type === 'sales' ? 'Parceiro de Vendas (20%)' : 'Diamante (Construção de Rede)'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Plano Atual</label>
+                                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <Users className="w-4 h-4 text-[#FBC02D]" />
+                                            <span className="text-sm font-bold text-[#05080F]">{viewingAffiliate.plan}</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Membro desde</label>
+                                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <Calendar className="w-4 h-4 text-[#FBC02D]" />
+                                            <span className="text-sm font-bold text-[#05080F]">{viewingAffiliate.joined}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Financial Summary */}
+                            <div className="bg-[#05080F] rounded-[2rem] p-6 text-white flex items-center justify-between shadow-xl shadow-[#05080F]/10">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-[#FBC02D] mb-1">Ganhos Acumulados</p>
+                                    <h4 className="text-2xl font-black text-white">{viewingAffiliate.earnings}</h4>
+                                </div>
+                                <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
+                                    <ArrowUpDown className="w-6 h-6 text-[#FBC02D]" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-8 border-t border-slate-50 bg-slate-50/30 flex gap-4">
+                            <button
+                                onClick={() => setViewingAffiliate(null)}
+                                className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition-all uppercase tracking-widest text-xs"
+                            >
+                                Fechar
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setViewingNetworkId(viewingAffiliate.id);
+                                    setViewingNetworkName(viewingAffiliate.name);
+                                    setViewingAffiliate(null);
+                                }}
+                                className="flex-1 py-4 bg-[#05080F] text-white font-black rounded-2xl hover:bg-[#1a2436] transition-all shadow-lg shadow-[#05080F]/10 uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+                            >
+                                <Network className="w-4 h-4 text-[#FBC02D]" /> Ver Rede
                             </button>
                         </div>
                     </div>
