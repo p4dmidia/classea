@@ -54,15 +54,11 @@ const Footer: React.FC = () => {
             <ul className="space-y-4 text-sm text-slate-500">
               <li className="flex items-center gap-3">
                 <Mail className="w-4 h-4 text-[#FBC02D]" />
-                contato@classea.com.br
-              </li>
-              <li className="flex items-center gap-3">
-                <Phone className="w-4 h-4 text-[#FBC02D]" />
-                0800 777 4000
+                suport.classe.a@gmail.com
               </li>
               <li className="flex items-start gap-3">
                 <MapPin className="w-4 h-4 text-[#FBC02D] shrink-0" />
-                Av. Paulista, 1000 - São Paulo/SP
+                Luiz Barreto Murat 1754 Curitiba
               </li>
             </ul>
           </div>

@@ -265,6 +265,16 @@ const CheckoutPage: React.FC = () => {
                                     />
                                 </div>
                                 <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CPF</label>
+                                    <input
+                                        type="text"
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                        placeholder="000.000.000-00"
+                                        value={customerInfo.cpf}
+                                        onChange={(e) => setCustomerInfo({ ...customerInfo, cpf: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CEP</label>
                                     <div className="flex gap-2">
                                         <input
@@ -370,7 +380,7 @@ const CheckoutPage: React.FC = () => {
                                         className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${paymentMethod === 'pix' ? 'border-[#FBC02D] bg-amber-50/30' : 'border-slate-100 hover:border-slate-200'}`}
                                     >
                                         <div className={`w-8 h-8 flex items-center justify-center font-black rounded-lg ${paymentMethod === 'pix' ? 'bg-[#FBC02D] text-[#0B1221]' : 'bg-slate-100 text-slate-300'}`}>PIX</div>
-                                        <span className="text-xs font-black uppercase tracking-widest">Pix (5% OFF)</span>
+                                        <span className="text-xs font-black uppercase tracking-widest">Pix</span>
                                     </button>
                                 </div>
                             )}

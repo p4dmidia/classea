@@ -14,7 +14,9 @@ import {
     X,
     Upload,
     Box,
-    Loader2
+    Loader2,
+    Info,
+    ChevronDown
 } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabase';
@@ -37,6 +39,7 @@ interface Product {
     width: number;
     height: number;
     origin_zip: string;
+    variations?: any;
     product_categories?: {
         name: string;
         parent_id: number | null;
@@ -82,7 +85,11 @@ const AdminProducts: React.FC = () => {
         length: '16',
         width: '11',
         height: '2',
-        origin_zip: '82820-160'
+        origin_zip: '82820-160',
+        sizes_raw: '',
+        colors_raw: '',
+        numbering_raw: '',
+        soles_tips_raw: ''
     });
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -190,7 +197,11 @@ const AdminProducts: React.FC = () => {
             length: (prod.length || 16).toString(),
             width: (prod.width || 11).toString(),
             height: (prod.height || 2).toString(),
-            origin_zip: prod.origin_zip || '82820-160'
+            origin_zip: prod.origin_zip || '82820-160',
+            sizes_raw: prod.variations?.sizes?.join(', ') || '',
+            colors_raw: prod.variations?.colors?.join(', ') || '',
+            numbering_raw: prod.variations?.numbering?.join(', ') || '',
+            soles_tips_raw: [...(prod.variations?.soles || []), ...(prod.variations?.tips || [])].join(', ')
         });
         setImagePreview(prod.image_url);
         setIsNewModalOpen(true);
@@ -242,6 +253,13 @@ const AdminProducts: React.FC = () => {
                 width: parseFloat(formData.width) || 11,
                 height: parseFloat(formData.height) || 2,
                 origin_zip: formData.origin_zip || '82820-160',
+                variations: {
+                    sizes: formData.sizes_raw.split(',').map(s => s.trim()).filter(s => s),
+                    colors: formData.colors_raw.split(',').map(s => s.trim()).filter(s => s),
+                    numbering: formData.numbering_raw.split(',').map(s => s.trim()).filter(s => s),
+                    soles: formData.soles_tips_raw.split(',').map(s => s.trim()).filter(s => s),
+                    tips: []
+                },
                 organization_id: orgIdState
             };
 
@@ -319,7 +337,11 @@ const AdminProducts: React.FC = () => {
             length: '16',
             width: '11',
             height: '2',
-            origin_zip: '82820-160'
+            origin_zip: '82820-160',
+            sizes_raw: '',
+            colors_raw: '',
+            numbering_raw: '',
+            soles_tips_raw: ''
         });
         setEditingProduct(null);
         setSelectedImage(null);
@@ -677,10 +699,10 @@ const AdminProducts: React.FC = () => {
 
             {/* Novo/Editar Produto Modal */}
             {isNewModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-6 lg:p-8">
                     <div className="absolute inset-0 bg-[#05080F]/80 backdrop-blur-sm" onClick={() => setIsNewModalOpen(false)}></div>
-                    <div className="bg-white w-full h-full md:h-auto md:max-w-2xl md:rounded-[3rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col">
-                        <div className="p-6 md:p-12 border-b border-slate-50 flex justify-between items-center shrink-0">
+                    <div className="bg-white w-full h-full md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-[3.5rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col">
+                        <div className="p-6 md:p-10 border-b border-slate-50 flex justify-between items-center shrink-0">
                             <div>
                                 <h2 className="text-2xl md:text-3xl font-black text-[#05080F]">{editingProduct ? 'Editar Produto' : 'Novo Produto'}</h2>
                                 <p className="text-slate-400 font-bold mt-1 uppercase text-[10px] md:text-xs tracking-widest">{editingProduct ? 'Atualizar catálogo' : 'Adicionar ao catálogo'}</p>
@@ -690,178 +712,234 @@ const AdminProducts: React.FC = () => {
                             </button>
                         </div>
 
-                        <form className="p-6 md:p-12 mb-0 overflow-y-auto flex-grow custom-scrollbar" onSubmit={handleSaveProduct}>
-                            <div className="space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="flex-grow overflow-y-auto p-6 md:p-10 custom-scrollbar">
+                            <form className="space-y-8" onSubmit={handleSaveProduct}>
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Nome do Produto</label>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={formData.name}
+                                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
+                                                placeholder="Ex: Colchão Elite"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Categoria Principal</label>
+                                            <select
+                                                required
+                                                value={formData.parent_category_id}
+                                                onChange={(e) => setFormData({ ...formData, parent_category_id: e.target.value, category_id: '' })}
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
+                                            >
+                                                <option value="">Selecionar...</option>
+                                                {categories.map(cat => (
+                                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Subcategoria (Opcional)</label>
+                                            <select
+                                                value={formData.category_id}
+                                                onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
+                                                disabled={!formData.parent_category_id}
+                                            >
+                                                <option value="">Mesma da Principal</option>
+                                                {categories.find(c => c.id.toString() === formData.parent_category_id)?.children?.map(cat => (
+                                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Preço</label>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={formData.price}
+                                                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
+                                                placeholder="R$ 0,00"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Estoque</label>
+                                            <input
+                                                type="number"
+                                                required
+                                                value={formData.stock_quantity}
+                                                onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 md:p-6 bg-slate-50/50 rounded-[2rem] border border-slate-100 space-y-6">
+                                        <h3 className="text-[10px] md:text-sm font-black text-[#05080F] flex items-center gap-2 uppercase tracking-widest">
+                                            <Box className="w-4 h-4 text-[#FBC02D]" />
+                                            LOGÍSTICA (FRETE)
+                                        </h3>
+
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-1">Peso (kg)</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    required
+                                                    value={formData.weight}
+                                                    onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                                                    className="w-full bg-white border border-slate-100 rounded-xl py-3 px-3 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                    placeholder="0.5"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-1">Comp. (cm)</label>
+                                                <input
+                                                    type="number"
+                                                    required
+                                                    value={formData.length}
+                                                    onChange={(e) => setFormData({ ...formData, length: e.target.value })}
+                                                    className="w-full bg-white border border-slate-100 rounded-xl py-3 px-3 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                    placeholder="16"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-1">Larg. (cm)</label>
+                                                <input
+                                                    type="number"
+                                                    required
+                                                    value={formData.width}
+                                                    onChange={(e) => setFormData({ ...formData, width: e.target.value })}
+                                                    className="w-full bg-white border border-slate-100 rounded-xl py-3 px-3 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                    placeholder="11"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-1">Alt. (cm)</label>
+                                                <input
+                                                    type="number"
+                                                    required
+                                                    value={formData.height}
+                                                    onChange={(e) => setFormData({ ...formData, height: e.target.value })}
+                                                    className="w-full bg-white border border-slate-100 rounded-xl py-3 px-3 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                    placeholder="2"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CEP de Origem (Saída)</label>
+                                            <select
+                                                required
+                                                value={formData.origin_zip}
+                                                onChange={(e) => setFormData({ ...formData, origin_zip: e.target.value })}
+                                                className="w-full bg-white border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
+                                            >
+                                                <option value="82820-160">82820-160 (Curitiba - Feminino/Ternos)</option>
+                                                <option value="93542-440">93542-440 (Novo Hamburgo - Sapato Masc.)</option>
+                                                <option value="01104-001">01104-001 (São Paulo - Roupas Fem.)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Product Variations Section */}
+                                    <div className="space-y-4 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                                        <div className="flex items-center justify-between px-2">
+                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Variações / Opções do Produto</label>
+                                            <Info className="w-4 h-4 text-slate-300" />
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black uppercase text-slate-500 tracking-tighter pl-1">Tamanhos (ex: P, M, G ou Casal, Queen)</label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.sizes_raw}
+                                                    onChange={(e) => setFormData({ ...formData, sizes_raw: e.target.value })}
+                                                    className="w-full bg-white border border-slate-100 rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                    placeholder="Separados por vírgula..."
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black uppercase text-slate-500 tracking-tighter pl-1">Cores (ex: Preto, Branco, Azul)</label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.colors_raw}
+                                                    onChange={(e) => setFormData({ ...formData, colors_raw: e.target.value })}
+                                                    className="w-full bg-white border border-slate-100 rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                    placeholder="Separados por vírgula..."
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black uppercase text-slate-500 tracking-tighter pl-1">Numeração (Calçados)</label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.numbering_raw}
+                                                    onChange={(e) => setFormData({ ...formData, numbering_raw: e.target.value })}
+                                                    className="w-full bg-white border border-slate-100 rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                    placeholder="Ex: 38, 39, 40..."
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black uppercase text-slate-500 tracking-tighter pl-1">Modelos de Solado / Bicos</label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.soles_tips_raw}
+                                                    onChange={(e) => setFormData({ ...formData, soles_tips_raw: e.target.value })}
+                                                    className="w-full bg-white border border-slate-100 rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                    placeholder="Ex: Solado Borracha, Bico Fino..."
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Nome do Produto</label>
-                                        <input
-                                            type="text"
-                                            required
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
-                                            placeholder="Ex: Colchão Elite"
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Descrição</label>
+                                        <textarea
+                                            value={formData.description}
+                                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] min-h-[100px] text-sm"
+                                            placeholder="Detalhes do produto..."
                                         />
                                     </div>
+
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Categoria Principal</label>
-                                        <select
-                                            required
-                                            value={formData.parent_category_id}
-                                            onChange={(e) => setFormData({ ...formData, parent_category_id: e.target.value, category_id: '' })}
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Imagem</label>
+                                        <div
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className={`border-2 border-dashed rounded-3xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${imagePreview ? 'border-[#FBC02D]/30 bg-amber-50/5' : 'border-slate-100 bg-slate-50 hover:border-[#FBC02D]/50'}`}
                                         >
-                                            <option value="">Selecionar...</option>
-                                            {categories.map(cat => (
-                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Subcategoria (Opcional)</label>
-                                        <select
-                                            value={formData.category_id}
-                                            onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
-                                            disabled={!formData.parent_category_id}
-                                        >
-                                            <option value="">Mesma da Principal</option>
-                                            {categories.find(c => c.id.toString() === formData.parent_category_id)?.children?.map(cat => (
-                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Preço</label>
-                                        <input
-                                            type="text"
-                                            required
-                                            value={formData.price}
-                                            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
-                                            placeholder="R$ 0,00"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Estoque</label>
-                                        <input
-                                            type="number"
-                                            required
-                                            value={formData.stock_quantity}
-                                            onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
-                                            placeholder="0"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="p-4 md:p-6 bg-slate-50/50 rounded-[2rem] border border-slate-100 space-y-6">
-                                    <h3 className="text-[10px] md:text-sm font-black text-[#05080F] flex items-center gap-2 uppercase tracking-widest">
-                                        <Box className="w-4 h-4 text-[#FBC02D]" />
-                                        LOGÍSTICA (FRETE)
-                                    </h3>
-
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <div className="space-y-1">
-                                            <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-1">Peso (kg)</label>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                required
-                                                value={formData.weight}
-                                                onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                                                className="w-full bg-white border border-slate-100 rounded-xl py-3 px-3 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
-                                                placeholder="0.5"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-1">Comp. (cm)</label>
-                                            <input
-                                                type="number"
-                                                required
-                                                value={formData.length}
-                                                onChange={(e) => setFormData({ ...formData, length: e.target.value })}
-                                                className="w-full bg-white border border-slate-100 rounded-xl py-3 px-3 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
-                                                placeholder="16"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-1">Larg. (cm)</label>
-                                            <input
-                                                type="number"
-                                                required
-                                                value={formData.width}
-                                                onChange={(e) => setFormData({ ...formData, width: e.target.value })}
-                                                className="w-full bg-white border border-slate-100 rounded-xl py-3 px-3 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
-                                                placeholder="11"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-1">Alt. (cm)</label>
-                                            <input
-                                                type="number"
-                                                required
-                                                value={formData.height}
-                                                onChange={(e) => setFormData({ ...formData, height: e.target.value })}
-                                                className="w-full bg-white border border-slate-100 rounded-xl py-3 px-3 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
-                                                placeholder="2"
-                                            />
+                                            {imagePreview ? (
+                                                <img src={imagePreview} alt="Preview" className="h-32 rounded-xl object-cover" />
+                                            ) : (
+                                                <>
+                                                    <Upload className="w-8 h-8 text-[#FBC02D]" />
+                                                    <p className="text-xs font-bold text-slate-400">Clique para subir imagem</p>
+                                                </>
+                                            )}
+                                            <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/*" />
                                         </div>
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CEP de Origem (Saída)</label>
-                                        <select
-                                            required
-                                            value={formData.origin_zip}
-                                            onChange={(e) => setFormData({ ...formData, origin_zip: e.target.value })}
-                                            className="w-full bg-white border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm"
-                                        >
-                                            <option value="82820-160">82820-160 (Curitiba - Feminino/Ternos)</option>
-                                            <option value="93542-440">93542-440 (Novo Hamburgo - Sapato Masc.)</option>
-                                            <option value="01104-001">01104-001 (São Paulo - Roupas Fem.)</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Descrição</label>
-                                    <textarea
-                                        value={formData.description}
-                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] min-h-[100px] text-sm"
-                                        placeholder="Detalhes do produto..."
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Imagem</label>
-                                    <div
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className={`border-2 border-dashed rounded-3xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${imagePreview ? 'border-[#FBC02D]/30 bg-amber-50/5' : 'border-slate-100 bg-slate-50 hover:border-[#FBC02D]/50'}`}
+                                    <button
+                                        type="submit"
+                                        disabled={isSaving}
+                                        className="w-full py-5 bg-[#05080F] text-white rounded-2xl font-black text-sm shadow-xl hover:bg-[#1a2436] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                                     >
-                                        {imagePreview ? (
-                                            <img src={imagePreview} alt="Preview" className="h-32 rounded-xl object-cover" />
-                                        ) : (
-                                            <>
-                                                <Upload className="w-8 h-8 text-[#FBC02D]" />
-                                                <p className="text-xs font-bold text-slate-400">Clique para subir imagem</p>
-                                            </>
-                                        )}
-                                        <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/*" />
-                                    </div>
+                                        {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : editingProduct ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR PRODUTO'}
+                                    </button>
                                 </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={isSaving}
-                                    className="w-full py-5 bg-[#05080F] text-white rounded-2xl font-black text-sm shadow-xl hover:bg-[#1a2436] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                                >
-                                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : editingProduct ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR PRODUTO'}
-                                </button>
-                            </div>
-                        </form>
+                            </form>
+                        </div>
                     </div>
                 </div>
             )}

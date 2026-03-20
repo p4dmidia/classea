@@ -104,25 +104,35 @@ const ShopPage: React.FC = () => {
             const catId = searchParams.get('category_id');
             console.log('DEBUG: catId from URL:', catId);
             if (catId) {
+                // Fetch the category name to enable "Smart Title Matching"
+                const { data: catInfo } = await supabase
+                    .from('product_categories')
+                    .select('name, parent_id')
+                    .eq('id', catId)
+                    .single();
+
+                const categoryName = catInfo?.name;
+                const parentId = catInfo?.parent_id;
+
                 // Fetch descendants recursively
                 const { data: descendantIds, error: rpcError } = await supabase
                     .rpc('get_category_descendants', { root_id: parseInt(catId) });
 
+                let idList: number[] = [];
                 if (descendantIds && descendantIds.length > 0) {
-                    const idList = descendantIds.map((d: any) => d.id);
-                    query = query.in('category_id', idList);
+                    idList = descendantIds.map((d: any) => d.id);
                 } else {
                     // Client-side recursion fallback if RPC fails or returns empty
                     console.log('DEBUG: RPC failed or empty, using client-side recursion for catId:', catId);
                     
-                    const fetchChildIds = async (parentId: number): Promise<number[]> => {
+                    const fetchChildIds = async (pId: number): Promise<number[]> => {
                         const { data: children } = await supabase
                             .from('product_categories')
                             .select('id')
-                            .eq('parent_id', parentId)
+                            .eq('parent_id', pId)
                             .eq('organization_id', effectiveOrgId);
                         
-                        let ids = [parentId];
+                        let ids = [pId];
                         if (children && children.length > 0) {
                             for (const child of children) {
                                 const childIds = await fetchChildIds(child.id);
@@ -132,7 +142,18 @@ const ShopPage: React.FC = () => {
                         return ids;
                     };
 
-                    const idList = await fetchChildIds(parseInt(catId));
+                    idList = await fetchChildIds(parseInt(catId));
+                }
+
+                // Smart Category Filter: 
+                // Matches by category_id OR by name IF it belongs to the same parent category
+                const brands = ['HAIFLEX', 'CLASSIC', 'INTENSE', 'CLASS A', 'CLASSE A'];
+                const isBrandCategory = categoryName && brands.some(brand => categoryName.toUpperCase().includes(brand));
+
+                if (isBrandCategory && parentId) {
+                    // Search for products in the child category OR in the parent category with specific name/brand
+                    query = query.or(`category_id.in.(${idList.join(',')}),and(category_id.eq.${parentId},name.ilike.%${categoryName}%)`);
+                } else {
                     query = query.in('category_id', idList);
                 }
             }
@@ -193,8 +214,16 @@ const ShopPage: React.FC = () => {
                 query = query.gt('stock_quantity', 0);
             }
 
+            const sort = searchParams.get('sort') || 'newest';
+            if (sort === 'price_asc') {
+                query = query.order('price', { ascending: true });
+            } else if (sort === 'price_desc') {
+                query = query.order('price', { ascending: false });
+            } else {
+                query = query.order('created_at', { ascending: false });
+            }
+
             const { data, error, count } = await query
-                .order('created_at', { ascending: false })
                 .range(from, to);
 
             if (error) {

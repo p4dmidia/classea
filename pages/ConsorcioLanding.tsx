@@ -36,7 +36,7 @@ const ConsorcioLanding: React.FC = () => {
     ];
 
     const faqs = [
-        { q: "Como funciona o sorteio transparente?", a: "Para garantir 100% de honestidade, usamos o resultado da Loteria Federal. O número sorteado é processado pelo sistema e determina o ganhador do mês de forma auditável por qualquer pessoa." },
+        { q: "Como funciona a contemplação?", a: "Para garantir total honestidade, usamos o nosso sistema automatizado de contemplação mensal, que define o ganhador do mês de forma segura e transparente para todos os participantes." },
         { q: "O que acontece se eu for sorteado?", a: "Você para de pagar as parcelas mensais e recebe seu prêmio imediatamente! No caso da Livre Escolha, o valor da sua cota é convertido em créditos na loja." },
         { q: "Quais as formas de pagamento?", a: "Aceitamos Cartão de Crédito e PIX. O pagamento é recorrente para garantir sua permanência no grupo." }
     ];
@@ -55,7 +55,7 @@ const ConsorcioLanding: React.FC = () => {
                         <span className="text-[#FBC02D]">Consórcio Transparente</span>
                     </h1>
                     <p className="text-xl text-slate-500 max-w-2xl mx-auto mb-12 font-medium">
-                        A forma mais inteligente de adquirir produtos premium com parcelas que cabem no seu bolso e sorteios auditáveis pela Loteria Federal.
+                        A forma mais inteligente de adquirir produtos premium com parcelas que cabem no seu bolso e total segurança Classe A.
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center gap-4">
                         <Link to="/shop?category=Consórcio" className="bg-[#0B1221] text-white font-black py-4 px-10 rounded-2xl shadow-xl shadow-slate-200 hover:scale-105 transition-all flex items-center justify-center gap-3">
@@ -111,10 +111,10 @@ const ConsorcioLanding: React.FC = () => {
                         <div>
                             <span className="text-[#FBC02D] font-black text-[10px] uppercase tracking-[0.3em] mb-4 block">Total Transparência</span>
                             <h2 className="text-4xl md:text-5xl font-black leading-tight mb-8">
-                                Sorteios Auditados pela <span className="text-[#FBC02D]">Loteria Federal</span>
+                                Sistema de Contemplação <span className="text-[#FBC02D]">Classe A Platinum</span>
                             </h2>
                             <p className="text-slate-400 text-lg mb-10 leading-relaxed">
-                                Nada de sorteios às escuras. No sistema Classe A Platinum, o vencedor é definido por um cálculo matemático baseado no 1º prêmio da Loteria Federal. É público, é auditável, é justo.
+                                No sistema Classe A Platinum, o vencedor é definido de forma transparente e segura através do nosso sistema automatizado de contemplação mensal.
                             </p>
                             <div className="space-y-6">
                                 <div className="flex gap-4">
@@ -139,10 +139,10 @@ const ConsorcioLanding: React.FC = () => {
                         </div>
                         <div className="bg-white/5 border border-white/10 rounded-[3rem] p-12 relative">
                             <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#FBC02D] rounded-full blur-3xl opacity-20"></div>
-                            <h4 className="text-[#FBC02D] font-black uppercase text-xs tracking-widest mb-8">Simulação de Sorteio</h4>
+                            <h4 className="text-[#FBC02D] font-black uppercase text-xs tracking-widest mb-8">Simulação de Contemplação</h4>
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/10">
-                                    <span className="text-slate-400 text-sm">Res. Loteria Federal</span>
+                                    <span className="text-slate-400 text-sm">Res. Sistema Classe A</span>
                                     <span className="font-black text-xl">57.342</span>
                                 </div>
                                 <div className="flex justify-between items-center p-4 bg-white/5 rounded-2xl border border-white/10">
@@ -151,7 +151,7 @@ const ConsorcioLanding: React.FC = () => {
                                 </div>
                                 <div className="p-1 bg-[#FBC02D]/20 rounded-2xl overflow-hidden">
                                     <div className="p-5 bg-[#FBC02D] text-[#0B1221] rounded-xl text-center">
-                                        <p className="text-[10px] font-black uppercase tracking-widest mb-1">Vencedor Projetado</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest mb-1">Contemplado Projetado</p>
                                         <p className="text-2xl font-black">NÚMERO DA SORTE: 07</p>
                                     </div>
                                 </div>

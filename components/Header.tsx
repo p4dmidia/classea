@@ -50,11 +50,14 @@ const Header: React.FC = () => {
       if (error) throw error;
 
       if (data) {
-        const dynamicCats = data.map(cat => ({
-          label: cat.name,
-          path: `/shop?category_id=${cat.id}`,
-          id: cat.id
-        }));
+        // Filter out Consórcio and ACESSÓRIOS from main shop categories
+        const dynamicCats = data
+          .filter(cat => !['Consórcio', 'ACESSÓRIOS', 'Acessórios', 'ACESSORIOS'].includes(cat.name))
+          .map(cat => ({
+            label: cat.name,
+            path: `/shop?category_id=${cat.id}`,
+            id: cat.id
+          }));
         setCategories([
           { label: 'Todos', path: '/shop' },
           ...dynamicCats,
@@ -133,10 +136,51 @@ const Header: React.FC = () => {
           <ul className="flex items-center gap-6 py-4 whitespace-nowrap text-xs md:text-sm font-medium">
             {categories.map((cat, idx) => {
               const currentCatId = searchParams.get('category_id');
-              const isPathActive = window.location.pathname === cat.path;
               const isActive = (cat.label === 'Todos' && !currentCatId && window.location.pathname === '/shop') || 
                                (cat.id && currentCatId === cat.id.toString()) ||
                                (cat.path === '/consorcio' && window.location.pathname === '/consorcio');
+
+              // Special case for Colchões Terapêutico (ID 54)
+              if (cat.label === 'COLCHÕES TERAPÊUTICO' || cat.label === 'COLCHÕES TERAPÊUTICOS' || cat.id === 54) {
+                return (
+                  <li key={idx} className="group relative">
+                    <Link
+                      to={cat.path}
+                      className={`flex items-center gap-1 transition-colors py-4 ${isActive ? 'text-[#FBC02D] font-bold border-b-2 border-[#FBC02D]' : 'text-slate-500 hover:text-[#FBC02D]'}`}
+                    >
+                      {cat.label}
+                      <ChevronDown className="w-4 h-4" />
+                    </Link>
+                    
+                    {/* Dropdown Level 1 */}
+                    <div className="absolute top-full left-0 bg-white shadow-xl border border-slate-100 rounded-xl py-4 min-w-[200px] opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all z-[100]">
+                      <div className="px-6 py-2">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Marcas</p>
+                        <div className="space-y-2">
+                          {/* CLASSE A with Nested Dropdown */}
+                          <div className="relative group/sub">
+                            <span className="flex items-center justify-between text-sm font-bold text-slate-700 hover:text-[#FBC02D] cursor-pointer">
+                              CLASSE A
+                              <ChevronDown className="w-3 h-3 -rotate-90" />
+                            </span>
+                            <div className="absolute top-0 left-full ml-4 bg-white shadow-xl border border-slate-100 rounded-xl py-4 min-w-[150px] opacity-0 translate-x-2 pointer-events-none group-hover/sub:opacity-100 group-hover/sub:translate-x-0 group-hover/sub:pointer-events-auto transition-all">
+                              <Link to="/shop?category_id=54&q=CLASSIC" className="block px-6 py-2 text-sm font-bold text-slate-700 hover:text-[#FBC02D]">CLASSIC</Link>
+                              <Link to="/shop?category_id=54&q=INTENSE" className="block px-6 py-2 text-sm font-bold text-slate-700 hover:text-[#FBC02D]">INTENSE</Link>
+                            </div>
+                          </div>
+                          
+                          <Link 
+                            to="/shop?category_id=54&q=HAIFLEX&sort=price_asc" 
+                            className="block text-sm font-bold text-slate-700 hover:text-[#FBC02D]"
+                          >
+                            HAIFLEX
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                );
+              }
 
               return (
                 <li key={idx}>

@@ -7,6 +7,7 @@ export interface CartItem {
     image: string;
     category: string;
     quantity: number;
+    selectedVariations?: { [key: string]: string };
 }
 
 interface CartContextType {
@@ -30,20 +31,27 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('cart', JSON.stringify(cart));
     }, [cart]);
 
-    const addToCart = (product: any) => {
+    const addToCart = (product: any, selectedVariations?: { [key: string]: string }) => {
         setCart(prev => {
-            const existing = prev.find(item => item.id === product.id);
+            const existing = prev.find(item => 
+                item.id === product.id && 
+                JSON.stringify(item.selectedVariations) === JSON.stringify(selectedVariations)
+            );
             if (existing) {
                 return prev.map(item =>
-                    item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+                    (item.id === product.id && JSON.stringify(item.selectedVariations) === JSON.stringify(selectedVariations))
+                        ? { ...item, quantity: item.quantity + (product.quantity || 1) } 
+                        : item
                 );
             }
-            return [...prev, { ...product, quantity: 1 }];
+            return [...prev, { ...product, quantity: product.quantity || 1, selectedVariations }];
         });
     };
 
-    const removeFromCart = (productId: number) => {
-        setCart(prev => prev.filter(item => item.id !== productId));
+    const removeFromCart = (productId: number, selectedVariations?: { [key: string]: string }) => {
+        setCart(prev => prev.filter(item => 
+            !(item.id === productId && JSON.stringify(item.selectedVariations) === JSON.stringify(selectedVariations))
+        ));
     };
 
     const clearCart = () => setCart([]);

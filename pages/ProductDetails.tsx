@@ -86,12 +86,55 @@ const ProductDetails: React.FC = () => {
         }
     };
 
+    const [selectedVariations, setSelectedVariations] = useState<{ [key: string]: string }>({});
+
     const handleAddToCart = () => {
         if (!product) return;
-        for (let i = 0; i < quantity; i++) {
-            addToCart(product);
+        
+        // Verifica se todas as variações disponíveis foram selecionadas
+        const availableVariations = product.variations || {};
+        const missing = Object.keys(availableVariations).filter(key => 
+            availableVariations[key] && availableVariations[key].length > 0 && !selectedVariations[key]
+        );
+
+        if (missing.length > 0) {
+            const labelMap: any = {
+                sizes: 'Tamanho',
+                colors: 'Cor',
+                numbering: 'Numeração',
+                soles: 'Solado',
+                tips: 'Bico'
+            };
+            toast.error(`Por favor, selecione: ${missing.map(m => labelMap[m] || m).join(', ')}`);
+            return;
         }
+
+        addToCart(product, selectedVariations);
         toast.success(`${product.name} adicionado ao carrinho!`);
+    };
+
+    const renderVariationSelector = (key: string, label: string, options: string[]) => {
+        if (!options || options.length === 0) return null;
+        return (
+            <div className="space-y-3 mb-6" key={key}>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest pl-1">{label}</p>
+                <div className="flex flex-wrap gap-2">
+                    {options.map(opt => (
+                        <button
+                            key={opt}
+                            onClick={() => setSelectedVariations(prev => ({ ...prev, [key]: opt }))}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all ${
+                                selectedVariations[key] === opt 
+                                ? 'bg-[#FBC02D] border-[#FBC02D] text-[#0B1221]' 
+                                : 'bg-white border-slate-100 text-slate-500 hover:border-[#FBC02D]/30'
+                            }`}
+                        >
+                            {opt}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        );
     };
 
     if (isLoading) {
@@ -183,6 +226,15 @@ const ProductDetails: React.FC = () => {
                                     )}
                                 </div>
                             )}
+                        </div>
+
+                        {/* Product Variations Selection */}
+                        <div className="mb-8">
+                            {product.variations?.sizes && renderVariationSelector('sizes', 'Tamanho', product.variations.sizes)}
+                            {product.variations?.colors && renderVariationSelector('colors', 'Cor', product.variations.colors)}
+                            {product.variations?.numbering && renderVariationSelector('numbering', 'Numeração', product.variations.numbering)}
+                            {product.variations?.soles && renderVariationSelector('soles', 'Solado', product.variations.soles)}
+                            {product.variations?.tips && renderVariationSelector('tips', 'Bico', product.variations.tips)}
                         </div>
 
                         {/* Actions */}

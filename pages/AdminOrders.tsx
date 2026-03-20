@@ -70,6 +70,7 @@ const AdminOrders: React.FC = () => {
         shipping: 0,
         monthTotal: 0
     });
+    const [isUpdating, setIsUpdating] = useState(false);
 
     const itemsPerPage = 8;
 
@@ -123,23 +124,46 @@ const AdminOrders: React.FC = () => {
     };
 
     const handleStatusUpdate = async (orderId: string, newStatus: string) => {
+        if (isUpdating) return;
+        
+        setIsUpdating(true);
+        console.log(`Updating order ${orderId} to status ${newStatus}`);
+        
         try {
             const { error } = await supabase
                 .from('orders')
-                .update({ status: newStatus, updated_at: new Date().toISOString() })
+                .update({ 
+                    status: newStatus, 
+                    updated_at: new Date().toISOString() 
+                })
                 .eq('id', orderId);
 
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase update error:', error);
+                throw error;
+            }
 
             toast.success(`Status do pedido atualizado para ${newStatus}`);
-            setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+            
+            // Update local orders list
+            const updatedOrders = orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o);
+            setOrders(updatedOrders);
+            
+            // Update selected order if it's the one being modified
+            if (selectedOrder && selectedOrder.id === orderId) {
+                setSelectedOrder({ ...selectedOrder, status: newStatus });
+            }
+
             setIsStatusMenuOpen(false);
             setActiveOrderId(null);
 
-            // Update stats if status changed
-            calculateStats(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
-        } catch (error) {
-            toast.error('Erro ao atualizar status');
+            // Update stats
+            calculateStats(updatedOrders);
+        } catch (error: any) {
+            console.error('Error updating status:', error);
+            toast.error(error.message || 'Erro ao atualizar status');
+        } finally {
+            setIsUpdating(false);
         }
     };
 
@@ -432,10 +456,11 @@ const AdminOrders: React.FC = () => {
                                                                         <button
                                                                             key={status}
                                                                             onClick={() => handleStatusUpdate(order.id, status)}
-                                                                            className={`w-full text-left px-4 py-2 text-xs font-bold transition-all flex items-center gap-2 ${order.status === status ? 'text-[#FBC02D] bg-slate-50' : 'text-slate-600 hover:bg-slate-50 hover:text-[#05080F]'}`}
+                                                                            disabled={isUpdating}
+                                                                            className={`w-full text-left px-4 py-2 text-xs font-bold transition-all flex items-center gap-2 ${order.status === status ? 'text-[#FBC02D] bg-slate-50' : 'text-slate-600 hover:bg-slate-50 hover:text-[#05080F]'} ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                                         >
                                                                             <div className={`w-2 h-2 rounded-full ${getStatusStyle(status).split(' ')[0]}`}></div>
-                                                                            {status}
+                                                                            {isUpdating && activeOrderId === order.id ? '...' : status}
                                                                         </button>
                                                                     ))}
                                                                 </div>
@@ -528,10 +553,11 @@ const AdminOrders: React.FC = () => {
                                                 <button
                                                     key={status}
                                                     onClick={() => handleStatusUpdate(order.id, status)}
-                                                    className={`w-full text-left px-4 py-2 text-xs font-bold transition-all flex items-center gap-2 ${order.status === status ? 'text-[#FBC02D] bg-slate-50' : 'text-slate-600 hover:bg-slate-50 hover:text-[#05080F]'}`}
+                                                    disabled={isUpdating}
+                                                    className={`w-full text-left px-4 py-2 text-xs font-bold transition-all flex items-center gap-2 ${order.status === status ? 'text-[#FBC02D] bg-slate-50' : 'text-slate-600 hover:bg-slate-50 hover:text-[#05080F]'} ${isUpdating ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 >
                                                     <div className={`w-2 h-2 rounded-full ${getStatusStyle(status).split(' ')[0]}`}></div>
-                                                    {status}
+                                                    {isUpdating && activeOrderId === order.id ? '...' : status}
                                                 </button>
                                             ))}
                                         </div>
@@ -665,17 +691,19 @@ const AdminOrders: React.FC = () => {
                         <div className="p-6 md:p-8 bg-slate-50/50 border-t border-slate-100 flex flex-col md:flex-row gap-3 md:gap-4 shrink-0">
                             <button
                                 onClick={() => handleStatusUpdate(selectedOrder.id, 'Enviado')}
-                                className="w-full md:flex-grow py-3 md:py-4 bg-[#05080F] text-white rounded-2xl font-black text-xs md:text-sm hover:bg-[#1a2436] transition-all flex items-center justify-center gap-2"
+                                disabled={isUpdating}
+                                className={`w-full md:flex-grow py-3 md:py-4 bg-[#05080F] text-white rounded-2xl font-black text-xs md:text-sm hover:bg-[#1a2436] transition-all flex items-center justify-center gap-2 ${isUpdating ? 'opacity-70 cursor-not-allowed' : ''}`}
                             >
-                                <Truck className="w-4 h-4 md:w-5 md:h-5 text-[#FBC02D]" />
-                                MARCAR COMO ENVIADO
+                                {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Truck className="w-4 h-4 md:w-5 md:h-5 text-[#FBC02D]" />}
+                                {isUpdating ? 'PROCESSANDO...' : 'MARCAR COMO ENVIADO'}
                             </button>
                             <button
                                 onClick={() => handleStatusUpdate(selectedOrder.id, 'Pago')}
-                                className="w-full md:flex-grow py-3 md:py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs md:text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                                disabled={isUpdating}
+                                className={`w-full md:flex-grow py-3 md:py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs md:text-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2 ${isUpdating ? 'opacity-70 cursor-not-allowed' : ''}`}
                             >
-                                <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-emerald-500" />
-                                CONFIRMAR PAGAMENTO
+                                {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-emerald-500" />}
+                                {isUpdating ? 'PROCESSANDO...' : 'CONFIRMAR PAGAMENTO'}
                             </button>
                         </div>
                     </div>
