@@ -16,6 +16,7 @@ import AffiliateFinancial from './pages/AffiliateFinancial';
 import AffiliateConsorcio from './pages/AffiliateConsorcio';
 import AffiliateReports from './pages/AffiliateReports';
 import AffiliateMaterials from './pages/AffiliateMaterials';
+import AffiliateSettings from './pages/AffiliateSettings';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminAffiliates from './pages/AdminAffiliates';
@@ -64,6 +65,7 @@ const AppContent: React.FC = () => {
           <Route path="/dashboard/consorcio" element={<ProtectedRoute><AffiliateConsorcio /></ProtectedRoute>} />
           <Route path="/dashboard/reports" element={<ProtectedRoute><AffiliateReports /></ProtectedRoute>} />
           <Route path="/dashboard/materials" element={<ProtectedRoute><AffiliateMaterials /></ProtectedRoute>} />
+          <Route path="/dashboard/settings" element={<ProtectedRoute><AffiliateSettings /></ProtectedRoute>} />
 
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />

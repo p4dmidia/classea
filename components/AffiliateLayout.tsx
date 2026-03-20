@@ -10,7 +10,8 @@ import {
     LogOut,
     Star,
     Menu,
-    X
+    X,
+    Settings
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
@@ -59,6 +60,7 @@ const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
         { label: 'Relatórios', icon: TrendingUp, path: '/dashboard/reports' },
         ...(isConsortiumMember ? [{ label: 'Consórcio', icon: Star, path: '/dashboard/consorcio' }] : []),
         { label: 'Materiais', icon: Library, path: '/dashboard/materials' },
+        { label: 'Configurações', icon: Settings, path: '/dashboard/settings' },
     ];
 
     return (

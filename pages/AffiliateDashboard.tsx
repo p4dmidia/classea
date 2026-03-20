@@ -15,6 +15,7 @@ import {
     UserPlus,
     AlertCircle
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import AffiliateLayout from '../components/AffiliateLayout';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../components/AuthContext';
@@ -22,6 +23,7 @@ import toast from 'react-hot-toast';
 
 const AffiliateDashboard: React.FC = () => {
     const { user, profile } = useAuth();
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [affiliateData, setAffiliateData] = useState<any>(null);
     const [walletData, setWalletData] = useState<any>(null);
@@ -400,7 +402,10 @@ const AffiliateDashboard: React.FC = () => {
                             </div>
                         </div>
 
-                        <button className="w-full mt-8 bg-slate-50 hover:bg-slate-100 text-slate-600 py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2">
+                        <button 
+                            onClick={() => navigate('/dashboard/settings')}
+                            className="w-full mt-8 bg-slate-50 hover:bg-slate-100 text-slate-600 py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2"
+                        >
                             Editar Perfil
                         </button>
                     </div>
