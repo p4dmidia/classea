@@ -30,6 +30,7 @@ const AffiliateDashboard: React.FC = () => {
     const [consortiumStatus, setConsortiumStatus] = useState<any>(null);
     const [activeReferralsCount, setActiveReferralsCount] = useState(0);
     const [recentReferrals, setRecentReferrals] = useState<any[]>([]);
+    const [recentCommissions, setRecentCommissions] = useState<any[]>([]);
     const [copied, setCopied] = useState(false);
 
     useEffect(() => {
@@ -52,13 +53,10 @@ const AffiliateDashboard: React.FC = () => {
                 }
                 
                 setAffiliateData(aff);
-                console.log('DEBUG: Afiliado logado:', { aff_id: aff.id, user_id: aff.user_id, org_id: aff.organization_id });
-
+                
                 const effectiveOrgId = aff.organization_id || profile?.organization_id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
 
                 // 2. Buscar dados Financeiros
-                // Tentamos buscar respeitando a organização, mas se der erro 406 (provavelmente coluna ou RLS) 
-                // tentamos apenas pelo user_id para garantir que o dashboard carregue.
                 let { data: wallet, error: walletErr } = await supabase
                     .from('user_settings')
                     .select('*')
@@ -67,15 +65,13 @@ const AffiliateDashboard: React.FC = () => {
                     .maybeSingle();
 
                 if (walletErr || !wallet) {
-                    console.warn('DEBUG: Falha ao buscar wallet com org_id, tentando sem filtro de org...');
                     const { data: retryWallet, error: retryErr } = await supabase
                         .from('user_settings')
                         .select('*')
                         .eq('user_id', user.id)
                         .maybeSingle();
                     
-                    if (retryErr) throw retryErr;
-                    wallet = retryWallet;
+                    if (!retryErr) wallet = retryWallet;
                 }
                 
                 setWalletData(wallet);
@@ -89,18 +85,17 @@ const AffiliateDashboard: React.FC = () => {
                 }
 
                 // 4. Buscar indicações ativas (contagem)
-                const { count: activeCount, error: activeErr } = await supabase
+                const { count: activeCount } = await supabase
                     .from('affiliates')
                     .select('*', { count: 'exact', head: true })
                     .eq('sponsor_id', aff.id)
                     .eq('organization_id', effectiveOrgId)
                     .eq('is_active', true);
                 
-                if (activeErr) console.error('Erro ao contar indicações:', activeErr);
                 setActiveReferralsCount(activeCount || 0);
 
                 // 5. Buscar últimas indicações
-                const { data: recent, error: recentErr } = await supabase
+                const { data: recent } = await supabase
                     .from('affiliates')
                     .select('id, full_name, created_at, is_active')
                     .eq('sponsor_id', aff.id)
@@ -108,13 +103,23 @@ const AffiliateDashboard: React.FC = () => {
                     .order('created_at', { ascending: false })
                     .limit(5);
                 
-                if (recentErr) console.error('Erro ao buscar indicações recentes:', recentErr);
                 setRecentReferrals(recent || []);
+
+                // 6. Buscar comissões recentes
+                const { data: comms } = await supabase
+                    .from('commissions')
+                    .select(`
+                        id,
+                        amount,
+                        level,
+                        created_at,
+                        description
+                    `)
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false })
+                    .limit(5);
                 
-                console.log('DEBUG: Resultados indicações:', { 
-                    totalAtivas: activeCount, 
-                    recentes: recent?.length 
-                });
+                setRecentCommissions(comms || []);
 
             } catch (err: any) {
                 console.error('Erro ao carregar dados do dashboard:', err);
@@ -134,6 +139,7 @@ const AffiliateDashboard: React.FC = () => {
     const handleCopyLink = () => {
         navigator.clipboard.writeText(affiliateLink);
         setCopied(true);
+        toast.success('Link copiado!');
         setTimeout(() => setCopied(false), 2000);
     };
 
@@ -171,13 +177,11 @@ const AffiliateDashboard: React.FC = () => {
         },
         {
             label: 'Taxa de Conversão',
-            value: '0.0%', // TODO: Implementar métrica real
+            value: '0.0%',
             icon: Award,
             color: 'text-purple-500'
         },
     ];
-
-    const recentCommissions: any[] = []; // TODO: Buscar da tabela de comissões quando implementada
 
     if (loading) {
         return (
@@ -255,116 +259,91 @@ const AffiliateDashboard: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Main area - Charts/Links */}
                 <div className="lg:col-span-2 space-y-8">
-                    {/* Referral Links Cards */}
+                    {/* Referral Links */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Link Loja */}
-                        <div className="bg-[#0B1221] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-[#0B1221]/20">
-                            <div className="relative z-10">
-                                <h2 className="text-xl font-black mb-2 flex items-center gap-2">
-                                    <ShoppingCart className="w-5 h-5 text-[#FBC02D]" />
-                                    Link para Loja
-                                </h2>
-                                <p className="text-slate-400 text-xs mb-6">Mande para clientes direto para a vitrine.</p>
-
-                                <div className="space-y-4">
-                                    <div className="bg-white/10 border border-white/10 rounded-2xl px-4 py-3 flex items-center justify-between group">
-                                        <span className="text-slate-200 text-xs font-medium truncate mr-2">{affiliateLink}</span>
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(affiliateLink);
-                                            toast.success('Link da Loja copiado!');
-                                        }}
-                                        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-[#FBC02D] text-[#0B1221] rounded-xl font-black text-xs hover:bg-[#ffc947] transition-all"
-                                    >
-                                        <Copy className="w-4 h-4" />
-                                        COPIAR LINK LOJA
-                                    </button>
+                        <div className="bg-[#0B1221] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl">
+                            <h2 className="text-xl font-black mb-2 flex items-center gap-2">
+                                <ShoppingCart className="w-5 h-5 text-[#FBC02D]" />
+                                Link da Loja
+                            </h2>
+                            <p className="text-slate-400 text-xs mb-6">Compartilhe e ganhe comissões.</p>
+                            <div className="flex flex-col gap-4">
+                                <div className="bg-white/10 rounded-xl p-3 text-slate-200 text-xs truncate">
+                                    {affiliateLink}
                                 </div>
+                                <button
+                                    onClick={handleCopyLink}
+                                    className="bg-[#FBC02D] text-[#0B1221] py-3 rounded-xl font-black text-xs hover:bg-[#ffc947] transition-all"
+                                >
+                                    COPIAR LINK
+                                </button>
                             </div>
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-[#FBC02D]/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
                         </div>
 
-                        {/* Link Cadastro */}
-                        <div className="bg-[#0B1221] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-[#0B1221]/20 border border-white/5">
-                            <div className="relative z-10">
-                                <h2 className="text-xl font-black mb-2 flex items-center gap-2">
-                                    <UserPlus className="w-5 h-5 text-blue-400" />
-                                    Link para Cadastro
-                                </h2>
-                                <p className="text-slate-400 text-xs mb-6">Mande para novos parceiros se cadastrarem.</p>
-
-                                <div className="space-y-4">
-                                    <div className="bg-white/10 border border-white/10 rounded-2xl px-4 py-3 flex items-center justify-between group">
-                                        <span className="text-slate-200 text-xs font-medium truncate mr-2">{affiliateLink}?to=register</span>
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(`${affiliateLink}?to=register`);
-                                            toast.success('Link de Cadastro copiado!');
-                                        }}
-                                        className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-xl font-black text-xs hover:bg-blue-600 transition-all"
-                                    >
-                                        <Copy className="w-4 h-4" />
-                                        COPIAR LINK CADASTRO
-                                    </button>
+                        <div className="bg-[#0B1221] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl border border-white/5">
+                            <h2 className="text-xl font-black mb-2 flex items-center gap-2">
+                                <UserPlus className="w-5 h-5 text-blue-400" />
+                                Novo Parceiro
+                            </h2>
+                            <p className="text-slate-400 text-xs mb-6">Indique novos afiliados para sua rede.</p>
+                            <div className="flex flex-col gap-4">
+                                <div className="bg-white/10 rounded-xl p-3 text-slate-200 text-xs truncate">
+                                    {affiliateLink}?to=register
                                 </div>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(`${affiliateLink}?to=register`);
+                                        toast.success('Link de parceiro copiado!');
+                                    }}
+                                    className="bg-blue-500 text-white py-3 rounded-xl font-black text-xs hover:bg-blue-600 transition-all"
+                                >
+                                    COPIAR LINK
+                                </button>
                             </div>
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
                         </div>
                     </div>
 
-                    {/* Commissions Table */}
-                    <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8 md:p-10">
+                    {/* Recent Commissions Table */}
+                    <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8">
                         <div className="flex justify-between items-center mb-8">
-                            <h3 className="text-xl font-black text-[#0B1221]">Últimas Indicações</h3>
-                            <button className="text-[#FBC02D] font-bold text-sm hover:underline flex items-center gap-1">
-                                Ver tudo <ChevronRight className="w-4 h-4" />
+                            <h3 className="text-xl font-black text-[#0B1221]">Comissões Recentes</h3>
+                            <button onClick={() => navigate('/financial')} className="text-[#FBC02D] font-bold text-sm hover:underline flex items-center gap-1">
+                                Ver extrato <ChevronRight className="w-4 h-4" />
                             </button>
                         </div>
 
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead>
-                                    <tr className="border-b border-slate-50">
-                                        <th className="text-left py-4 px-2 text-xs font-black text-slate-400 uppercase tracking-widest">Cliente</th>
-                                        <th className="text-left py-4 px-2 text-xs font-black text-slate-400 uppercase tracking-widest">Data</th>
-                                        <th className="text-left py-4 px-2 text-xs font-black text-slate-400 uppercase tracking-widest">Comissão</th>
-                                        <th className="text-right py-4 px-2 text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                    <tr className="border-b border-slate-50 text-left">
+                                        <th className="py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Descrição</th>
+                                        <th className="py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Nível</th>
+                                        <th className="py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Valor</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {recentReferrals.length > 0 ? (
-                                        recentReferrals.map((item) => (
-                                            <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
-                                                <td className="py-5 px-2">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-[#0B1221] font-bold text-xs uppercase">
-                                                            {(item.full_name || 'A').split(' ').map((n: any) => n[0]).join('').slice(0, 2)}
-                                                        </div>
-                                                        <span className="font-bold text-[#0B1221]">{item.full_name}</span>
-                                                    </div>
+                                    {recentCommissions.length > 0 ? (
+                                        recentCommissions.map((comm) => (
+                                            <tr key={comm.id}>
+                                                <td className="py-4">
+                                                    <div className="font-bold text-[#0B1221]">{comm.description}</div>
+                                                    <div className="text-[10px] text-slate-400">{new Date(comm.created_at).toLocaleString('pt-BR')}</div>
                                                 </td>
-                                                <td className="py-5 px-2 text-sm text-slate-500 font-medium">
-                                                    <div className="flex items-center gap-1">
-                                                        <Clock className="w-3.5 h-3.5" />
-                                                        {new Date(item.created_at).toLocaleDateString('pt-BR')}
-                                                    </div>
-                                                </td>
-                                                <td className="py-5 px-2 font-black text-[#0B1221]">Afiliado</td>
-                                                <td className="py-5 px-2 text-right">
-                                                    <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${item.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                                                        {item.is_active ? 'Ativo' : 'Pendente'}
+                                                <td className="py-4">
+                                                    <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded-lg font-black text-[10px]">
+                                                        NÍVEL {comm.level}
                                                     </span>
+                                                </td>
+                                                <td className="py-4 text-right font-black text-emerald-500">
+                                                    {formatCurrency(comm.amount)}
                                                 </td>
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={4} className="py-10 text-center text-slate-400 font-medium">
-                                                Nenhuma indicação recente encontrada.
+                                            <td colSpan={3} className="py-8 text-center text-slate-400">
+                                                Nenhuma comissão registrada ainda.
                                             </td>
                                         </tr>
                                     )}
@@ -374,51 +353,36 @@ const AffiliateDashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Sidebar Area - Profile/Help */}
+                {/* Sidebar */}
                 <div className="space-y-8">
-                    {/* Profile Card */}
                     <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8 text-center">
-                        <div className="relative inline-block mb-4">
-                            <div className="w-24 h-24 rounded-full bg-slate-100 border-4 border-white shadow-lg mx-auto overflow-hidden flex items-center justify-center">
-                                {affiliateData?.full_name ? (
-                                    <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${affiliateData.full_name}`} alt="Avatar" className="w-full h-full object-cover" />
-                                ) : (
-                                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="Avatar" className="w-full h-full object-cover" />
-                                )}
-                            </div>
-                            <div className="absolute bottom-1 right-1 bg-emerald-500 w-6 h-6 rounded-full border-4 border-white"></div>
+                        <div className="w-24 h-24 rounded-full bg-slate-100 mx-auto mb-4 overflow-hidden flex items-center justify-center">
+                             <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${affiliateData?.full_name || 'A'}`} alt="Avatar" className="w-full h-full object-cover" />
                         </div>
                         <h3 className="text-xl font-black text-[#0B1221]">{affiliateData?.full_name || 'Afiliado'}</h3>
-                        <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-1">Afiliado Classe A</p>
-
-                        <div className="grid grid-cols-2 gap-4 mt-8 border-t border-slate-50 pt-8">
+                        <div className="mt-4 pt-4 border-t border-slate-50 flex justify-center gap-8">
                             <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ranking</p>
-                                <p className="font-black text-[#0B1221]">#12</p>
+                                <p className="text-[10px] font-black text-slate-400 uppercase">Rede</p>
+                                <p className="font-black text-[#0B1221]">{activeReferralsCount}</p>
                             </div>
                             <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nível</p>
-                                <p className="font-black text-[#0B1221]">Lv. 5</p>
+                                <p className="text-[10px] font-black text-slate-400 uppercase">Ganhos</p>
+                                <p className="font-black text-emerald-500">{formatCurrency(walletData?.total_earnings || 0)}</p>
                             </div>
                         </div>
-
                         <button 
-                            onClick={() => navigate('/dashboard/settings')}
-                            className="w-full mt-8 bg-slate-50 hover:bg-slate-100 text-slate-600 py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2"
+                            onClick={() => navigate('/network')}
+                            className="w-full mt-8 bg-slate-50 hover:bg-slate-100 text-slate-600 py-3 rounded-xl font-bold transition-all"
                         >
-                            Editar Perfil
+                            Ver Minha Rede
                         </button>
                     </div>
 
-                    {/* Support/Resource Box */}
                     <div className="bg-gradient-to-br from-[#FBC02D] to-[#ffa000] rounded-[2.5rem] p-8 text-[#0B1221]">
-                        <h3 className="text-xl font-black mb-2">Precisa de ajuda?</h3>
-                        <p className="text-[#0B1221]/70 text-sm font-medium mb-6">Nossa equipe está pronta para te ajudar a vender mais.</p>
-                        <button
-                            onClick={handleSupportWhatsApp}
-                            className="w-full bg-white/20 hover:bg-white/30 py-4 rounded-2xl font-black transition-all border border-white/20 backdrop-blur-sm"
-                        >
-                            CHAMAR SUPORTE
+                        <h3 className="text-xl font-black mb-2">Suporte</h3>
+                        <p className="text-[#0B1221]/70 text-sm mb-6">Precisa de ajuda com suas vendas?</p>
+                        <button onClick={handleSupportWhatsApp} className="w-full bg-white/20 hover:bg-white/30 py-4 rounded-xl font-black transition-all border border-white/20">
+                            FALAR NO WHATSAPP
                         </button>
                     </div>
                 </div>
