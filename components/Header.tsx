@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Search, User, ShoppingCart, Menu, X, ChevronDown } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { ORGANIZATION_ID } from '../lib/config';
 import { supabase } from '../lib/supabase';
 import { useCart } from './CartContext';
 
@@ -24,17 +25,7 @@ const Header: React.FC = () => {
   ]);
 
   React.useEffect(() => {
-    const fetchOrg = async () => {
-      const { data } = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('name', 'Classe A')
-          .single();
-      
-      const orgId = data?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
-      fetchMainCategories(orgId);
-    };
-    fetchOrg();
+    fetchMainCategories(ORGANIZATION_ID);
   }, []);
 
   const fetchMainCategories = async (orgId: string) => {

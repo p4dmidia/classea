@@ -18,6 +18,7 @@ import {
     Info,
     ChevronDown
 } from 'lucide-react';
+import { ORGANIZATION_ID } from '../lib/config';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
@@ -71,7 +72,6 @@ const AdminProducts: React.FC = () => {
     const [categories, setCategories] = useState<Category[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-    const [orgIdState, setOrgIdState] = useState<string>('5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
 
     // Form States
     const [formData, setFormData] = useState({
@@ -91,6 +91,12 @@ const AdminProducts: React.FC = () => {
         numbering_raw: '',
         soles_tips_raw: ''
     });
+    const [varErrors, setVarErrors] = useState({
+        sizes_raw: '',
+        colors_raw: '',
+        numbering_raw: '',
+        soles_tips_raw: ''
+    });
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -104,30 +110,20 @@ const AdminProducts: React.FC = () => {
     const fetchInitialData = async () => {
         setIsLoading(true);
         try {
-            // 0. Fetch Classe A Organization ID
-            const { data: orgData } = await supabase
-                .from('organizations')
-                .select('id')
-                .eq('name', 'Classe A')
-                .single();
-            
-            const effectiveOrgId = orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
-            setOrgIdState(effectiveOrgId);
-
-            await Promise.all([fetchProducts(effectiveOrgId), fetchCategories(effectiveOrgId)]);
+            await Promise.all([fetchProducts(), fetchCategories()]);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const fetchProducts = async (effectiveOrgId: string) => {
+    const fetchProducts = async () => {
         const { data, error } = await supabase
             .from('products')
             .select(`
                 *,
                 product_categories (name, parent_id)
             `)
-            .eq('organization_id', effectiveOrgId)
+            .eq('organization_id', ORGANIZATION_ID)
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -138,17 +134,16 @@ const AdminProducts: React.FC = () => {
         }
     };
 
-    const fetchCategories = async (effectiveOrgId: string) => {
+    const fetchCategories = async () => {
         const { data, error } = await supabase
             .from('product_categories')
             .select('*')
-            .eq('organization_id', effectiveOrgId)
+            .eq('organization_id', ORGANIZATION_ID)
             .order('name');
 
         if (error) {
             toast.error('Erro ao carregar categorias');
         } else {
-            // Build hierarchical tree for the category management/selection
             const buildTree = (cats: any[]): Category[] => {
                 const map = new Map<number | null, Category[]>();
                 cats.forEach(cat => {
@@ -170,7 +165,6 @@ const AdminProducts: React.FC = () => {
         }
     };
 
-    // Helper to flatten tree for select dropdowns
     const categoriesToSelect = (nodes: Category[], prefix = ''): { id: number, name: string }[] => {
         let list: { id: number, name: string }[] = [];
         nodes.forEach(node => {
@@ -182,14 +176,12 @@ const AdminProducts: React.FC = () => {
         return list;
     };
 
-    // Removed subcategory logic as it's merged into categories
-
     const handleOpenEdit = (prod: Product) => {
         setEditingProduct(prod);
         setFormData({
             name: prod.name,
-            parent_category_id: prod.product_categories?.parent_id?.toString() || '',
-            category_id: prod.category_id.toString(),
+            parent_category_id: prod.product_categories?.parent_id?.toString() || prod.category_id?.toString() || '',
+            category_id: prod.product_categories?.parent_id ? prod.category_id.toString() : '',
             price: prod.price.toString(),
             stock_quantity: prod.stock_quantity.toString(),
             description: prod.description || '',
@@ -204,7 +196,34 @@ const AdminProducts: React.FC = () => {
             soles_tips_raw: [...(prod.variations?.soles || []), ...(prod.variations?.tips || [])].join(', ')
         });
         setImagePreview(prod.image_url);
+        setVarErrors({
+            sizes_raw: '',
+            colors_raw: '',
+            numbering_raw: '',
+            soles_tips_raw: ''
+        });
         setIsNewModalOpen(true);
+    };
+
+    const validateVariations = (field: string, value: string) => {
+        if (!value) {
+            setVarErrors(prev => ({ ...prev, [field]: '' }));
+            return;
+        }
+
+        const invalidChars = /[;.:|/\\]/;
+        let error = '';
+        
+        if (invalidChars.test(value)) {
+            error = 'Use apenas vírgulas para separar as variações';
+        } else if (value.includes(' ') && !value.includes(',')) {
+            const words = value.trim().split(/\s+/);
+            if (words.length > 2) {
+                error = 'Use vírgulas para separar (ex: P, M, G)';
+            }
+        }
+
+        setVarErrors(prev => ({ ...prev, [field]: error }));
     };
 
     const handleSaveProduct = async (e: React.FormEvent) => {
@@ -230,7 +249,6 @@ const AdminProducts: React.FC = () => {
                 imageUrl = publicUrl;
             }
 
-            // Cleanup price: remove R$, dots and replace comma with dot
             const rawPrice = formData.price.toString().replace(/[R$\s.]/g, '').replace(',', '.');
             const parsedPrice = parseFloat(rawPrice);
 
@@ -260,14 +278,15 @@ const AdminProducts: React.FC = () => {
                     soles: formData.soles_tips_raw.split(',').map(s => s.trim()).filter(s => s),
                     tips: []
                 },
-                organization_id: orgIdState
+                organization_id: ORGANIZATION_ID
             };
 
             if (editingProduct) {
                 const { error } = await supabase
                     .from('products')
                     .update(productData)
-                    .eq('id', editingProduct.id);
+                    .eq('id', editingProduct.id)
+                    .eq('organization_id', ORGANIZATION_ID);
                 if (error) throw error;
                 toast.success('Produto atualizado com sucesso!');
             } else {
@@ -280,8 +299,8 @@ const AdminProducts: React.FC = () => {
 
             setIsNewModalOpen(false);
             resetForm();
-            fetchProducts(orgIdState);
-            fetchCategories(orgIdState);
+            fetchProducts();
+            fetchCategories();
         } catch (error: any) {
             toast.error(editingProduct ? 'Erro ao atualizar produto' : 'Erro ao cadastrar produto');
             console.error(error);
@@ -297,13 +316,14 @@ const AdminProducts: React.FC = () => {
             const { error } = await supabase
                 .from('products')
                 .delete()
-                .eq('id', id);
+                .eq('id', id)
+                .eq('organization_id', ORGANIZATION_ID);
 
             if (error) throw error;
 
             toast.success('Produto removido');
-            fetchProducts(orgIdState);
-            fetchCategories(orgIdState);
+            fetchProducts();
+            fetchCategories();
         } catch (error) {
             toast.error('Erro ao excluir produto');
         }
@@ -314,12 +334,13 @@ const AdminProducts: React.FC = () => {
             const { error } = await supabase
                 .from('products')
                 .update({ is_active: !currentStatus })
-                .eq('id', id);
+                .eq('id', id)
+                .eq('organization_id', ORGANIZATION_ID);
 
             if (error) throw error;
 
             toast.success(`Produto ${!currentStatus ? 'ativado' : 'desativado'}`);
-            fetchProducts(orgIdState);
+            fetchProducts();
         } catch (error) {
             toast.error('Erro ao atualizar status');
         }
@@ -343,12 +364,17 @@ const AdminProducts: React.FC = () => {
             numbering_raw: '',
             soles_tips_raw: ''
         });
+        setVarErrors({
+            sizes_raw: '',
+            colors_raw: '',
+            numbering_raw: '',
+            soles_tips_raw: ''
+        });
         setEditingProduct(null);
         setSelectedImage(null);
         setImagePreview(null);
     };
 
-    // Filter Logic
     const filteredProducts = products.filter(prod => {
         const matchesSearch = prod.name.toLowerCase().includes(searchTerm.toLowerCase());
         const categoryName = prod.product_categories?.name || 'Sem Categoria';
@@ -393,7 +419,6 @@ const AdminProducts: React.FC = () => {
     return (
         <AdminLayout>
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-                {/* Header */}
                 <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
                     <div>
                         <h1 className="text-2xl md:text-3xl font-black text-[#05080F]">Gestão de Produtos</h1>
@@ -420,7 +445,6 @@ const AdminProducts: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Filter & Search Bar */}
                 <div className="bg-white p-4 md:p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between relative z-20">
                     <div className="relative w-full md:w-96">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -445,7 +469,6 @@ const AdminProducts: React.FC = () => {
                         </button>
                     </div>
 
-                    {/* Advanced Filters Dropdown */}
                     {isFiltersOpen && (
                         <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 p-6 rounded-[2rem] shadow-xl animate-in zoom-in-95 duration-200">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -501,9 +524,7 @@ const AdminProducts: React.FC = () => {
                     )}
                 </div>
 
-                {/* Products List (Responsive: Grid for Mobile, Table for Desktop) */}
                 <div className="space-y-4">
-                    {/* Desktop Table View */}
                     <div className="hidden lg:block bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full">
@@ -597,7 +618,6 @@ const AdminProducts: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Mobile Card View */}
                     <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                         {isLoading ? (
                             [1, 2, 3, 4].map(i => (
@@ -680,7 +700,6 @@ const AdminProducts: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Pagination */}
                     {totalPages > 1 && (
                         <div className="p-8 flex justify-center flex-wrap gap-2">
                             {[...Array(totalPages)].map((_, i) => (
@@ -697,7 +716,6 @@ const AdminProducts: React.FC = () => {
                 </div>
             </div>
 
-            {/* Novo/Editar Produto Modal */}
             {isNewModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-6 lg:p-8">
                     <div className="absolute inset-0 bg-[#05080F]/80 backdrop-blur-sm" onClick={() => setIsNewModalOpen(false)}></div>
@@ -848,7 +866,6 @@ const AdminProducts: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    {/* Product Variations Section */}
                                     <div className="space-y-4 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
                                         <div className="flex items-center justify-between px-2">
                                             <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Variações / Opções do Produto</label>
@@ -861,10 +878,15 @@ const AdminProducts: React.FC = () => {
                                                 <input
                                                     type="text"
                                                     value={formData.sizes_raw}
-                                                    onChange={(e) => setFormData({ ...formData, sizes_raw: e.target.value })}
-                                                    className="w-full bg-white border border-slate-100 rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setFormData({ ...formData, sizes_raw: val });
+                                                        validateVariations('sizes_raw', val);
+                                                    }}
+                                                    className={`w-full bg-white border ${varErrors.sizes_raw ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-100'} rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs transition-all`}
                                                     placeholder="Separados por vírgula..."
                                                 />
+                                                {varErrors.sizes_raw && <p className="text-[10px] text-red-500 font-bold pl-1 animate-in fade-in slide-in-from-top-1">{varErrors.sizes_raw}</p>}
                                             </div>
 
                                             <div className="space-y-2">
@@ -872,10 +894,15 @@ const AdminProducts: React.FC = () => {
                                                 <input
                                                     type="text"
                                                     value={formData.colors_raw}
-                                                    onChange={(e) => setFormData({ ...formData, colors_raw: e.target.value })}
-                                                    className="w-full bg-white border border-slate-100 rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setFormData({ ...formData, colors_raw: val });
+                                                        validateVariations('colors_raw', val);
+                                                    }}
+                                                    className={`w-full bg-white border ${varErrors.colors_raw ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-100'} rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs transition-all`}
                                                     placeholder="Separados por vírgula..."
                                                 />
+                                                {varErrors.colors_raw && <p className="text-[10px] text-red-500 font-bold pl-1 animate-in fade-in slide-in-from-top-1">{varErrors.colors_raw}</p>}
                                             </div>
 
                                             <div className="space-y-2">
@@ -883,10 +910,15 @@ const AdminProducts: React.FC = () => {
                                                 <input
                                                     type="text"
                                                     value={formData.numbering_raw}
-                                                    onChange={(e) => setFormData({ ...formData, numbering_raw: e.target.value })}
-                                                    className="w-full bg-white border border-slate-100 rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setFormData({ ...formData, numbering_raw: val });
+                                                        validateVariations('numbering_raw', val);
+                                                    }}
+                                                    className={`w-full bg-white border ${varErrors.numbering_raw ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-100'} rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs transition-all`}
                                                     placeholder="Ex: 38, 39, 40..."
                                                 />
+                                                {varErrors.numbering_raw && <p className="text-[10px] text-red-500 font-bold pl-1 animate-in fade-in slide-in-from-top-1">{varErrors.numbering_raw}</p>}
                                             </div>
 
                                             <div className="space-y-2">
@@ -894,10 +926,15 @@ const AdminProducts: React.FC = () => {
                                                 <input
                                                     type="text"
                                                     value={formData.soles_tips_raw}
-                                                    onChange={(e) => setFormData({ ...formData, soles_tips_raw: e.target.value })}
-                                                    className="w-full bg-white border border-slate-100 rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs"
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setFormData({ ...formData, soles_tips_raw: val });
+                                                        validateVariations('soles_tips_raw', val);
+                                                    }}
+                                                    className={`w-full bg-white border ${varErrors.soles_tips_raw ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-100'} rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs transition-all`}
                                                     placeholder="Ex: Solado Borracha, Bico Fino..."
                                                 />
+                                                {varErrors.soles_tips_raw && <p className="text-[10px] text-red-500 font-bold pl-1 animate-in fade-in slide-in-from-top-1">{varErrors.soles_tips_raw}</p>}
                                             </div>
                                         </div>
                                     </div>
@@ -932,8 +969,8 @@ const AdminProducts: React.FC = () => {
 
                                     <button
                                         type="submit"
-                                        disabled={isSaving}
-                                        className="w-full py-5 bg-[#05080F] text-white rounded-2xl font-black text-sm shadow-xl hover:bg-[#1a2436] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                                        disabled={isSaving || Object.values(varErrors).some(err => err !== '')}
+                                        className="w-full py-5 bg-[#05080F] text-white rounded-2xl font-black text-sm shadow-xl hover:bg-[#1a2436] transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : editingProduct ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR PRODUTO'}
                                     </button>

@@ -11,6 +11,7 @@ import {
     Tag,
     AlertCircle
 } from 'lucide-react';
+import { ORGANIZATION_ID } from '../lib/config';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
@@ -110,7 +111,6 @@ const AdminCategories: React.FC = () => {
     // Form States
     const [name, setName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
-    const [orgIdState, setOrgIdState] = useState<string>('5111af72-27a5-41fd-8ed9-8c51b78b4fdd');
 
     useEffect(() => {
         fetchData();
@@ -119,20 +119,10 @@ const AdminCategories: React.FC = () => {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            // 0. Fetch Classe A Organization ID
-            const { data: orgData } = await supabase
-                .from('organizations')
-                .select('id')
-                .eq('name', 'Classe A')
-                .single();
-            
-            const effectiveOrgId = orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
-            setOrgIdState(effectiveOrgId); // Adicionaremos este state
-
             const { data, error } = await supabase
                 .from('product_categories')
                 .select('*')
-                .eq('organization_id', effectiveOrgId)
+                .eq('organization_id', ORGANIZATION_ID)
                 .order('name');
 
             if (error) throw error;
@@ -175,13 +165,18 @@ const AdminCategories: React.FC = () => {
                 const { error } = await supabase
                     .from('product_categories')
                     .update({ name, parent_id: parentCategoryId })
-                    .eq('id', editingCategory.id);
+                    .eq('id', editingCategory.id)
+                    .eq('organization_id', ORGANIZATION_ID);
                 if (error) throw error;
                 toast.success('Categoria atualizada!');
             } else {
                 const { error } = await supabase
                     .from('product_categories')
-                    .insert([{ name, parent_id: parentCategoryId, organization_id: orgIdState }]);
+                    .insert([{ 
+                        name, 
+                        parent_id: parentCategoryId, 
+                        organization_id: ORGANIZATION_ID 
+                    }]);
                 if (error) throw error;
                 toast.success('Categoria criada!');
             }
@@ -201,10 +196,11 @@ const AdminCategories: React.FC = () => {
     return (
         <AdminLayout>
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                {/* Header Section */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
                         <h1 className="text-3xl font-black text-[#05080F]">Categorias e Subcategorias</h1>
-                        <p className="text-slate-500 font-medium">Organize seu catálogo de produtos em múltiplos níveis.</p>
+                        <p className="text-slate-500 font-medium font-inter">Organize seu catálogo de produtos em múltiplos níveis.</p>
                     </div>
                     <button
                         onClick={() => {
@@ -213,22 +209,27 @@ const AdminCategories: React.FC = () => {
                             setName('');
                             setIsModalOpen(true);
                         }}
-                        className="bg-[#05080F] text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-xl shadow-[#05080F]/10 hover:bg-[#1a2436] transition-all whitespace-nowrap"
+                        className="bg-[#05080F] text-white px-6 py-4 rounded-2xl flex items-center gap-2 font-bold shadow-xl shadow-[#05080F]/10 hover:bg-[#1a2436] transition-all whitespace-nowrap uppercase text-xs tracking-widest"
                     >
                         <Plus className="w-4 h-4 text-[#FBC02D]" />
                         Nova Categoria
                     </button>
                 </div>
 
+                {/* Dashboard Grid */}
                 <div className="grid grid-cols-1 gap-6">
                     {isLoading ? (
-                        <div className="flex justify-center py-20">
+                        <div className="flex flex-col items-center justify-center py-20 gap-4">
                             <Loader2 className="w-10 h-10 text-[#FBC02D] animate-spin" />
+                            <p className="font-bold text-slate-400">Carregando categorias...</p>
                         </div>
                     ) : categories.length === 0 ? (
                         <div className="bg-white p-20 rounded-[3rem] border border-slate-100 shadow-sm text-center">
-                            <Layers className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                            <p className="text-slate-400 font-bold">Nenhuma categoria cadastrada.</p>
+                            <div className="w-20 h-20 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6">
+                                <Layers className="w-10 h-10 text-slate-200" />
+                            </div>
+                            <h3 className="text-xl font-black text-[#05080F] mb-1">Nenhuma categoria</h3>
+                            <p className="text-slate-400 font-medium">Comece criando sua primeira categoria de produtos.</p>
                         </div>
                     ) : (
                         <CategoryTreeList
@@ -242,11 +243,18 @@ const AdminCategories: React.FC = () => {
                             onDelete={async (id) => {
                                 if (!window.confirm('Tem certeza? Isso excluirá todas as subcategorias vinculadas.')) return;
                                 try {
-                                    const { error } = await supabase.from('product_categories').delete().eq('id', id);
+                                    const { error } = await supabase
+                                        .from('product_categories')
+                                        .delete()
+                                        .eq('id', id)
+                                        .eq('organization_id', ORGANIZATION_ID);
                                     if (error) throw error;
                                     toast.success('Categoria excluída!');
                                     fetchData();
-                                } catch (e) { toast.error('Erro ao excluir.'); }
+                                } catch (e) { 
+                                    console.error('Error deleting category:', e);
+                                    toast.error('Erro ao excluir categoria.'); 
+                                }
                             }}
                             onAddSub={(parentId) => {
                                 setEditingCategory(null);
@@ -259,58 +267,81 @@ const AdminCategories: React.FC = () => {
                 </div>
             </div>
 
-            {/* Combined Modal */}
+            {/* Premium Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-[#05080F]/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-                    <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
-                        <form onSubmit={handleSaveCategory} className="p-8">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-2xl font-black text-[#05080F]">{editingCategory ? 'Editar Categoria' : 'Nova Categoria'}</h2>
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="p-2 bg-slate-50 text-slate-400 rounded-xl">
-                                    <X className="w-5 h-5" />
+                    <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
+                        <form onSubmit={handleSaveCategory} className="flex flex-col h-full">
+                            <div className="p-8 md:p-10 border-b border-slate-50 flex justify-between items-center">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase text-[#FBC02D] tracking-widest mb-1">Catálogo</p>
+                                    <h2 className="text-2xl md:text-3xl font-black text-[#05080F]">
+                                        {editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
+                                    </h2>
+                                </div>
+                                <button 
+                                    type="button" 
+                                    onClick={() => setIsModalOpen(false)} 
+                                    className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-100 transition-all shadow-sm"
+                                >
+                                    <X className="w-6 h-6" />
                                 </button>
                             </div>
-                            <div className="space-y-6 flex-1 overflow-auto px-1">
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Nome da Categoria</label>
-                                        <input
-                                            type="text"
-                                            required
-                                            value={name}
-                                            onChange={(e) => setName(e.target.value)}
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl md:rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm md:text-base transition-all"
-                                            placeholder="Ex: Camisa Social"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Categoria Pai (Opcional)</label>
-                                        <select
-                                            value={parentCategoryId || ''}
-                                            onChange={(e) => setParentCategoryId(e.target.value ? parseInt(e.target.value) : null)}
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl md:rounded-2xl py-4 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-sm md:text-base transition-all"
-                                        >
-                                            <option value="">Nenhuma (Categoria Raiz)</option>
-                                            {/* Flattened categories list for select */}
-                                            {categoriesToSelect(categories).map(cat => (
-                                                <option key={cat.id} value={cat.id} disabled={cat.id === editingCategory?.id}>
-                                                    {cat.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
+
+                            <div className="p-8 md:p-10 space-y-8 overflow-y-auto max-h-[70vh]">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1 flex items-center gap-2">
+                                        <Tag className="w-3 h-3" /> Identificação da Categoria
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-6 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] focus:bg-white text-base md:text-lg transition-all shadow-sm"
+                                        placeholder="Ex: Coleção Inverno 2024"
+                                    />
                                 </div>
 
-                                <div className="mt-auto pt-6">
-                                    <button
-                                        type="submit"
-                                        disabled={isSaving}
-                                        className="w-full py-4 bg-[#05080F] text-white rounded-xl md:rounded-2xl font-black text-sm md:text-base shadow-xl hover:bg-[#1a2436] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1 flex items-center gap-2">
+                                        <Layers className="w-3 h-3" /> Estrutura Hierárquica
+                                    </label>
+                                    <select
+                                        value={parentCategoryId || ''}
+                                        onChange={(e) => setParentCategoryId(e.target.value ? parseInt(e.target.value) : null)}
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-6 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] focus:bg-white text-sm md:text-base transition-all shadow-sm appearance-none"
                                     >
-                                        {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : 'CONFIRMAR'}
-                                    </button>
+                                        <option value="">Nenhuma (Categoria Principal)</option>
+                                        {categoriesToSelect(categories).map(cat => (
+                                            <option key={cat.id} value={cat.id} disabled={cat.id === editingCategory?.id}>
+                                                {cat.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[10px] font-medium text-slate-400 pl-1">Selecione uma categoria pai para torná-la uma subcategoria.</p>
                                 </div>
+                            </div>
+
+                            <div className="p-8 md:p-10 bg-slate-50/50 border-t border-slate-50 mt-auto">
+                                <button
+                                    type="submit"
+                                    disabled={isSaving}
+                                    className="w-full py-5 bg-[#05080F] text-white rounded-[1.5rem] font-black text-sm md:text-base shadow-xl shadow-[#05080F]/10 hover:bg-[#FBC02D] hover:text-[#05080F] transition-all flex items-center justify-center gap-3 disabled:opacity-50 uppercase tracking-widest"
+                                >
+                                    {isSaving ? (
+                                        <>
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            <span>Processando...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <AlertCircle className="w-5 h-5" />
+                                            <span>{editingCategory ? 'SALVAR ALTERAÇÕES' : 'CRIAR CATEGORIA'}</span>
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         </form>
                     </div>

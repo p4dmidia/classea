@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
     Users,
@@ -15,6 +14,7 @@ import {
     UserPlus,
     AlertCircle
 } from 'lucide-react';
+import { ORGANIZATION_ID } from '../lib/config';
 import { useNavigate } from 'react-router-dom';
 import AffiliateLayout from '../components/AffiliateLayout';
 import { supabase } from '../lib/supabase';
@@ -40,86 +40,82 @@ const AffiliateDashboard: React.FC = () => {
             try {
                 setLoading(true);
 
-                // 1. Buscar dados do Afiliado
+                // 1. Buscar dados do Afiliado (tentando restringir por organization_id se possível)
                 const { data: aff, error: affErr } = await supabase
                     .from('affiliates')
                     .select('*')
                     .eq('user_id', user.id)
-                    .single();
+                    .eq('organization_id', ORGANIZATION_ID)
+                    .maybeSingle();
 
                 if (affErr) {
                     console.error('DEBUG: Erro ao buscar dados do afiliado:', affErr);
                     throw affErr;
                 }
                 
-                setAffiliateData(aff);
-                
-                const effectiveOrgId = aff.organization_id || profile?.organization_id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
+                if (!aff) {
+                    // Se não encontrar o afiliado para esta organização, algo está errado
+                    console.warn('Afiliado não encontrado para a organização atual.');
+                    setAffiliateData(null);
+                } else {
+                    setAffiliateData(aff);
 
-                // 2. Buscar dados Financeiros
-                let { data: wallet, error: walletErr } = await supabase
-                    .from('user_settings')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .eq('organization_id', effectiveOrgId)
-                    .maybeSingle();
-
-                if (walletErr || !wallet) {
-                    const { data: retryWallet, error: retryErr } = await supabase
+                    // 2. Buscar dados Financeiros
+                    const { data: wallet, error: walletErr } = await supabase
                         .from('user_settings')
                         .select('*')
                         .eq('user_id', user.id)
+                        .eq('organization_id', ORGANIZATION_ID)
                         .maybeSingle();
+
+                    if (!walletErr) setWalletData(wallet);
+
+                    // 3. Buscar status do Consórcio
+                    const { data: status, error: statusErr } = await supabase
+                        .rpc('check_consortium_regularity', { p_user_id: user.id });
+
+                    if (!statusErr && status && status.length > 0) {
+                        setConsortiumStatus(status[0]);
+                    }
+
+                    // 4. Buscar indicações ativas (contagem)
+                    const { count: activeCount } = await supabase
+                        .from('affiliates')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('sponsor_id', aff.id)
+                        .eq('organization_id', ORGANIZATION_ID)
+                        .eq('is_active', true);
                     
-                    if (!retryErr) wallet = retryWallet;
+                    setActiveReferralsCount(activeCount || 0);
+
+                    // 5. Buscar últimas indicações
+                    const { data: recent } = await supabase
+                        .from('affiliates')
+                        .select('id, full_name, created_at, is_active')
+                        .eq('sponsor_id', aff.id)
+                        .eq('organization_id', ORGANIZATION_ID)
+                        .order('created_at', { ascending: false })
+                        .limit(5);
+                    
+                    setRecentReferrals(recent || []);
+
+                    // 6. Buscar comissões recentes
+                    const { data: comms } = await supabase
+                        .from('commissions')
+                        .select(`
+                            id,
+                            amount,
+                            level,
+                            created_at,
+                            description
+                        `)
+                        .eq('user_id', user.id)
+                        .eq('organization_id', ORGANIZATION_ID)
+                        .order('created_at', { ascending: false })
+                        .limit(5);
+                    
+                    setRecentCommissions(comms || []);
                 }
-                
-                setWalletData(wallet);
-
-                // 3. Buscar status do Consórcio
-                const { data: status, error: statusErr } = await supabase
-                    .rpc('check_consortium_regularity', { p_user_id: user.id });
-
-                if (!statusErr && status && status.length > 0) {
-                    setConsortiumStatus(status[0]);
-                }
-
-                // 4. Buscar indicações ativas (contagem)
-                const { count: activeCount } = await supabase
-                    .from('affiliates')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('sponsor_id', aff.id)
-                    .eq('organization_id', effectiveOrgId)
-                    .eq('is_active', true);
-                
-                setActiveReferralsCount(activeCount || 0);
-
-                // 5. Buscar últimas indicações
-                const { data: recent } = await supabase
-                    .from('affiliates')
-                    .select('id, full_name, created_at, is_active')
-                    .eq('sponsor_id', aff.id)
-                    .eq('organization_id', effectiveOrgId)
-                    .order('created_at', { ascending: false })
-                    .limit(5);
-                
-                setRecentReferrals(recent || []);
-
-                // 6. Buscar comissões recentes
-                const { data: comms } = await supabase
-                    .from('commissions')
-                    .select(`
-                        id,
-                        amount,
-                        level,
-                        created_at,
-                        description
-                    `)
-                    .eq('user_id', user.id)
-                    .order('created_at', { ascending: false })
-                    .limit(5);
-                
-                setRecentCommissions(comms || []);
 
             } catch (err: any) {
                 console.error('Erro ao carregar dados do dashboard:', err);
@@ -137,6 +133,7 @@ const AffiliateDashboard: React.FC = () => {
     const affiliateLink = `${domain}/ref/${userLogin.toLowerCase()}`;
 
     const handleCopyLink = () => {
+        if (userLogin === "...") return;
         navigator.clipboard.writeText(affiliateLink);
         setCopied(true);
         toast.success('Link copiado!');
@@ -193,36 +190,56 @@ const AffiliateDashboard: React.FC = () => {
         );
     }
 
+    if (!affiliateData) {
+        return (
+            <AffiliateLayout>
+                <div className="min-h-[60vh] flex flex-col items-center justify-center gap-6 text-center px-4">
+                    <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center text-red-500">
+                        <AlertCircle className="w-10 h-10" />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-black text-[#0B1221]">Conta não vinculada</h2>
+                        <p className="text-slate-500 mt-2 max-w-md">Seu perfil de afiliado não foi encontrado nesta loja. Se você acredita que isso é um erro, por favor entre em contato com o suporte.</p>
+                    </div>
+                    <button 
+                        onClick={() => navigate('/')}
+                        className="bg-[#0B1221] text-white px-8 py-3 rounded-2xl font-bold hover:bg-slate-800 transition-all"
+                    >
+                        VOLTAR PARA A LOJA
+                    </button>
+                </div>
+            </AffiliateLayout>
+        );
+    }
+
     return (
         <AffiliateLayout>
-            {/* Top Header */}
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
                 <div>
                     <h1 className="text-3xl font-black text-[#0B1221]">Olá, {affiliateData?.full_name?.split(' ')[0] || 'Afiliado'}!</h1>
-                    <p className="text-slate-500 font-medium">Bora ver como estão seus resultados hoje?</p>
+                    <p className="text-slate-500 font-medium font-inter">Bora ver como estão seus resultados hoje?</p>
                 </div>
                 <button
                     onClick={handleOpenStore}
-                    className="bg-white border border-slate-200 px-6 py-3 rounded-2xl flex items-center gap-2 font-bold text-[#0B1221] shadow-sm hover:shadow-md transition-all"
+                    className="bg-white border border-slate-200 px-6 py-3 rounded-2xl flex items-center gap-2 font-bold text-[#0B1221] shadow-sm hover:shadow-md transition-all uppercase text-xs tracking-widest"
                 >
                     <ExternalLink className="w-4 h-4 text-[#FBC02D]" />
                     Ver Loja Classe A
                 </button>
             </header>
 
-            {/* Consortium Warning */}
             {consortiumStatus?.is_member && !consortiumStatus?.is_regular && (
                 <div className="mb-10 animate-in fade-in slide-in-from-top-4 duration-500">
-                    <div className={`p-6 rounded-[2rem] border flex flex-col md:flex-row items-center justify-between gap-6 ${consortiumStatus.status_text === 'Irregular' ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
-                        <div className="flex items-center gap-5">
-                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${consortiumStatus.status_text === 'Irregular' ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'}`}>
+                    <div className={`p-6 md:p-8 rounded-[2.5rem] border flex flex-col lg:flex-row items-center justify-between gap-6 ${consortiumStatus.status_text === 'Irregular' ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
+                        <div className="flex items-center gap-6">
+                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 ${consortiumStatus.status_text === 'Irregular' ? 'bg-red-500 text-white shadow-xl shadow-red-200' : 'bg-amber-500 text-white shadow-xl shadow-amber-200'}`}>
                                 <AlertCircle className="w-8 h-8" />
                             </div>
                             <div>
-                                <h3 className={`text-xl font-black ${consortiumStatus.status_text === 'Irregular' ? 'text-red-900' : 'text-amber-900'}`}>
+                                <h3 className={`text-xl md:text-2xl font-black ${consortiumStatus.status_text === 'Irregular' ? 'text-red-900' : 'text-amber-900'}`}>
                                     Atenção: Pagamento do Consórcio {consortiumStatus.status_text}
                                 </h3>
-                                <p className={`font-medium ${consortiumStatus.status_text === 'Irregular' ? 'text-red-700/70' : 'text-amber-700/70'}`}>
+                                <p className={`font-medium mt-1 ${consortiumStatus.status_text === 'Irregular' ? 'text-red-700/70' : 'text-amber-700/70'}`}>
                                     {consortiumStatus.status_text === 'Irregular' 
                                         ? 'Você está fora do prazo de pagamento. Entre em contato com o suporte ou realize sua recompra imediatamente.' 
                                         : `Sua recompra mensal ainda não foi identificada. O prazo vence em ${consortiumStatus.days_to_deadline} dias (dia 10).`}
@@ -230,8 +247,8 @@ const AffiliateDashboard: React.FC = () => {
                             </div>
                         </div>
                         <button 
-                            onClick={() => window.location.href = '/consorcio'}
-                            className={`px-8 py-4 rounded-2xl font-black text-sm transition-all whitespace-nowrap shadow-lg ${consortiumStatus.status_text === 'Irregular' ? 'bg-red-600 text-white hover:bg-red-700 shadow-red-200' : 'bg-amber-500 text-[#0B1221] hover:bg-amber-600 shadow-amber-200'}`}
+                            onClick={() => window.location.href = '/shop'}
+                            className={`w-full lg:w-auto px-10 py-5 rounded-2xl font-black text-xs md:text-sm transition-all whitespace-nowrap shadow-xl uppercase tracking-widest ${consortiumStatus.status_text === 'Irregular' ? 'bg-red-600 text-white hover:bg-red-700 shadow-red-200' : 'bg-[#0B1221] text-white hover:bg-slate-800 shadow-slate-200'}`}
                         >
                             REALIZAR RECOMPRA AGORA
                         </button>
@@ -239,76 +256,84 @@ const AffiliateDashboard: React.FC = () => {
                 </div>
             )}
 
-            {/* Info Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
                 {stats.map((stat, idx) => (
-                    <div key={idx} className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-slate-200/50 transition-all group">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className={`p-3 rounded-2xl bg-slate-50 ${stat.color} group-hover:scale-110 transition-transform`}>
-                                <stat.icon className="w-6 h-6" />
+                    <div key={idx} className="bg-white p-7 rounded-[2.5rem] shadow-sm border border-slate-100 hover:shadow-[0_20px_50px_rgba(0,0,0,0.05)] transition-all group overflow-hidden relative">
+                        <div className="absolute -right-4 -top-4 w-24 h-24 bg-slate-50 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500 transform scale-0 group-hover:scale-100"></div>
+                        <div className="relative z-10">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className={`p-4 rounded-2xl bg-slate-50 ${stat.color} group-hover:scale-110 transition-transform duration-500`}>
+                                    <stat.icon className="w-6 h-6" />
+                                </div>
+                                <div className="flex items-center text-[10px] font-black text-emerald-500 bg-emerald-50 px-3 py-1.5 rounded-full uppercase tracking-widest">
+                                    <ArrowUpRight className="w-3 h-3 mr-1" />
+                                    Ativo
+                                </div>
                             </div>
-                            <div className="flex items-center text-xs font-bold text-emerald-500 bg-emerald-50 px-2 py-1 rounded-full">
-                                <ArrowUpRight className="w-3 h-3 mr-1" />
-                                +8%
-                            </div>
+                            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest leading-none mb-2">{stat.label}</p>
+                            <h3 className="text-2xl font-black text-[#0B1221]">{stat.value}</h3>
                         </div>
-                        <p className="text-slate-400 text-xs font-black uppercase tracking-widest">{stat.label}</p>
-                        <h3 className="text-2xl font-black text-[#0B1221] mt-1">{stat.value}</h3>
                     </div>
                 ))}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
                 <div className="lg:col-span-2 space-y-8">
-                    {/* Referral Links */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-[#0B1221] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl">
-                            <h2 className="text-xl font-black mb-2 flex items-center gap-2">
-                                <ShoppingCart className="w-5 h-5 text-[#FBC02D]" />
-                                Link da Loja
-                            </h2>
-                            <p className="text-slate-400 text-xs mb-6">Compartilhe e ganhe comissões.</p>
-                            <div className="flex flex-col gap-4">
-                                <div className="bg-white/10 rounded-xl p-3 text-slate-200 text-xs truncate">
-                                    {affiliateLink}
+                        <div className="bg-[#0B1221] rounded-[3rem] p-10 text-white relative overflow-hidden shadow-2xl flex flex-col justify-between">
+                            <div className="absolute right-0 top-0 w-32 h-32 bg-[#FBC02D]/10 blur-3xl rounded-full"></div>
+                            <div className="relative z-10">
+                                <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-6 backdrop-blur-md">
+                                    <ShoppingCart className="w-6 h-6 text-[#FBC02D]" />
                                 </div>
-                                <button
-                                    onClick={handleCopyLink}
-                                    className="bg-[#FBC02D] text-[#0B1221] py-3 rounded-xl font-black text-xs hover:bg-[#ffc947] transition-all"
-                                >
-                                    COPIAR LINK
-                                </button>
+                                <h2 className="text-2xl font-black mb-1">Link da Loja</h2>
+                                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-8">Compartilhe e ganhe comissões.</p>
+                                <div className="space-y-4">
+                                    <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-slate-300 text-xs font-medium break-all font-mono leading-relaxed">
+                                        {affiliateLink}
+                                    </div>
+                                    <button
+                                        onClick={handleCopyLink}
+                                        className="w-full bg-[#FBC02D] text-[#0B1221] py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#ffc947] transition-all shadow-xl shadow-amber-500/10"
+                                    >
+                                        COPIAR LINK DA LOJA
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="bg-[#0B1221] rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl border border-white/5">
-                            <h2 className="text-xl font-black mb-2 flex items-center gap-2">
-                                <UserPlus className="w-5 h-5 text-blue-400" />
-                                Novo Parceiro
-                            </h2>
-                            <p className="text-slate-400 text-xs mb-6">Indique novos afiliados para sua rede.</p>
-                            <div className="flex flex-col gap-4">
-                                <div className="bg-white/10 rounded-xl p-3 text-slate-200 text-xs truncate">
-                                    {affiliateLink}?to=register
+                        <div className="bg-white rounded-[3rem] p-10 text-[#0B1221] relative overflow-hidden shadow-sm border border-slate-100 flex flex-col justify-between">
+                            <div className="relative z-10">
+                                <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mb-6">
+                                    <UserPlus className="w-6 h-6 text-blue-500" />
                                 </div>
-                                <button
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(`${affiliateLink}?to=register`);
-                                        toast.success('Link de parceiro copiado!');
-                                    }}
-                                    className="bg-blue-500 text-white py-3 rounded-xl font-black text-xs hover:bg-blue-600 transition-all"
-                                >
-                                    COPIAR LINK
-                                </button>
+                                <h2 className="text-2xl font-black mb-1">Rede de Afiliados</h2>
+                                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-8">Expanda sua rede de parceiros.</p>
+                                <div className="space-y-4">
+                                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-slate-500 text-xs font-medium break-all font-mono leading-relaxed">
+                                        {affiliateLink}?to=register
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(`${affiliateLink}?to=register`);
+                                            toast.success('Link de parceiro copiado!');
+                                        }}
+                                        className="w-full bg-blue-500 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-xl shadow-blue-500/10"
+                                    >
+                                        COPIAR LINK DE PARCEIRO
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Recent Commissions Table */}
-                    <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8">
-                        <div className="flex justify-between items-center mb-8">
-                            <h3 className="text-xl font-black text-[#0B1221]">Comissões Recentes</h3>
-                            <button onClick={() => navigate('/financial')} className="text-[#FBC02D] font-bold text-sm hover:underline flex items-center gap-1">
+                    <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
+                        <div className="p-10 border-b border-slate-50 flex justify-between items-center">
+                            <div>
+                                <h3 className="text-xl font-black text-[#0B1221]">Comissões Recentes</h3>
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mt-1">Histórico de rendimentos</p>
+                            </div>
+                            <button onClick={() => navigate('/financial')} className="text-[#FBC02D] font-black text-[10px] uppercase tracking-widest hover:underline flex items-center gap-1">
                                 Ver extrato <ChevronRight className="w-4 h-4" />
                             </button>
                         </div>
@@ -316,34 +341,37 @@ const AffiliateDashboard: React.FC = () => {
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead>
-                                    <tr className="border-b border-slate-50 text-left">
-                                        <th className="py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Descrição</th>
-                                        <th className="py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Nível</th>
-                                        <th className="py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Valor</th>
+                                    <tr className="bg-slate-50/50 text-left">
+                                        <th className="py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Descrição / Data</th>
+                                        <th className="py-6 px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Nível</th>
+                                        <th className="py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] text-right">Rendimento</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
                                     {recentCommissions.length > 0 ? (
                                         recentCommissions.map((comm) => (
-                                            <tr key={comm.id}>
-                                                <td className="py-4">
-                                                    <div className="font-bold text-[#0B1221]">{comm.description}</div>
-                                                    <div className="text-[10px] text-slate-400">{new Date(comm.created_at).toLocaleString('pt-BR')}</div>
+                                            <tr key={comm.id} className="group hover:bg-slate-50/30 transition-all">
+                                                <td className="py-6 px-10">
+                                                    <div className="font-black text-[#0B1221] text-sm">{comm.description}</div>
+                                                    <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase">{new Date(comm.created_at).toLocaleDateString('pt-BR')} às {new Date(comm.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
                                                 </td>
-                                                <td className="py-4">
-                                                    <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded-lg font-black text-[10px]">
+                                                <td className="py-6 px-4">
+                                                    <span className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl font-black text-[10px] tracking-widest">
                                                         NÍVEL {comm.level}
                                                     </span>
                                                 </td>
-                                                <td className="py-4 text-right font-black text-emerald-500">
+                                                <td className="py-6 px-10 text-right font-black text-emerald-500 text-base">
                                                     {formatCurrency(comm.amount)}
                                                 </td>
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={3} className="py-8 text-center text-slate-400">
-                                                Nenhuma comissão registrada ainda.
+                                            <td colSpan={3} className="py-20 text-center">
+                                                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                                    <TrendingUp className="w-8 h-8 text-slate-200" />
+                                                </div>
+                                                <p className="font-bold text-slate-400">Nenhuma comissão registrada ainda.</p>
                                             </td>
                                         </tr>
                                     )}
@@ -353,35 +381,38 @@ const AffiliateDashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Sidebar */}
                 <div className="space-y-8">
-                    <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8 text-center">
-                        <div className="w-24 h-24 rounded-full bg-slate-100 mx-auto mb-4 overflow-hidden flex items-center justify-center">
-                             <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${affiliateData?.full_name || 'A'}`} alt="Avatar" className="w-full h-full object-cover" />
+                    <div className="bg-white rounded-[3rem] shadow-sm border border-slate-100 p-10 text-center relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-2 h-full bg-[#FBC02D]"></div>
+                        <div className="w-32 h-32 rounded-[2.5rem] bg-slate-50 mx-auto mb-6 p-1 border border-slate-100 shadow-sm overflow-hidden flex items-center justify-center">
+                             <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${affiliateData?.full_name || 'A'}`} alt="Avatar" className="w-full h-full object-cover rounded-2xl" />
                         </div>
-                        <h3 className="text-xl font-black text-[#0B1221]">{affiliateData?.full_name || 'Afiliado'}</h3>
-                        <div className="mt-4 pt-4 border-t border-slate-50 flex justify-center gap-8">
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase">Rede</p>
-                                <p className="font-black text-[#0B1221]">{activeReferralsCount}</p>
+                        <h3 className="text-2xl font-black text-[#0B1221]">{affiliateData?.full_name || 'Afiliado'}</h3>
+                        <p className="text-slate-400 font-bold text-xs mt-1 uppercase tracking-widest">{affiliateData?.referral_code}</p>
+                        
+                        <div className="mt-8 pt-8 border-t border-slate-50 grid grid-cols-2 gap-4">
+                            <div className="text-center">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Time</p>
+                                <p className="text-xl font-black text-[#0B1221]">{activeReferralsCount}</p>
                             </div>
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase">Ganhos</p>
-                                <p className="font-black text-emerald-500">{formatCurrency(walletData?.total_earnings || 0)}</p>
+                            <div className="text-center">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Saldo</p>
+                                <p className="text-xl font-black text-emerald-500 truncate">{formatCurrency(walletData?.available_balance || 0)}</p>
                             </div>
                         </div>
                         <button 
                             onClick={() => navigate('/network')}
-                            className="w-full mt-8 bg-slate-50 hover:bg-slate-100 text-slate-600 py-3 rounded-xl font-bold transition-all"
+                            className="w-full mt-10 bg-[#0B1221] text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
                         >
-                            Ver Minha Rede
+                            MINHA REDE
                         </button>
                     </div>
 
-                    <div className="bg-gradient-to-br from-[#FBC02D] to-[#ffa000] rounded-[2.5rem] p-8 text-[#0B1221]">
-                        <h3 className="text-xl font-black mb-2">Suporte</h3>
-                        <p className="text-[#0B1221]/70 text-sm mb-6">Precisa de ajuda com suas vendas?</p>
-                        <button onClick={handleSupportWhatsApp} className="w-full bg-white/20 hover:bg-white/30 py-4 rounded-xl font-black transition-all border border-white/20">
+                    <div className="bg-gradient-to-br from-[#FBC02D] to-[#ffa000] rounded-[3rem] p-10 text-[#0B1221] relative overflow-hidden shadow-xl shadow-amber-200/50 group">
+                        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full group-hover:scale-150 transition-transform duration-700"></div>
+                        <h3 className="text-2xl font-black mb-1 relative z-10">Central de Ajuda</h3>
+                        <p className="text-[#0B1221]/70 font-medium text-sm mb-8 relative z-10 leading-relaxed">Dúvidas sobre o sistema? Nossa equipe está pronta para te ajudar via WhatsApp.</p>
+                        <button onClick={handleSupportWhatsApp} className="w-full bg-white text-[#0B1221] py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#0B1221] hover:text-white transition-all shadow-lg relative z-10">
                             FALAR NO WHATSAPP
                         </button>
                     </div>

@@ -1,9 +1,9 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
+import { ORGANIZATION_ID } from '../lib/config';
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
@@ -25,18 +25,11 @@ const LoginPage: React.FC = () => {
         try {
             // Se não for um e-mail (não tem @), tenta buscar o e-mail pelo login/username
             if (!loginIdentifier.includes('@')) {
-                // Primeiro busca a organização padrão Classe A
-                const { data: orgData } = await supabase
-                    .from('organizations')
-                    .select('id')
-                    .eq('name', 'Classe A')
-                    .single();
-
                 const { data: affiliateData, error: lookupError } = await supabase
                     .from('affiliates')
                     .select('email')
                     .ilike('referral_code', loginIdentifier)
-                    .eq('organization_id', orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+                    .eq('organization_id', ORGANIZATION_ID)
                     .single();
 
                 if (lookupError || !affiliateData) {
@@ -54,6 +47,18 @@ const LoginPage: React.FC = () => {
             if (signInError) throw signInError;
 
             if (data?.session) {
+                // Pre-verify organization_id to avoid "Success -> Rejected" UX
+                const { data: profile, error: profileError } = await supabase
+                    .from('user_profiles')
+                    .select('organization_id')
+                    .eq('id', data.session.user.id)
+                    .single();
+
+                if (profileError || !profile || profile.organization_id !== ORGANIZATION_ID) {
+                    await supabase.auth.signOut();
+                    throw new Error('Acesso negado: Esta conta pertence a outro sistema.');
+                }
+
                 toast.success('Login realizado com sucesso!', {
                     style: {
                         background: '#0B1221',

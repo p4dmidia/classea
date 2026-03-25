@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
     Users,
@@ -11,14 +10,16 @@ import {
     AlertCircle,
     Download,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Network,
+    List
 } from 'lucide-react';
 import AffiliateLayout from '../components/AffiliateLayout';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../components/AuthContext';
 import toast from 'react-hot-toast';
 import { AffiliateNetwork } from '../components/AffiliateNetwork';
-import { Network, List } from 'lucide-react';
+import { ORGANIZATION_ID } from '../lib/config';
 
 interface Referral {
     id: string;
@@ -26,7 +27,6 @@ interface Referral {
     email: string;
     created_at: string;
     is_active: boolean;
-    // Adicionamos campos para bater com o mock UI
     status: string;
     commission?: string;
     product?: string;
@@ -47,9 +47,8 @@ const AffiliateReferrals: React.FC = () => {
         if (isSalesType && viewMode === 'network') {
             setViewMode('list');
         }
-    }, [profile, viewMode]);
+    }, [isSalesType, viewMode]);
 
-    // Estados para estatísticas
     const [stats, setStats] = useState([
         { label: 'Total de Indicações', value: '0', icon: Users, color: 'text-blue-500', key: 'total' },
         { label: 'Ativos', value: '0', icon: CheckCircle, color: 'text-emerald-500', key: 'active' },
@@ -70,32 +69,36 @@ const AffiliateReferrals: React.FC = () => {
             // 1. Pegar o ID de afiliado do usuário logado
             const { data: affData, error: affError } = await supabase
                 .from('affiliates')
-                .select('id, organization_id')
+                .select('id')
                 .eq('user_id', user?.id)
-                .single();
+                .eq('organization_id', ORGANIZATION_ID)
+                .maybeSingle();
 
             if (affError) throw affError;
+            
+            if (!affData) {
+                setReferrals([]);
+                setLoading(false);
+                return;
+            }
+            
             setAffiliateId(affData.id);
-
-            const effectiveOrgId = affData.organization_id || profile?.organization_id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
-            console.log('Using Organization ID for referrals:', effectiveOrgId);
 
             // 2. Buscar indicações (downline)
             const { data, error } = await supabase
                 .from('affiliates')
                 .select('*')
                 .eq('sponsor_id', affData.id)
-                .eq('organization_id', effectiveOrgId)
+                .eq('organization_id', ORGANIZATION_ID)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
 
-            // Mapear para o formato da UI
             const formattedReferrals = (data || []).map(ref => ({
                 ...ref,
                 status: ref.is_active ? 'Ativo' : 'Inativo',
-                product: 'Nível Afiliado', // Como são registros de rede
-                commission: 'R$ 0,00' // Pode ser implementado com o sistema de ganhos por nível
+                product: 'Nível Afiliado',
+                commission: 'R$ 0,00'
             }));
 
             setReferrals(formattedReferrals);
@@ -170,11 +173,10 @@ const AffiliateReferrals: React.FC = () => {
 
     return (
         <AffiliateLayout>
-            {/* Header */}
             <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-black text-[#0B1221]">Minhas Indicações</h1>
-                    <p className="text-slate-500 font-medium">Acompanhe sua rede de afiliados e indicações diretas.</p>
+                    <p className="text-slate-500 font-medium font-inter">Acompanhe sua rede de afiliados e indicações diretas.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="bg-white p-1.5 rounded-2xl border border-slate-200 flex gap-1">
@@ -204,7 +206,6 @@ const AffiliateReferrals: React.FC = () => {
                 </div>
             </header>
 
-            {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
                 {stats.map((stat, idx) => (
                     <div key={idx} className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 transition-all hover:shadow-lg">
@@ -213,7 +214,7 @@ const AffiliateReferrals: React.FC = () => {
                                 <stat.icon className="w-6 h-6" />
                             </div>
                         </div>
-                        <p className="text-slate-400 text-xs font-black uppercase tracking-widest">{stat.label}</p>
+                        <p className="text-slate-400 text-xs font-black uppercase tracking-widest leading-none mb-1">{stat.label}</p>
                         <h3 className="text-2xl font-black text-[#0B1221] mt-1">
                             {loading ? <span className="animate-pulse">...</span> : stat.value}
                         </h3>
@@ -221,23 +222,21 @@ const AffiliateReferrals: React.FC = () => {
                 ))}
             </div>
 
-            {/* Table/Filters Area */}
             <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
-                {/* Filters Bar */}
                 <div className="p-8 md:p-10 border-b border-slate-50 flex flex-col md:flex-row gap-4 items-center justify-between">
                     <div className="relative w-full md:w-96">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                             type="text"
                             placeholder="Buscar por nome ou e-mail..."
-                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3 pl-12 pr-4 outline-none focus:border-[#FBC02D] transition-all"
+                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3 pl-12 pr-4 outline-none focus:border-[#FBC02D] transition-all font-medium text-sm"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
                     <div className="flex gap-3 w-full md:w-auto">
                         <select
-                            className="bg-white border border-slate-200 rounded-2xl px-4 py-3 font-bold text-slate-600 outline-none focus:border-[#FBC02D] text-sm appearance-none cursor-pointer"
+                            className="bg-white border border-slate-200 rounded-2xl px-4 py-3 font-bold text-slate-600 outline-none focus:border-[#FBC02D] text-sm appearance-none cursor-pointer pr-10"
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
                         >
@@ -248,33 +247,32 @@ const AffiliateReferrals: React.FC = () => {
 
                         <button
                             onClick={handleExportCSV}
-                            className="flex items-center gap-2 px-6 py-3 bg-[#0B1221] rounded-2xl font-bold text-white hover:bg-[#1a2436] transition-all text-sm shadow-lg shadow-blue-900/10"
+                            className="flex items-center gap-2 px-6 py-3 bg-[#0B1221] rounded-2xl font-bold text-white hover:bg-[#1a2436] transition-all text-sm shadow-lg shadow-blue-900/10 uppercase tracking-widest text-xs"
                         >
                             <Download className="w-4 h-4 text-[#FBC02D]" />
-                            CSV
+                            Exportar
                         </button>
                     </div>
                 </div>
 
-                {/* Content based on view mode */}
                 {viewMode === 'list' ? (
                     <div className="overflow-x-auto">
                         {loading ? (
                             <div className="py-20 flex flex-col items-center justify-center">
                                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#FBC02D]"></div>
-                                <p className="mt-4 text-slate-400 font-bold uppercase tracking-widest text-xs">Carregando indicações...</p>
+                                <p className="mt-4 text-slate-400 font-black uppercase tracking-widest text-[10px]">Carregando rede...</p>
                             </div>
                         ) : filteredReferrals.length > 0 ? (
                             <table className="w-full">
                                 <thead className="bg-slate-50/50">
                                     <tr>
-                                        <th className="text-left py-5 px-8 text-xs font-black text-slate-400 uppercase tracking-widest">
+                                        <th className="text-left py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                             Afiliado Indicado
                                         </th>
-                                        <th className="text-left py-5 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Produto / Nível</th>
-                                        <th className="text-left py-5 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Data Cadastro</th>
-                                        <th className="text-center py-5 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
-                                        <th className="text-right py-5 px-8 text-xs font-black text-slate-400 uppercase tracking-widest">Ações</th>
+                                        <th className="text-left py-5 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nível / Cargo</th>
+                                        <th className="text-left py-5 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Cadastro</th>
+                                        <th className="text-center py-5 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                        <th className="text-right py-5 px-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
@@ -282,22 +280,22 @@ const AffiliateReferrals: React.FC = () => {
                                         <tr key={item.id} className="group hover:bg-slate-50/30 transition-colors">
                                             <td className="py-6 px-8">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-[#0B1221] text-[#FBC02D] flex items-center justify-center font-black text-xs">
+                                                    <div className="w-10 h-10 rounded-xl bg-[#0B1221] text-[#FBC02D] flex items-center justify-center font-black text-xs shadow-lg shadow-blue-900/10 uppercase">
                                                         {item.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
                                                     </div>
                                                     <div className="flex flex-col">
                                                         <span className="font-bold text-[#0B1221]">{item.full_name}</span>
-                                                        <span className="text-[10px] text-slate-400">{item.email}</span>
+                                                        <span className="text-[10px] text-slate-400 font-medium uppercase tracking-tighter">{item.email}</span>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="py-6 px-4">
-                                                <span className="text-sm font-medium text-slate-600">{item.product}</span>
+                                                <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">Afiliado N1</span>
                                             </td>
                                             <td className="py-6 px-4">
                                                 <div className="flex flex-col">
                                                     <span className="text-sm font-bold text-[#0B1221]">{formatDate(item.created_at).day}</span>
-                                                    <span className="text-[10px] text-slate-400 font-medium uppercase">{formatDate(item.created_at).time}</span>
+                                                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{formatDate(item.created_at).time}</span>
                                                 </div>
                                             </td>
                                             <td className="py-6 px-4 text-center">
@@ -308,7 +306,7 @@ const AffiliateReferrals: React.FC = () => {
                                                 </span>
                                             </td>
                                             <td className="py-6 px-8 text-right">
-                                                <button className="text-[#0B1221] hover:text-[#FBC02D] transition-all">
+                                                <button className="p-2 text-slate-300 hover:text-[#0B1221] transition-all">
                                                     <ArrowUpRight className="w-5 h-5" />
                                                 </button>
                                             </td>
@@ -319,7 +317,7 @@ const AffiliateReferrals: React.FC = () => {
                         ) : (
                             <div className="py-20 text-center">
                                 <Users className="w-12 h-12 text-slate-100 mx-auto mb-4" />
-                                <p className="text-slate-400 font-bold">Nenhuma indicação encontrada.</p>
+                                <p className="text-slate-400 font-bold">Nenhuma indicação encontrada nesta organização.</p>
                             </div>
                         )}
                     </div>
@@ -329,16 +327,15 @@ const AffiliateReferrals: React.FC = () => {
                     </div>
                 )}
 
-                {/* Pagination */}
-                <div className="p-8 border-t border-slate-50 flex justify-between items-center">
-                    <p className="text-sm text-slate-400 font-medium">
-                        Mostrando {filteredReferrals.length} de {referrals.length} indicações
+                <div className="p-8 border-t border-slate-50 flex justify-between items-center text-xs">
+                    <p className="text-slate-400 font-bold uppercase tracking-widest">
+                        Total: {filteredReferrals.length} indicações
                     </p>
                     <div className="flex gap-2">
-                        <button className="p-2 border border-slate-200 rounded-xl text-slate-300 cursor-not-allowed">
+                        <button className="p-2 bg-slate-50 text-slate-300 rounded-xl cursor-not-allowed">
                             <ChevronLeft className="w-5 h-5" />
                         </button>
-                        <button className="p-2 border border-slate-200 rounded-xl text-slate-300 cursor-not-allowed">
+                        <button className="p-2 bg-slate-50 text-slate-300 rounded-xl cursor-not-allowed">
                             <ChevronRight className="w-5 h-5" />
                         </button>
                     </div>

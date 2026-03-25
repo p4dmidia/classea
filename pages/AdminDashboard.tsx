@@ -13,6 +13,7 @@ import {
     XCircle,
     Activity
 } from 'lucide-react';
+import { ORGANIZATION_ID } from '../lib/config';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabase';
 
@@ -35,20 +36,11 @@ const AdminDashboard: React.FC = () => {
     const fetchDashboardData = async () => {
         setIsLoading(true);
         try {
-            // 0. Fetch Classe A Organization ID
-            const { data: orgData } = await supabase
-                .from('organizations')
-                .select('id')
-                .eq('name', 'Classe A')
-                .single();
-            
-            const effectiveOrgId = orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
-
             // 1. Total Sales
             const { data: salesData } = await supabase
                 .from('company_purchases')
                 .select('purchase_value')
-                .eq('organization_id', effectiveOrgId);
+                .eq('organization_id', ORGANIZATION_ID);
 
             const totalSales = salesData?.reduce((acc, curr) => acc + Number(curr.purchase_value), 0) || 0;
             const avgTicket = salesData && salesData.length > 0 ? totalSales / salesData.length : 0;
@@ -60,21 +52,21 @@ const AdminDashboard: React.FC = () => {
             const { count: newAffiliatesCount } = await supabase
                 .from('affiliates')
                 .select('*', { count: 'exact', head: true })
-                .eq('organization_id', effectiveOrgId)
+                .eq('organization_id', ORGANIZATION_ID)
                 .gt('created_at', thirtyDaysAgo.toISOString());
 
             // 3. Pending Withdrawals
             const { count: pendingWithdrawalsCount } = await supabase
                 .from('withdrawals')
                 .select('*', { count: 'exact', head: true })
-                .eq('organization_id', effectiveOrgId)
+                .eq('organization_id', ORGANIZATION_ID)
                 .eq('status', 'pending');
 
             // 4. Recent Affiliates
             const { data: latestAffs } = await supabase
                 .from('affiliates')
                 .select('full_name, created_at, is_active')
-                .eq('organization_id', effectiveOrgId)
+                .eq('organization_id', ORGANIZATION_ID)
                 .order('created_at', { ascending: false })
                 .limit(4);
 

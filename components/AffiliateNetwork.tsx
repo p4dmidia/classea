@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Tree from 'react-d3-tree';
+import { ORGANIZATION_ID } from '../lib/config';
 import { supabase } from '../lib/supabase';
 import { Loader2, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 
@@ -33,20 +34,13 @@ export const AffiliateNetwork: React.FC<AffiliateNetworkProps> = ({ rootAffiliat
 
     const buildTree = async (rootId: string): Promise<AffiliateNode | null> => {
         try {
-            // 1. Fetch organization ID
-            const { data: orgData } = await supabase
-                .from('organizations')
-                .select('id')
-                .eq('name', 'Classe A')
-                .single();
-            const orgId = orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
-            console.log('DEBUG: Buscando rede para org:', orgId);
+            console.log('DEBUG: Buscando rede para org:', ORGANIZATION_ID);
 
             // 2. Fetch all relevant affiliates for this organization
             const { data: allAffiliates, error } = await supabase
                 .from('affiliates')
                 .select('id, full_name, email, sponsor_id')
-                .eq('organization_id', orgId);
+                .eq('organization_id', ORGANIZATION_ID);
             
             console.log('DEBUG: Afiliados encontrados na rede:', allAffiliates?.length);
 

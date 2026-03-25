@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, Session } from '@supabase/supabase-js';
+import { ORGANIZATION_ID } from '../lib/config';
+import toast from 'react-hot-toast';
 
 interface AuthContextType {
     user: User | null;
@@ -32,6 +34,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.error('Error fetching profile:', error);
                 return;
             }
+            if (data && data.organization_id !== ORGANIZATION_ID) {
+                console.error('User belongs to a different organization:', data.organization_id);
+                toast.error('Acesso negado: Este usuário pertence a outro sistema.');
+                await supabase.auth.signOut();
+                setProfile(null);
+                setUser(null);
+                setSession(null);
+                return;
+            }
+
             setProfile(data);
         } catch (err) {
             console.error('Unexpected error fetching profile:', err);

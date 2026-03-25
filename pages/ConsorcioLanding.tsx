@@ -36,9 +36,18 @@ const ConsorcioLanding: React.FC = () => {
     ];
 
     const faqs = [
-        { q: "Como funciona a contemplação?", a: "Para garantir total honestidade, usamos o nosso sistema automatizado de contemplação mensal, que define o ganhador do mês de forma segura e transparente para todos os participantes." },
-        { q: "O que acontece se eu for sorteado?", a: "Você para de pagar as parcelas mensais e recebe seu prêmio imediatamente! No caso da Livre Escolha, o valor da sua cota é convertido em créditos na loja." },
-        { q: "Quais as formas de pagamento?", a: "Aceitamos Cartão de Crédito e PIX. O pagamento é recorrente para garantir sua permanência no grupo." }
+        {
+            q: "Como funciona a contemplação?",
+            a: "Para garantir total honestidade, usamos o nosso sistema automatizado de contemplação mensal, que define o ganhador do mês de forma segura e transparente para todos os participantes."
+        },
+        {
+            q: "O que acontece quando eu for sorteado?",
+            a: "No caso do consórcio MASTER você recebe um voucher do valor do contrato assinado e a CLASSE A lhe enviará por WhatsApp todos os produtos disponíveis e você escolherá seus produtos ou site se preferir. Lembrando que você terá as despesas de frete para os produtos serem enviados. No caso do consórcio PLUS você pagará o frete e receberá o produto já escolhido no início do contrato."
+        },
+        {
+            q: "Quais as formas de pagamento?",
+            a: "Aceitamos Cartão de Crédito e PIX. O pagamento é recorrente para garantir sua permanência no grupo."
+        }
     ];
 
     return (
@@ -58,11 +67,11 @@ const ConsorcioLanding: React.FC = () => {
                         A forma mais inteligente de adquirir produtos premium com parcelas que cabem no seu bolso e total segurança Classe A.
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center gap-4">
-                        <Link to="/shop?category=Consórcio" className="bg-[#0B1221] text-white font-black py-4 px-10 rounded-2xl shadow-xl shadow-slate-200 hover:scale-105 transition-all flex items-center justify-center gap-3">
+                        <Link to="/shop?category_id=57" className="bg-[#0B1221] text-white font-black py-4 px-10 rounded-2xl shadow-xl shadow-slate-200 hover:scale-105 transition-all flex items-center justify-center gap-3">
                             ESCOLHER MEU GRUPO
                             <ArrowRight className="w-5 h-5 text-[#FBC02D]" />
                         </Link>
-                        <a href="#how" className="bg-white border-2 border-slate-100 text-[#0B1221] font-black py-4 px-10 rounded-2xl hover:border-[#FBC02D] transition-all">
+                        <a href="#rules-desc" className="bg-white border-2 border-slate-100 text-[#0B1221] font-black py-4 px-10 rounded-2xl hover:border-[#FBC02D] transition-all">
                             COMO FUNCIONA?
                         </a>
                     </div>
@@ -95,11 +104,41 @@ const ConsorcioLanding: React.FC = () => {
                                 <p className="text-slate-500 font-medium leading-relaxed mb-8">
                                     {item.desc}
                                 </p>
-                                <Link to="/shop?category=Consórcio" className="w-full bg-[#FBC02D] text-[#0B1221] font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-[#0B1221] hover:text-white transition-all">
+                                <Link to="/shop?category_id=57" className="w-full bg-[#FBC02D] text-[#0B1221] font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-[#0B1221] hover:text-white transition-all">
                                     VER VAGAS
                                 </Link>
                             </div>
                         ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* How it Works Section */}
+            <section id="rules-desc" className="py-24 bg-slate-50">
+                <div className="container mx-auto px-4">
+                    <div className="max-w-4xl mx-auto bg-white rounded-[3rem] p-8 md:p-16 border border-slate-100 shadow-xl shadow-slate-200/50">
+                        <div className="flex items-center gap-4 mb-8">
+                            <div className="w-12 h-12 bg-[#FBC02D] rounded-2xl flex items-center justify-center text-[#0B1221]">
+                                <Info className="w-6 h-6" />
+                            </div>
+                            <h2 className="text-3xl font-black text-[#0B1221]">COMO FUNCIONA</h2>
+                        </div>
+                        
+                        <div className="space-y-6 text-slate-600 font-medium leading-relaxed">
+                            <p>Ao escolher o grupo desejado conforme a empresa disponibiliza, cada cliente entra em um grupo onde tiver vaga de acordo sua aquisição.</p>
+                            <p>O pagamento de cada parcela posterior, o cliente deverá pagar entre o dia 05 e 10 de cada mês; Pois nossos sorteios são feitos todo dia 11 de cada mês.</p>
+                            <p>Cada cliente tem acesso ao resultado dentro de seu escritório virtual.</p>
+                            <p>No caso do consorcio MASTER que é a livre escolha, o cliente contemplado poderá escolher os itens que melhor lhe agrada, pagando sempre o frete de cada item escolhido.</p>
+                            <p>O cliente contemplado poderá escolher produtos que não estão no sait ainda, a CLASSE A através de seu administrador lhe enviará por WhatsApp os produtos disponíveis.</p>
+                            <p>No caso do consorcio PLUS segue a mesma regra quanto ao dia de pagamento e sorteio, a diferença aqui é que o cliente já escolhe no ato da aquisição o produto de sua preferência.</p>
+                            <p>A nota fiscal será enviada pela CLASSE A por e-mail a pessoa contemplada conforme cadastrado no sistema.</p>
+                        </div>
+
+                        <div className="mt-12 pt-12 border-t border-slate-100 flex justify-center">
+                            <Link to="/shop?category_id=57" className="bg-[#FBC02D] text-[#0B1221] font-black py-4 px-12 rounded-2xl hover:bg-[#0B1221] hover:text-white transition-all">
+                                ESCOLHER MEU PRODUTO AGORA
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -198,7 +237,7 @@ const ConsorcioLanding: React.FC = () => {
                             Garanta sua vaga em grupos exclusivos e aproveite a qualidade Classe A Platinum da forma mais econômica.
                         </p>
                         <div className="flex justify-center">
-                            <Link to="/shop?category=Consórcio" className="bg-[#0B1221] text-white font-black py-5 px-12 rounded-2xl shadow-2xl hover:scale-105 transition-all text-lg">
+                            <Link to="/shop?category_id=57" className="bg-[#0B1221] text-white font-black py-5 px-12 rounded-2xl shadow-2xl hover:scale-105 transition-all text-lg">
                                 ESCOLHER MEU GRUPO
                             </Link>
                         </div>

@@ -21,6 +21,7 @@ import {
     Pencil,
     Shield
 } from 'lucide-react';
+import { ORGANIZATION_ID } from '../lib/config';
 import AdminLayout from '../components/AdminLayout';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -43,6 +44,7 @@ const AdminAffiliates: React.FC = () => {
     const [viewingNetworkName, setViewingNetworkName] = useState<string>('');
     const [viewingAffiliate, setViewingAffiliate] = useState<any | null>(null);
     const [editingAffiliate, setEditingAffiliate] = useState<any | null>(null);
+    const [deletingAffiliate, setDeletingAffiliate] = useState<any | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [newPassword, setNewPassword] = useState('');
 
@@ -55,21 +57,14 @@ const AdminAffiliates: React.FC = () => {
     const fetchAffiliates = async () => {
         setIsLoading(true);
         try {
-            // 0. Fetch Classe A Organization ID
-            const { data: orgData } = await supabase
-                .from('organizations')
-                .select('id')
-                .eq('name', 'Classe A')
-                .single();
-            
-            const effectiveOrgId = orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
-
-            // 1. Fetch Affiliates
-            const { data: affData, error: affError } = await supabase
+            // 1. Fetch Affiliates scoped to ORGANIZATION_ID
+            let query = supabase
                 .from('affiliates')
-                .select('*')
-                .eq('organization_id', effectiveOrgId)
+                .select('*', { count: 'exact' })
+                .eq('organization_id', ORGANIZATION_ID)
                 .order('created_at', { ascending: false });
+
+            const { data: affData, error: affError } = await query;
 
             if (affError) throw affError;
 
@@ -90,7 +85,7 @@ const AdminAffiliates: React.FC = () => {
                     .in('id', userIds);
 
                 if (profilesError) {
-                    // Se for erro de coluna inexistente (PGRST204), tenta sem o CNPJ
+                    // Fallback if cnpj column is missing (PGRST204)
                     if (profilesError.message?.includes('cnpj') || profilesError.code === 'PGRST204') {
                         const { data: retryData, error: retryError } = await supabase
                             .from('user_profiles')
@@ -143,149 +138,49 @@ const AdminAffiliates: React.FC = () => {
             const startOfMonthValue = new Date(now.getFullYear(), now.getMonth(), 1);
 
             const newCount = affData.filter(d => d.created_at && new Date(d.created_at) >= startOfMonthValue).length;
-            const pendingCount = formattedAffs.filter(a => a.status === 'Pendente').length;
+            const pendingCount = affData.filter(d => d.is_active && !d.is_verified).length;
 
             setTotalStats({
-                total: formattedAffs.length,
+                total: affData.length,
                 pending: pendingCount,
                 newThisMonth: newCount
             });
 
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error fetching affiliates:', error);
-            toast.error('Falha ao carregar lista de afiliados.');
+            toast.error('Erro ao carregar afiliados');
         } finally {
-            setIsLoading(false);
+            setIsLoading(true);
+            setTimeout(() => setIsLoading(false), 500);
         }
     };
 
-    const toggleStatus = async (id: string, currentStatus: boolean) => {
-        try {
-            const { error } = await supabase
-                .from('affiliates')
-                .update({ is_active: !currentStatus })
-                .eq('id', id);
-
-            if (error) throw error;
-
-            toast.success(`Afiliado ${!currentStatus ? 'ativado' : 'bloqueado'} com sucesso!`);
-            fetchAffiliates();
-        } catch (error) {
-            toast.error('Erro ao atualizar status.');
-        }
-    };
-
-    const verifyAffiliate = async (id: string) => {
-        try {
-            const { error } = await supabase
-                .from('affiliates')
-                .update({ is_verified: true, is_active: true })
-                .eq('id', id);
-
-            if (error) throw error;
-
-            toast.success('Afiliado verificado com sucesso!');
-            fetchAffiliates();
-        } catch (error) {
-            toast.error('Erro ao verificar afiliado.');
-        }
-    };
-
-    const handleSaveEdit = async () => {
+    const handleUpdateAffiliate = async (e: React.FormEvent) => {
+        e.preventDefault();
         if (!editingAffiliate) return;
+
         setIsSaving(true);
         try {
-            // 1. Update Affiliates table
-            const affUpdate: any = {
-                full_name: editingAffiliate.name,
-                email: editingAffiliate.email,
-                whatsapp: editingAffiliate.phone,
-                cpf: editingAffiliate.cpf || null,
-                is_active: editingAffiliate.raw_status,
-                position_slot: editingAffiliate.plan.includes('Slot') ? parseInt(editingAffiliate.plan.split(' ')[1]) : null
-            };
-
-            // Only include cnpj if it likely exists
-            if (editingAffiliate.cnpj !== undefined) {
-                affUpdate.cnpj = editingAffiliate.cnpj || null;
-            }
-
-            console.log('Iniciando atualização do afiliado:', editingAffiliate.id);
-            console.log('Dados p/ Affiliates:', affUpdate);
-
-            const { data: affRes, error: affError } = await supabase
+            const { error: affError } = await supabase
                 .from('affiliates')
-                .update(affUpdate)
+                .update({
+                    full_name: editingAffiliate.name,
+                    whatsapp: editingAffiliate.phone,
+                    is_active: editingAffiliate.raw_status,
+                    is_verified: editingAffiliate.raw_verified,
+                    updated_at: new Date().toISOString()
+                })
                 .eq('id', editingAffiliate.id)
-                .select();
+                .eq('organization_id', ORGANIZATION_ID);
 
-            console.log('Resposta Affiliates:', { affRes, affError });
+            if (affError) throw affError;
 
-            if (affError) {
-                // If it fails because of cnpj, retry without it
-                if (affError.message?.includes('cnpj') || affError.code === 'PGRST204') {
-                    console.warn('Coluna cnpj não existe em affiliates, tentando novamente sem ela...');
-                    delete affUpdate.cnpj;
-                    const { data: affRetryRes, error: affRetryError } = await supabase
-                        .from('affiliates')
-                        .update(affUpdate)
-                        .eq('id', editingAffiliate.id)
-                        .select();
-                    
-                    console.log('Resposta Retry Affiliates:', { affRetryRes, affRetryError });
-                    if (affRetryError) throw affRetryError;
-                } else {
-                    throw affError;
-                }
-            }
-
-            // 2. Update User Profiles
-            const profileUpdate: any = {
-                registration_type: editingAffiliate.registration_type,
-                role: editingAffiliate.role
-            };
-
-            if (editingAffiliate.cnpj !== undefined) {
-                profileUpdate.cnpj = editingAffiliate.cnpj || null;
-            }
-
-            console.log('Dados p/ User Profiles:', profileUpdate);
-            const { data: profileRes, error: profileError } = await supabase
-                .from('user_profiles')
-                .update(profileUpdate)
-                .eq('id', editingAffiliate.user_id)
-                .select();
-
-            console.log('Resposta User Profiles:', { profileRes, profileError });
-
-            if (profileError) {
-                // If it fails because of cnpj, retry without it
-                if (profileError.message?.includes('cnpj') || profileError.code === 'PGRST204') {
-                    console.warn('Coluna cnpj não existe em user_profiles, tentando novamente sem ela...');
-                    delete profileUpdate.cnpj;
-                    const { data: retryData, error: retryError } = await supabase
-                        .from('user_profiles')
-                        .update(profileUpdate)
-                        .eq('id', editingAffiliate.user_id)
-                        .select();
-                    
-                    if (retryError) throw retryError;
-                    if (retryData && retryData.length > 0) {
-                        // Success in retry
-                    }
-                } else {
-                    throw profileError;
-                }
-            }
-
-            // 3. Update Password if provided
-            if (newPassword.trim()) {
-                const { error: pwdError } = await supabase.rpc('admin_update_user_password', {
-                    target_user_id: editingAffiliate.user_id,
-                    new_password: newPassword.trim()
-                });
-
-                if (pwdError) throw pwdError;
+            if (newPassword.trim() && editingAffiliate.user_id) {
+                const { error: passError } = await supabase.auth.admin.updateUserById(
+                    editingAffiliate.user_id,
+                    { password: newPassword.trim() }
+                );
+                if (passError) throw passError;
             }
 
             toast.success('Afiliado atualizado com sucesso!');
@@ -294,32 +189,64 @@ const AdminAffiliates: React.FC = () => {
             fetchAffiliates();
         } catch (error: any) {
             console.error('Error updating affiliate:', error);
-            toast.error(error.message || 'Erro ao atualizar dados.');
+            toast.error(error.message || 'Erro ao atualizar dados');
         } finally {
             setIsSaving(false);
         }
     };
 
-    const deleteAffiliate = async (aff: any) => {
-        if (aff.role === 'admin') {
-            toast.error('Não é permitido excluir usuários com nível de administrador.');
-            return;
-        }
+    const handleDeleteAffiliate = async () => {
+        if (!deletingAffiliate) return;
 
-        if (!window.confirm(`Tem certeza que deseja excluir o afiliado ${aff.name}? Esta ação não pode ser desfeita.`)) return;
-
+        setIsSaving(true);
         try {
             const { error } = await supabase
                 .from('affiliates')
                 .delete()
-                .eq('id', aff.id);
+                .eq('id', deletingAffiliate.id)
+                .eq('organization_id', ORGANIZATION_ID);
 
             if (error) throw error;
 
             toast.success('Afiliado removido com sucesso!');
+            setDeletingAffiliate(null);
             fetchAffiliates();
+        } catch (error: any) {
+            console.error('Error deleting affiliate:', error);
+            toast.error(error.message || 'Erro ao remover afiliado');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleExportPDF = () => {
+        setIsExporting(true);
+        try {
+            const doc = new jsPDF();
+            const tableColumn = ["ID", "Nome", "Email", "Plano", "Status", "Cadastrado em"];
+            const tableRows = affiliates.map(aff => [
+                aff.id,
+                aff.name,
+                aff.email,
+                aff.plan,
+                aff.status,
+                aff.joined
+            ]);
+
+            autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: 20,
+            });
+
+            doc.text("Relatório de Afiliados - Classe A", 14, 15);
+            doc.save(`afiliados_classe_a_${new Date().toISOString().split('T')[0]}.pdf`);
+            toast.success('PDF exportado com sucesso!');
         } catch (error) {
-            toast.error('Erro ao remover afiliado. Ele pode ter dados vinculados.');
+            console.error('Error exporting PDF:', error);
+            toast.error('Erro ao gerar PDF');
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -327,103 +254,83 @@ const AdminAffiliates: React.FC = () => {
         const matchesSearch = aff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             aff.email.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = filterStatus === 'Todos' || aff.status === filterStatus;
-        const matchesPlan = filterPlan === 'Todos' || aff.plan === filterPlan;
-
+        const matchesPlan = filterPlan === 'Todos' || aff.plan.includes(filterPlan);
         return matchesSearch && matchesStatus && matchesPlan;
     });
 
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentItems = filteredAffiliates.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(filteredAffiliates.length / itemsPerPage);
-    const currentData = filteredAffiliates.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-    const handleExport = () => {
-        setIsExporting(true);
-        setTimeout(() => {
-            const doc = new jsPDF();
-            doc.setFontSize(22);
-            doc.setTextColor(5, 8, 15);
-            doc.text('CLASSE A - PREMIUM LIFESTYLE', 14, 20);
-            doc.setFontSize(14);
-            doc.setTextColor(100, 100, 100);
-            doc.text('Relatório de Afiliados', 14, 30);
-            doc.setFontSize(10);
-            doc.text(`Data do Relatório: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, 14, 38);
-
-            const tableColumn = ["ID", "Nome", "E-mail", "Plano", "Status", "Ganhos"];
-            const tableRows = filteredAffiliates.map(aff => [
-                aff.id.substring(0, 8),
-                aff.name,
-                aff.email,
-                aff.plan,
-                aff.status,
-                aff.earnings
-            ]);
-
-            autoTable(doc, {
-                head: [tableColumn],
-                body: tableRows,
-                startY: 45,
-                theme: 'grid',
-                headStyles: { fillColor: [5, 8, 15], textColor: [251, 192, 45], fontStyle: 'bold' }
-            });
-
-            doc.save('Relatorio_Afiliados_ClasseA.pdf');
-            setIsExporting(false);
-            toast.success('Relatório PDF baixado com sucesso!');
-        }, 1500);
-    };
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'Ativo': return 'bg-emerald-50 text-emerald-600';
-            case 'Pendente': return 'bg-amber-50 text-amber-600';
-            case 'Bloqueado': return 'bg-red-50 text-red-600';
-            default: return 'bg-slate-50 text-slate-600';
+            case 'Ativo': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+            case 'Pendente': return 'bg-amber-50 text-amber-600 border-amber-100';
+            case 'Bloqueado': return 'bg-red-50 text-red-600 border-red-100';
+            default: return 'bg-slate-50 text-slate-600 border-slate-100';
         }
-    };
-
-    const getPlanColor = (plan: string) => {
-        if (plan.includes('Slot')) return 'text-blue-600';
-        return 'text-slate-600';
     };
 
     return (
         <AdminLayout>
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-black text-[#05080F]">Gestão de Afiliados</h1>
-                        <p className="text-sm md:text-base text-slate-500 font-medium">Visualize, edite e gerencie todos os parceiros da plataforma.</p>
+                        <h1 className="text-2xl md:text-4xl font-black text-[#05080F] tracking-tight">
+                            Gestão de Afiliados
+                        </h1>
+                        <p className="text-slate-500 font-medium mt-1">Controle total sobre a rede de parceiros e consultores.</p>
                     </div>
-                    <div className="flex flex-wrap gap-3 w-full sm:w-auto">
+
+                    <div className="flex flex-wrap gap-3 w-full xl:w-auto">
                         <button
-                            onClick={handleExport}
+                            onClick={handleExportPDF}
                             disabled={isExporting}
-                            className="flex-1 sm:flex-none justify-center bg-white border border-slate-200 px-4 md:px-6 py-3 rounded-2xl flex items-center gap-2 font-bold text-slate-600 hover:shadow-md transition-all disabled:opacity-50 text-sm md:text-base"
+                            className="flex-1 xl:flex-none flex items-center justify-center gap-2 px-6 py-3.5 bg-white border border-slate-200 rounded-2xl text-slate-600 font-bold hover:bg-slate-50 transition-all text-sm shadow-sm"
                         >
                             {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4 text-[#FBC02D]" />}
-                            <span className="whitespace-nowrap">Exportar PDF</span>
+                            PDF
                         </button>
-                        <a
-                            href="/register"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-1 sm:flex-none justify-center bg-[#05080F] text-white px-4 md:px-6 py-3 rounded-2xl flex items-center gap-2 font-bold shadow-xl shadow-[#05080F]/10 hover:bg-[#1a2436] transition-all text-sm md:text-base"
-                        >
-                            <UserPlus className="w-4 h-4 text-[#FBC02D]" />
-                            <span className="whitespace-nowrap">Novo Afiliado</span>
-                        </a>
                     </div>
                 </div>
 
-                {/* Filter & Search Bar */}
-                <div className="bg-white p-4 md:p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between relative z-10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="bg-[#05080F] rounded-[2.5rem] p-8 text-white relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-[#FBC02D]/10 blur-3xl rounded-full group-hover:bg-[#FBC02D]/20 transition-all duration-500"></div>
+                        <div className="relative z-10">
+                            <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-6 backdrop-blur-md">
+                                <Users className="w-6 h-6 text-[#FBC02D]" />
+                            </div>
+                            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest leading-none mb-2">Total de Afiliados</p>
+                            <h3 className="text-3xl font-black text-[#FBC02D]">{totalStats.total.toString().padStart(2, '0')}</h3>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm relative overflow-hidden group">
+                        <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-amber-100 transition-colors">
+                            <Clock className="w-6 h-6 text-amber-500" />
+                        </div>
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest leading-none mb-2">Aguardando Verificação</p>
+                        <h3 className="text-3xl font-black text-[#05080F]">{totalStats.pending.toString().padStart(2, '0')}</h3>
+                    </div>
+
+                    <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm relative overflow-hidden group sm:col-span-2 lg:col-span-1">
+                        <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-emerald-100 transition-colors">
+                            <UserPlus className="w-6 h-6 text-emerald-500" />
+                        </div>
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest leading-none mb-2">Novos este Mês</p>
+                        <h3 className="text-3xl font-black text-[#05080F]">+{totalStats.newThisMonth.toString().padStart(2, '0')}</h3>
+                    </div>
+                </div>
+
+                <div className="bg-white p-4 md:p-6 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between relative z-20">
                     <div className="relative w-full lg:w-96">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Buscar por nome ou e-mail..."
-                            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 pl-12 pr-4 text-sm outline-none focus:border-[#FBC02D] transition-all"
+                            placeholder="Buscar por nome ou email..."
+                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-medium outline-none focus:border-[#FBC02D] transition-all"
                             value={searchTerm}
                             onChange={(e) => {
                                 setSearchTerm(e.target.value);
@@ -431,40 +338,42 @@ const AdminAffiliates: React.FC = () => {
                             }}
                         />
                     </div>
-                    <div className="flex gap-3 w-full lg:w-auto">
+
+                    <div className="flex flex-wrap gap-3 w-full lg:w-auto">
                         <button
                             onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-                            className={`flex-grow lg:flex-none flex items-center justify-center gap-2 px-6 py-3 border rounded-2xl font-bold transition-all text-sm ${isFiltersOpen ? 'bg-[#FBC02D]/10 border-[#FBC02D] text-[#05080F]' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                            className={`flex-grow lg:flex-none flex items-center justify-center gap-2 px-6 py-3.5 border rounded-2xl font-bold transition-all text-sm ${isFiltersOpen ? 'bg-[#FBC02D]/10 border-[#FBC02D] text-[#05080F]' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                         >
                             <Filter className="w-4 h-4 text-[#FBC02D]" />
-                            Filtros Avançados {(filterStatus !== 'Todos' || filterPlan !== 'Todos') && <span className="w-2 h-2 bg-[#FBC02D] rounded-full"></span>}
+                            Filtros Avançados
                         </button>
                     </div>
 
-                    {/* Advanced Filters Dropdown */}
                     {isFiltersOpen && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 p-6 rounded-[2rem] shadow-xl animate-in zoom-in-95 duration-200">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Status</label>
-                                    <select
-                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm font-bold text-[#05080F] outline-none focus:border-[#FBC02D]"
-                                        value={filterStatus}
-                                        onChange={(e) => {
-                                            setFilterStatus(e.target.value);
-                                            setCurrentPage(1);
-                                        }}
-                                    >
-                                        <option>Todos</option>
-                                        <option>Ativo</option>
-                                        <option>Pendente</option>
-                                        <option>Bloqueado</option>
-                                    </select>
+                        <div className="absolute top-full left-0 right-0 mt-4 bg-white border border-slate-100 p-8 rounded-[3rem] shadow-2xl animate-in zoom-in-95 duration-200 z-30">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Status do Cadastro</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {['Todos', 'Ativo', 'Pendente', 'Bloqueado'].map(status => (
+                                            <button
+                                                key={status}
+                                                onClick={() => {
+                                                    setFilterStatus(status);
+                                                    setCurrentPage(1);
+                                                }}
+                                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filterStatus === status ? 'bg-[#FBC02D] text-[#05080F]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                                            >
+                                                {status}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Plano</label>
+
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Plano / Slot</label>
                                     <select
-                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm font-bold text-[#05080F] outline-none focus:border-[#FBC02D]"
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl p-3.5 text-sm font-bold text-[#05080F] outline-none focus:border-[#FBC02D]"
                                         value={filterPlan}
                                         onChange={(e) => {
                                             setFilterPlan(e.target.value);
@@ -478,18 +387,19 @@ const AdminAffiliates: React.FC = () => {
                                         <option>Slot 3</option>
                                     </select>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Ações</label>
+
+                                <div className="flex items-end">
                                     <button
                                         onClick={() => {
                                             setFilterStatus('Todos');
                                             setFilterPlan('Todos');
                                             setSearchTerm('');
                                             setIsFiltersOpen(false);
+                                            setCurrentPage(1);
                                         }}
-                                        className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl p-3 text-xs font-black uppercase tracking-widest transition-all"
+                                        className="w-full bg-[#05080F] text-white rounded-xl py-4 text-xs font-black uppercase tracking-widest hover:bg-[#FBC02D] hover:text-[#05080F] transition-all"
                                     >
-                                        Limpar Filtros
+                                        Limpar e Fechar
                                     </button>
                                 </div>
                             </div>
@@ -497,114 +407,91 @@ const AdminAffiliates: React.FC = () => {
                     )}
                 </div>
 
-                {/* Affiliates Table */}
-                <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
-                    {/* Desktop Table View */}
-                    <div className="hidden lg:block overflow-x-auto">
+                <div className="bg-white rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead className="bg-slate-50/50">
-                                <tr>
-                                    <th className="text-left py-6 px-8 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">
-                                        Afiliado
-                                    </th>
-                                    <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Plano</th>
-                                    <th className="text-left py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Ganhos</th>
-                                    <th className="text-center py-6 px-4 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Status</th>
-                                    <th className="text-right py-6 px-8 text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Ações</th>
+                            <thead>
+                                <tr className="bg-slate-50/50 border-b border-slate-50">
+                                    <th className="text-left py-8 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] leading-none">Afiliado</th>
+                                    <th className="text-left py-8 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] leading-none">Status</th>
+                                    <th className="text-left py-8 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] leading-none text-center">Ganhos Acumulados</th>
+                                    <th className="text-left py-8 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] leading-none">Plano</th>
+                                    <th className="text-right py-8 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] leading-none">Ações</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {isLoading ? (
                                     [1, 2, 3, 4, 5].map(i => (
                                         <tr key={i} className="animate-pulse">
-                                            <td className="py-6 px-8"><div className="h-12 w-full bg-slate-100 rounded-2xl"></div></td>
-                                            <td className="py-6 px-4"><div className="h-6 w-16 bg-slate-100 rounded-full"></div></td>
-                                            <td className="py-6 px-4"><div className="h-6 w-24 bg-slate-100 rounded-lg"></div></td>
-                                            <td className="py-6 px-4"><div className="h-8 w-24 bg-slate-100 rounded-full mx-auto"></div></td>
-                                            <td className="py-6 px-8 text-right"><div className="h-10 w-24 bg-slate-100 rounded-xl ml-auto"></div></td>
+                                            <td className="py-6 px-10"><div className="h-12 w-48 bg-slate-100 rounded-2xl"></div></td>
+                                            <td className="py-6 px-6"><div className="h-8 w-24 bg-slate-100 rounded-full"></div></td>
+                                            <td className="py-6 px-6"><div className="h-10 w-24 bg-slate-100 rounded-2xl mx-auto"></div></td>
+                                            <td className="py-6 px-6"><div className="h-10 w-24 bg-slate-100 rounded-2xl"></div></td>
+                                            <td className="py-6 px-10"><div className="h-10 w-20 bg-slate-100 rounded-2xl ml-auto"></div></td>
                                         </tr>
                                     ))
-                                ) : currentData.length > 0 ? (
-                                    currentData.map((aff) => (
-                                        <tr key={aff.id} className="group hover:bg-slate-50/50 transition-colors">
-                                            <td className="py-6 px-8">
+                                ) : currentItems.length > 0 ? (
+                                    currentItems.map((aff) => (
+                                        <tr key={aff.id} className="group hover:bg-slate-50/30 transition-all">
+                                            <td className="py-8 px-10">
                                                 <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-12 rounded-2xl bg-[#05080F] flex items-center justify-center font-black text-[#FBC02D]">
-                                                        {aff.name.charAt(0)}
+                                                    <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 border border-white">
+                                                        <span className="text-slate-500 font-black text-sm uppercase">{aff.name.slice(0, 2)}</span>
                                                     </div>
-                                                    <div>
-                                                        <p className="font-black text-[#05080F]">{aff.name}</p>
-                                                        <div className="flex flex-col sm:flex-row sm:gap-4 mt-0.5">
-                                                            <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wider">
-                                                                <Mail className="w-3 h-3 text-[#FBC02D]" /> {aff.email}
-                                                            </span>
-                                                        </div>
+                                                    <div className="min-w-0">
+                                                        <h4 className="font-black text-[#05080F] text-sm md:text-base truncate">{aff.name}</h4>
+                                                        <p className="text-[10px] md:text-xs font-bold text-slate-400 truncate">{aff.email}</p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="py-6 px-4">
-                                                <span className={`text-sm font-black uppercase tracking-tight ${getPlanColor(aff.plan)}`}>
-                                                    {aff.plan}
-                                                </span>
-                                            </td>
-                                            <td className="py-6 px-4 font-black text-emerald-600">{aff.earnings}</td>
-                                            <td className="py-6 px-4 text-center">
-                                                <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider ${getStatusColor(aff.status)}`}>
-                                                    {aff.status === 'Ativo' && <CheckCircle className="w-3 h-3" />}
-                                                    {aff.status === 'Pendente' && <AlertCircle className="w-3 h-3" />}
-                                                    {aff.status === 'Bloqueado' && <XCircle className="w-3 h-3" />}
+                                            <td className="py-8 px-6">
+                                                <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-wider border ${getStatusColor(aff.status)}`}>
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${aff.status === 'Ativo' ? 'bg-emerald-500' : aff.status === 'Pendente' ? 'bg-amber-500' : 'bg-red-500'}`}></div>
                                                     {aff.status}
                                                 </span>
                                             </td>
-                                            <td className="py-6 px-8 text-right">
+                                            <td className="py-8 px-6 text-center">
+                                                <span className="font-black text-[#05080F] text-xs md:text-sm bg-slate-50 px-4 py-2 rounded-xl">{aff.earnings}</span>
+                                            </td>
+                                            <td className="py-8 px-6">
+                                                <div className="flex items-center gap-2">
+                                                    <Shield className={`w-4 h-4 ${aff.plan.includes('Slot') ? 'text-[#FBC02D]' : 'text-slate-300'}`} />
+                                                    <span className="text-[10px] md:text-xs font-black text-slate-600">{aff.plan}</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-8 px-10 text-right shrink-0">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    <button
-                                                        onClick={() => setViewingAffiliate(aff)}
-                                                        className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
-                                                        title="Ver Detalhes"
-                                                    >
-                                                        <Eye className="w-5 h-5" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setEditingAffiliate({ ...aff })}
-                                                        className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all"
-                                                        title="Editar"
-                                                    >
-                                                        <Pencil className="w-5 h-5" />
-                                                    </button>
-                                                    {aff.status === 'Pendente' && (
-                                                        <button
-                                                            onClick={() => verifyAffiliate(aff.id)}
-                                                            className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
-                                                            title="Verificar"
-                                                        >
-                                                            <CheckCircle className="w-5 h-5" />
-                                                        </button>
-                                                    )}
                                                     <button
                                                         onClick={() => {
                                                             setViewingNetworkId(aff.id);
                                                             setViewingNetworkName(aff.name);
                                                         }}
-                                                        className="p-2 text-[#FBC02D] hover:bg-[#FBC02D]/10 rounded-xl transition-all"
+                                                        className="p-2.5 text-slate-300 hover:text-[#05080F] hover:bg-white hover:shadow-sm rounded-xl transition-all"
                                                         title="Ver Rede"
                                                     >
                                                         <Network className="w-5 h-5" />
                                                     </button>
                                                     <button
-                                                        onClick={() => toggleStatus(aff.id, aff.raw_status)}
-                                                        className={`p-2 rounded-xl transition-all ${aff.raw_status ? 'text-amber-500 hover:bg-amber-50' : 'text-emerald-500 hover:bg-emerald-50'}`}
-                                                        title={aff.raw_status ? 'Bloquear' : 'Ativar'}
+                                                        onClick={() => setViewingAffiliate(aff)}
+                                                        className="p-2.5 text-slate-300 hover:text-[#05080F] hover:bg-white hover:shadow-sm rounded-xl transition-all"
+                                                        title="Detalhes"
                                                     >
-                                                        {aff.raw_status ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+                                                        <Eye className="w-5 h-5" />
                                                     </button>
                                                     <button
-                                                        onClick={() => deleteAffiliate(aff)}
-                                                        className={`p-2 rounded-xl transition-all ${aff.role === 'admin' ? 'opacity-20 cursor-not-allowed text-slate-400' : 'text-red-400 hover:text-red-500 hover:bg-red-50'}`}
-                                                        title={aff.role === 'admin' ? "Admins não podem ser excluídos" : "Excluir"}
-                                                        disabled={aff.role === 'admin'}
+                                                        onClick={() => {
+                                                            setEditingAffiliate(aff);
+                                                            setNewPassword('');
+                                                        }}
+                                                        className="p-2.5 text-slate-300 hover:text-blue-600 hover:bg-white hover:shadow-sm rounded-xl transition-all"
                                                     >
-                                                        <X className="w-5 h-5" />
+                                                        <Pencil className="w-5 h-5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setDeletingAffiliate(aff)}
+                                                        className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-white hover:shadow-sm rounded-xl transition-all"
+                                                    >
+                                                        <XCircle className="w-5 h-5" />
                                                     </button>
                                                 </div>
                                             </td>
@@ -612,10 +499,10 @@ const AdminAffiliates: React.FC = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={5} className="py-20 text-center">
-                                            <div className="flex flex-col items-center gap-3 text-slate-400">
-                                                <Search className="w-12 h-12 opacity-20" />
-                                                <p className="font-bold">Nenhum afiliado encontrado.</p>
+                                        <td colSpan={5} className="py-32 text-center">
+                                            <div className="flex flex-col items-center gap-4 text-slate-300">
+                                                <Search className="w-12 h-12 opacity-30" />
+                                                <p className="font-bold text-sm tracking-widest uppercase">Nenhum afiliado encontrado</p>
                                             </div>
                                         </td>
                                     </tr>
@@ -624,482 +511,240 @@ const AdminAffiliates: React.FC = () => {
                         </table>
                     </div>
 
-                    {/* Mobile Card View */}
-                    <div className="lg:hidden divide-y divide-slate-50">
-                        {isLoading ? (
-                            [1, 2, 3].map(i => (
-                                <div key={i} className="p-4 animate-pulse">
-                                    <div className="flex items-center gap-4 mb-4">
-                                        <div className="w-12 h-12 bg-slate-100 rounded-2xl"></div>
-                                        <div className="flex-1">
-                                            <div className="h-4 w-24 bg-slate-100 rounded mb-2"></div>
-                                            <div className="h-3 w-32 bg-slate-100 rounded"></div>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="h-8 bg-slate-100 rounded-xl"></div>
-                                        <div className="h-8 bg-slate-100 rounded-xl"></div>
-                                    </div>
-                                </div>
-                            ))
-                        ) : currentData.length > 0 ? (
-                            currentData.map((aff) => (
-                                <div key={aff.id} className="p-4 space-y-4">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-[#05080F] flex items-center justify-center font-black text-[#FBC02D] text-sm shrink-0">
-                                                {aff.name.charAt(0)}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="font-black text-[#05080F] truncate">{aff.name}</p>
-                                                <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-wider truncate">
-                                                    <Mail className="w-3 h-3 text-[#FBC02D]" /> {aff.email}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${getStatusColor(aff.status)}`}>
-                                            {aff.status}
-                                        </span>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl">
-                                        <div>
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Plano</p>
-                                            <span className={`text-xs font-black uppercase tracking-tight ${getPlanColor(aff.plan)}`}>
-                                                {aff.plan}
-                                            </span>
-                                        </div>
-                                        <div>
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Ganhos</p>
-                                            <p className="text-xs font-black text-emerald-600">{aff.earnings}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => setViewingAffiliate(aff)}
-                                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-50 text-blue-600 rounded-xl text-xs font-black uppercase tracking-wider"
-                                        >
-                                            <Eye className="w-4 h-4" /> Detalhes
-                                        </button>
-                                        <button
-                                            onClick={() => setEditingAffiliate({ ...aff })}
-                                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-black uppercase tracking-wider"
-                                        >
-                                            <Pencil className="w-4 h-4" /> Editar
-                                        </button>
-                                        {aff.status === 'Pendente' && (
-                                            <button
-                                                onClick={() => verifyAffiliate(aff.id)}
-                                                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-black uppercase tracking-wider"
-                                            >
-                                                <CheckCircle className="w-4 h-4" /> Verificar
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={() => {
-                                                setViewingNetworkId(aff.id);
-                                                setViewingNetworkName(aff.name);
-                                            }}
-                                            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#FBC02D]/10 text-[#05080F] rounded-xl text-xs font-black uppercase tracking-wider"
-                                        >
-                                            <Network className="w-4 h-4 text-[#FBC02D]" /> Rede
-                                        </button>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => toggleStatus(aff.id, aff.raw_status)}
-                                                className={`p-2.5 rounded-xl transition-all ${aff.raw_status ? 'bg-amber-50 text-amber-500' : 'bg-emerald-50 text-emerald-500'}`}
-                                            >
-                                                {aff.raw_status ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-                                            </button>
-                                            <button
-                                                onClick={() => deleteAffiliate(aff)}
-                                                className={`p-2.5 rounded-xl transition-all ${aff.role === 'admin' ? 'bg-slate-50 text-slate-200' : 'bg-red-50 text-red-500'}`}
-                                                disabled={aff.role === 'admin'}
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="py-20 text-center">
-                                <Search className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                                <p className="text-slate-400 font-bold">Nenhum afiliado encontrado.</p>
+                    {totalPages > 1 && (
+                        <div className="p-8 md:p-10 border-t border-slate-50 flex flex-col sm:flex-row justify-between items-center gap-6">
+                            <p className="text-xs md:text-sm text-slate-400 font-bold order-2 sm:order-1">
+                                Mostrando <span className="text-[#05080F]">{indexOfFirstItem + 1}</span>-
+                                <span className="text-[#05080F]">{Math.min(indexOfLastItem, filteredAffiliates.length)}</span> de 
+                                <span className="text-[#05080F]">{filteredAffiliates.length}</span> resultados
+                            </p>
+                            <div className="flex items-center gap-2 order-1 sm:order-2">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="w-11 h-11 border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-slate-50 hover:text-[#05080F] transition-all disabled:opacity-20 disabled:hover:bg-transparent"
+                                >
+                                    <ArrowUpDown className="w-4 h-4 rotate-90" />
+                                </button>
+                                {[...Array(totalPages)].map((_, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => setCurrentPage(i + 1)}
+                                        className={`w-11 h-11 rounded-2xl text-[10px] md:text-sm font-black transition-all ${currentPage === i + 1 ? 'bg-[#05080F] text-white shadow-xl shadow-[#05080F]/10' : 'bg-white border border-slate-50 hover:bg-slate-50 text-slate-400'}`}
+                                    >
+                                        {i + 1}
+                                    </button>
+                                ))}
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="w-11 h-11 border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-slate-50 hover:text-[#05080F] transition-all disabled:opacity-20 disabled:hover:bg-transparent"
+                                >
+                                    <ArrowUpDown className="w-4 h-4 -rotate-90" />
+                                </button>
                             </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="p-8 border-t border-slate-50 flex justify-center gap-2">
-                        {[...Array(totalPages)].map((_, i) => (
-                            <button
-                                key={i}
-                                onClick={() => setCurrentPage(i + 1)}
-                                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${currentPage === i + 1 ? 'bg-[#05080F] text-white' : 'hover:bg-slate-100 text-[#05080F]'}`}
-                            >
-                                {i + 1}
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-20">
-                <div className="bg-[#05080F] rounded-[2rem] p-6 text-white flex items-center gap-5 shadow-xl shadow-[#05080F]/10">
-                    <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-[#FBC02D]">
-                        <Users className="w-8 h-8" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total de Afiliados</p>
-                        <h4 className="text-2xl font-black">{totalStats.total}</h4>
-                    </div>
-                </div>
-                <div className="bg-white rounded-[2rem] p-6 border border-slate-100 flex items-center gap-5 shadow-sm">
-                    <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600">
-                        <AlertCircle className="w-8 h-8" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Solicitações Pendentes</p>
-                        <h4 className="text-2xl font-black text-[#05080F]">{totalStats.pending}</h4>
-                    </div>
-                </div>
-                <div className="bg-white rounded-[2rem] p-6 border border-slate-100 flex items-center gap-5 shadow-sm">
-                    <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-                        <Calendar className="w-8 h-8" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Novos este Mês</p>
-                        <h4 className="text-2xl font-black text-[#05080F]">+{totalStats.newThisMonth}</h4>
-                    </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Network View Modal */}
             {viewingNetworkId && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-[#05080F] w-full h-full md:h-auto md:max-w-6xl md:rounded-[3rem] border-0 md:border md:border-white/10 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col">
-                        <div className="p-6 md:p-8 border-b border-white/5 flex justify-between items-center shrink-0">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-6 lg:p-12 mx-auto">
+                    <div className="absolute inset-0 bg-[#05080F]/80 backdrop-blur-md" onClick={() => setViewingNetworkId(null)}></div>
+                    <div className="bg-white w-full h-full md:h-auto md:max-w-6xl md:rounded-[3rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col">
+                        <div className="p-8 md:p-10 border-b border-slate-100 flex justify-between items-center">
                             <div>
-                                <h2 className="text-xl md:text-2xl font-black text-white">Rede de Afiliados</h2>
-                                <p className="text-xs md:text-sm text-slate-400 font-medium capitalize mt-1">
-                                    Visualizando rede de: <span className="text-[#FBC02D]">{viewingNetworkName}</span>
-                                </p>
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-1">Rede de Indicações</p>
+                                <h2 className="text-2xl md:text-3xl font-black text-[#05080F]">{viewingNetworkName}</h2>
                             </div>
                             <button
                                 onClick={() => setViewingNetworkId(null)}
-                                className="p-2 md:p-3 bg-white/5 hover:bg-white/10 rounded-xl md:rounded-2xl text-white transition-all"
+                                className="p-4 bg-slate-50 text-slate-400 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-all"
                             >
-                                <X className="w-5 h-5 md:w-6 md:h-6" />
+                                <X className="w-6 h-6" />
                             </button>
                         </div>
-                        <div className="flex-1 overflow-auto p-4 md:p-8 min-h-0 bg-white/5">
-                            <AffiliateNetwork rootAffiliateId={viewingNetworkId} />
-                        </div>
-                        <div className="p-4 md:p-6 border-t border-white/5 flex justify-end shrink-0">
-                            <button
-                                onClick={() => setViewingNetworkId(null)}
-                                className="w-full md:w-auto px-8 py-3 bg-[#FBC02D] text-[#05080F] font-black rounded-xl md:rounded-2xl hover:bg-white transition-all text-sm md:text-base"
-                            >
-                                Fechar Visualização
-                            </button>
+                        <div className="flex-grow overflow-y-auto p-4 md:p-10 bg-slate-50/30">
+                            <AffiliateNetwork startAffiliateId={viewingNetworkId} />
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Affiliate Details Modal */}
             {viewingAffiliate && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-2xl rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col border border-slate-100">
-                        {/* Modal Header */}
-                        <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-                            <div className="flex items-center gap-4">
-                                <div className="w-16 h-16 rounded-[2rem] bg-[#05080F] flex items-center justify-center text-2xl font-black text-[#FBC02D]">
-                                    {viewingAffiliate.name.charAt(0)}
-                                </div>
-                                <div>
-                                    <h2 className="text-2xl font-black text-[#05080F]">{viewingAffiliate.name}</h2>
-                                    <p className="text-sm text-slate-500 font-bold uppercase tracking-widest flex items-center gap-2">
-                                        <div className={`w-2 h-2 rounded-full ${viewingAffiliate.raw_status ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-                                        {viewingAffiliate.status}
-                                    </p>
-                                </div>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-[#05080F]/80 backdrop-blur-md" onClick={() => setViewingAffiliate(null)}></div>
+                    <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
+                        <div className="p-10 text-center relative">
+                            <div className="w-24 h-24 bg-slate-100 rounded-[2.5rem] mx-auto flex items-center justify-center mb-6 border-4 border-white shadow-xl">
+                                <Users className="w-10 h-10 text-[#FBC02D]" />
                             </div>
-                            <button
-                                onClick={() => setViewingAffiliate(null)}
-                                className="p-3 bg-white hover:bg-slate-100 rounded-2xl text-slate-400 transition-all border border-slate-100"
-                            >
-                                <X className="w-6 h-6" />
-                            </button>
+                            <h3 className="text-2xl font-black text-[#05080F] mb-1">{viewingAffiliate.name}</h3>
+                            <p className="text-sm font-bold text-slate-400">{viewingAffiliate.email}</p>
+                            <span className={`mt-4 inline-flex px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${getStatusColor(viewingAffiliate.status)}`}>
+                                {viewingAffiliate.status}
+                            </span>
                         </div>
-
-                        {/* Modal Body */}
-                        <div className="p-8 space-y-8 overflow-y-auto">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Basic Info */}
-                                <div className="space-y-6">
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">E-mail</label>
-                                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                            <Mail className="w-4 h-4 text-[#FBC02D]" />
-                                            <span className="text-sm font-bold text-[#05080F] font-mono">{viewingAffiliate.email}</span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">WhatsApp / Celular</label>
-                                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                            <Phone className="w-4 h-4 text-[#FBC02D]" />
-                                            <span className="text-sm font-bold text-[#05080F]">{viewingAffiliate.phone}</span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">CPF</label>
-                                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                            <AlertCircle className="w-4 h-4 text-[#FBC02D]" />
-                                            <span className="text-sm font-bold text-[#05080F]">{viewingAffiliate.cpf}</span>
-                                        </div>
+                        <div className="bg-slate-50/50 p-10 space-y-6">
+                            <div className="grid grid-cols-2 gap-8">
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">WhatsApp</p>
+                                    <div className="flex items-center gap-2 text-sm font-bold text-[#05080F]">
+                                        <Phone className="w-3.5 h-3.5 text-emerald-500" /> {viewingAffiliate.phone}
                                     </div>
                                 </div>
-
-                                {/* Plan & Status */}
-                                <div className="space-y-6">
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Tipo de Cadastro</label>
-                                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                            <Users className="w-4 h-4 text-[#FBC02D]" />
-                                            <span className="text-sm font-bold text-[#05080F] uppercase tracking-tighter">
-                                                {viewingAffiliate.registration_type === 'sales' ? 'Parceiro de Vendas (20%)' : 'Diamante (Construção de Rede)'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Plano Atual</label>
-                                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                            <Users className="w-4 h-4 text-[#FBC02D]" />
-                                            <span className="text-sm font-bold text-[#05080F]">{viewingAffiliate.plan}</span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Membro desde</label>
-                                        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                            <Calendar className="w-4 h-4 text-[#FBC02D]" />
-                                            <span className="text-sm font-bold text-[#05080F]">{viewingAffiliate.joined}</span>
-                                        </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Membro desde</p>
+                                    <div className="flex items-center gap-2 text-sm font-bold text-[#05080F]">
+                                        <Calendar className="w-3.5 h-3.5 text-[#FBC02D]" /> {viewingAffiliate.joined}
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Financial Summary */}
-                            <div className="bg-[#05080F] rounded-[2rem] p-6 text-white flex items-center justify-between shadow-xl shadow-[#05080F]/10">
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-[#FBC02D] mb-1">Ganhos Acumulados</p>
-                                    <h4 className="text-2xl font-black text-white">{viewingAffiliate.earnings}</h4>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipo</p>
+                                    <div className="flex items-center gap-2 text-sm font-bold text-[#05080F]">
+                                        <Shield className="w-3.5 h-3.5 text-blue-500" /> {viewingAffiliate.registration_type === 'individual' ? 'Pessoa Física' : 'Pessoa Jurídica'}
+                                    </div>
                                 </div>
-                                <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
-                                    <ArrowUpDown className="w-6 h-6 text-[#FBC02D]" />
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Documento</p>
+                                    <div className="flex items-center gap-2 text-sm font-bold text-[#05080F]">
+                                        <Lock className="w-3.5 h-3.5 text-slate-400" /> {viewingAffiliate.cpf || viewingAffiliate.cnpj || 'Não inf.'}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-
-                        {/* Modal Footer */}
-                        <div className="p-8 border-t border-slate-50 bg-slate-50/30 flex gap-4">
+                        <div className="p-10">
                             <button
                                 onClick={() => setViewingAffiliate(null)}
-                                className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition-all uppercase tracking-widest text-xs"
+                                className="w-full py-4 bg-[#05080F] text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest hover:bg-[#FBC02D] hover:text-[#05080F] transition-all shadow-xl shadow-[#05080F]/10"
                             >
-                                Fechar
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setViewingNetworkId(viewingAffiliate.id);
-                                    setViewingNetworkName(viewingAffiliate.name);
-                                    setViewingAffiliate(null);
-                                }}
-                                className="flex-1 py-4 bg-[#05080F] text-white font-black rounded-2xl hover:bg-[#1a2436] transition-all shadow-lg shadow-[#05080F]/10 uppercase tracking-widest text-xs flex items-center justify-center gap-2"
-                            >
-                                <Network className="w-4 h-4 text-[#FBC02D]" /> Ver Rede
+                                FECHAR DETALHES
                             </button>
                         </div>
                     </div>
                 </div>
             )}
-            {/* Edit Affiliate Modal */}
+
             {editingAffiliate && (
-                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-3xl rounded-[3rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col border border-slate-100">
-                        {/* Modal Header */}
-                        <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-indigo-50/30">
-                            <div className="flex items-center gap-4">
-                                <div className="w-16 h-16 rounded-[2rem] bg-indigo-600 flex items-center justify-center text-2xl font-black text-white">
-                                    <Pencil className="w-8 h-8" />
-                                </div>
-                                <div>
-                                    <h2 className="text-2xl font-black text-[#05080F]">Editar Afiliado</h2>
-                                    <p className="text-sm text-slate-500 font-bold uppercase tracking-widest">Alterar informações de cadastro</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => {
-                                    setEditingAffiliate(null);
-                                    setNewPassword('');
-                                }}
-                                className="p-3 bg-white hover:bg-slate-100 rounded-2xl text-slate-400 transition-all border border-slate-100"
-                            >
-                                <X className="w-6 h-6" />
-                            </button>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-[#05080F]/80 backdrop-blur-md" onClick={() => setEditingAffiliate(null)}></div>
+                    <div className="bg-white w-full max-w-xl rounded-[3rem] shadow-2xl relative z-10 overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-300">
+                        <div className="p-8 md:p-10 border-b border-slate-100 flex justify-between items-center">
+                            <h3 className="text-xl font-black text-[#05080F]">Editar Afiliado</h3>
+                            <button onClick={() => setEditingAffiliate(null)} className="p-3 text-slate-400 hover:text-red-500 transition-colors"><X className="w-6 h-6" /></button>
                         </div>
-
-                        {/* Modal Body */}
-                        <div className="p-8 space-y-6 overflow-y-auto max-h-[60vh]">
+                        <form onSubmit={handleUpdateAffiliate} className="p-8 md:p-10 space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Basic Info */}
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Nome Completo</label>
-                                        <input
-                                            type="text"
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
-                                            value={editingAffiliate.name}
-                                            onChange={(e) => setEditingAffiliate({ ...editingAffiliate, name: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">E-mail</label>
-                                        <input
-                                            type="email"
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
-                                            value={editingAffiliate.email}
-                                            onChange={(e) => setEditingAffiliate({ ...editingAffiliate, email: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">WhatsApp / Celular</label>
-                                        <input
-                                            type="text"
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
-                                            value={editingAffiliate.phone}
-                                            onChange={(e) => setEditingAffiliate({ ...editingAffiliate, phone: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">CPF</label>
-                                            <input
-                                                type="text"
-                                                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
-                                                value={editingAffiliate.cpf}
-                                                onChange={(e) => setEditingAffiliate({ ...editingAffiliate, cpf: e.target.value })}
-                                                placeholder="000.000.000-00"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">CNPJ</label>
-                                            <input
-                                                type="text"
-                                                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
-                                                value={editingAffiliate.cnpj}
-                                                onChange={(e) => setEditingAffiliate({ ...editingAffiliate, cnpj: e.target.value })}
-                                                placeholder="00.000.000/0000-00"
-                                            />
-                                        </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Nome Completo</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                        value={editingAffiliate.name}
+                                        onChange={e => setEditingAffiliate({ ...editingAffiliate, name: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">WhatsApp</label>
+                                    <input
+                                        type="text"
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                        value={editingAffiliate.phone}
+                                        onChange={e => setEditingAffiliate({ ...editingAffiliate, phone: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Status</label>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingAffiliate({ ...editingAffiliate, raw_status: true })}
+                                            className={`flex-1 py-3 rounded-xl text-[10px] font-black transition-all ${editingAffiliate.raw_status ? 'bg-emerald-500 text-white' : 'bg-slate-50 text-slate-400'}`}
+                                        >
+                                            ATIVO
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingAffiliate({ ...editingAffiliate, raw_status: false })}
+                                            className={`flex-1 py-3 rounded-xl text-[10px] font-black transition-all ${!editingAffiliate.raw_status ? 'bg-red-500 text-white' : 'bg-slate-50 text-slate-400'}`}
+                                        >
+                                            BLOQUEADO
+                                        </button>
                                     </div>
                                 </div>
-
-                                {/* Plan & Role Info */}
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Nível de Acesso</label>
-                                        <select
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
-                                            value={editingAffiliate.role}
-                                            onChange={(e) => setEditingAffiliate({ ...editingAffiliate, role: e.target.value })}
-                                        >
-                                            <option value="affiliate">Afiliado Comum</option>
-                                            <option value="admin">Administrador</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Tipo de Cadastro</label>
-                                        <select
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
-                                            value={editingAffiliate.registration_type}
-                                            onChange={(e) => setEditingAffiliate({ ...editingAffiliate, registration_type: e.target.value })}
-                                        >
-                                            <option value="sales">Parceiro de Vendas (20%)</option>
-                                            <option value="business">Diamante (Rede)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Plano / Slot</label>
-                                        <select
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-bold text-[#05080F] outline-none focus:border-indigo-500 transition-all"
-                                            value={editingAffiliate.plan}
-                                            onChange={(e) => setEditingAffiliate({ ...editingAffiliate, plan: e.target.value })}
-                                        >
-                                            <option>Membro</option>
-                                            <option>Slot 1</option>
-                                            <option>Slot 2</option>
-                                            <option>Slot 3</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">Nova Senha (deixe vazio para manter)</label>
-                                        <div className="relative">
-                                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                            <input
-                                                type="password"
-                                                placeholder="Digite a nova senha..."
-                                                className="w-full bg-slate-50 border border-orange-100 rounded-xl py-3 pl-12 pr-4 text-sm font-bold text-[#05080F] outline-none focus:border-orange-500 transition-all"
-                                                value={newPassword}
-                                                onChange={(e) => setNewPassword(e.target.value)}
-                                            />
-                                        </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Verificação</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditingAffiliate({ ...editingAffiliate, raw_verified: !editingAffiliate.raw_verified })}
+                                        className={`w-full py-3 rounded-xl text-[10px] font-black transition-all ${editingAffiliate.raw_verified ? 'bg-blue-500 text-white' : 'bg-amber-50 text-amber-500'}`}
+                                    >
+                                        {editingAffiliate.raw_verified ? 'VERIFICADO' : 'PENDENTE'}
+                                    </button>
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Nova Senha (deixe em branco para manter)</label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                                        <input
+                                            type="password"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                            placeholder="••••••••"
+                                            value={newPassword}
+                                            onChange={e => setNewPassword(e.target.value)}
+                                        />
                                     </div>
                                 </div>
                             </div>
-
-                            <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-start gap-3">
-                                <Shield className="w-5 h-5 text-amber-600 mt-0.5" />
-                                <div>
-                                    <p className="text-xs font-black text-amber-900 uppercase tracking-tight">Aviso de Segurança</p>
-                                    <p className="text-[10px] font-medium text-amber-700 leading-relaxed mt-1">
-                                        Alterar a senha de um usuário é uma ação crítica. Certifique-se de que o usuário solicitou esta alteração ou que há um motivo administrativo válido.
-                                    </p>
-                                </div>
+                            <div className="flex gap-4 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setEditingAffiliate(null)}
+                                    className="flex-1 py-4 border border-slate-100 text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest"
+                                >
+                                    CANCELAR
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSaving}
+                                    className="flex-[2] py-4 bg-[#05080F] text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#FBC02D] hover:text-[#05080F] transition-all flex items-center justify-center gap-2"
+                                >
+                                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4 text-[#FBC02D]" />}
+                                    SALVAR ALTERAÇÕES
+                                </button>
                             </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {deletingAffiliate && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-[#05080F]/80 backdrop-blur-md" onClick={() => setDeletingAffiliate(null)}></div>
+                    <div className="bg-white w-full max-md rounded-[3rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300">
+                        <div className="p-10 text-center space-y-4">
+                            <div className="w-20 h-20 bg-red-50 text-red-500 rounded-[2rem] mx-auto flex items-center justify-center">
+                                <AlertCircle className="w-10 h-10" />
+                            </div>
+                            <h3 className="text-xl font-black text-[#05080F]">Remover Afiliado?</h3>
+                            <p className="text-sm font-bold text-slate-400 leading-relaxed">
+                                Esta ação não pode ser desfeita. O afiliado <span className="text-red-500">{deletingAffiliate.name}</span> perderá acesso total à plataforma.
+                            </p>
                         </div>
-
-                        {/* Modal Footer */}
-                        <div className="p-8 border-t border-slate-50 bg-slate-50/50 flex gap-4">
+                        <div className="p-10 pt-0 flex gap-4">
                             <button
-                                onClick={() => {
-                                    setEditingAffiliate(null);
-                                    setNewPassword('');
-                                }}
-                                disabled={isSaving}
-                                className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition-all uppercase tracking-widest text-xs disabled:opacity-50"
+                                onClick={() => setDeletingAffiliate(null)}
+                                className="flex-1 py-4 border border-slate-100 text-slate-400 rounded-2xl font-black text-xs uppercase"
                             >
-                                Cancelar
+                                CANCELAR
                             </button>
                             <button
-                                onClick={handleSaveEdit}
+                                onClick={handleDeleteAffiliate}
                                 disabled={isSaving}
-                                className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 uppercase tracking-widest text-xs flex items-center justify-center gap-2 disabled:opacity-50"
+                                className="flex-1 py-4 bg-red-500 text-white rounded-2xl font-black text-xs uppercase hover:bg-red-600 transition-all shadow-xl shadow-red-500/20"
                             >
-                                {isSaving ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin" /> Salvando...
-                                    </>
-                                ) : (
-                                    <>
-                                        <CheckCircle className="w-4 h-4" /> Salvar Alterações
-                                    </>
-                                )}
+                                {isSaving ? '...' : 'REMOVER'}
                             </button>
                         </div>
                     </div>

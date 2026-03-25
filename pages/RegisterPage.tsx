@@ -11,11 +11,14 @@ import {
     Briefcase,
     ShoppingCart,
     FileText,
-    Download
+    Download,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import Cookies from 'js-cookie';
+import { ORGANIZATION_ID } from '../lib/config';
 
 const RegisterPage: React.FC = () => {
     const navigate = useNavigate();
@@ -36,7 +39,7 @@ const RegisterPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [sponsorCode, setSponsorCode] = useState<string | null>(null);
-    const [orgId, setOrgId] = useState<string | null>(null);
+    const [showPassword, setShowPassword] = useState(false);
 
     React.useEffect(() => {
         // Tenta capturar o código do patrocinador do cookie
@@ -45,18 +48,15 @@ const RegisterPage: React.FC = () => {
             console.log('Sponsor detected from cookie:', ref);
             setSponsorCode(ref);
         }
-
-        // Busca o ID da organização Classe A
-        const fetchOrgId = async () => {
-            const { data } = await supabase
-                .from('organizations')
-                .select('id')
-                .eq('name', 'Classe A')
-                .single();
-            if (data) setOrgId(data.id);
-        };
-        fetchOrgId();
     }, []);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -92,7 +92,7 @@ const RegisterPage: React.FC = () => {
                         login: formData.login,
                         registration_type: registrationType,
                         sponsor_code: sponsorCode,
-                        organization_id: orgId || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd',
+                        organization_id: ORGANIZATION_ID,
                         cpf: formData.cpf || null,
                         cnpj: formData.cnpj || null,
                         whatsapp: formData.whatsapp || null
@@ -118,7 +118,7 @@ const RegisterPage: React.FC = () => {
                     },
                 });
 
-                // Redirecionar para login após um pequeno delay para o usuário ver o toast
+                // Redirecionar para login após um pequeno delay
                 setTimeout(() => {
                     navigate('/login');
                 }, 2000);
@@ -132,17 +132,9 @@ const RegisterPage: React.FC = () => {
         }
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
-    };
-
     return (
         <div className="bg-white min-h-screen font-sans">
-            {/* Hero simplified */}
+            {/* Hero Section */}
             <section className="relative overflow-hidden bg-[#0B1221] py-16 lg:py-24">
                 <div className="absolute top-0 right-0 w-1/2 h-full bg-[#FBC02D]/10 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2"></div>
                 <div className="container mx-auto px-4 relative z-10 text-center">
@@ -311,11 +303,18 @@ const RegisterPage: React.FC = () => {
                                                 <div className="relative">
                                                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FBC02D]" />
                                                     <input
-                                                        type="password" name="senha" required
+                                                        type={showPassword ? "text" : "password"} name="senha" required
                                                         value={formData.senha} onChange={handleChange}
                                                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] transition-all"
                                                         placeholder="********"
                                                     />
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setShowPassword(!showPassword)}
+                                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#FBC02D]"
+                                                    >
+                                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                    </button>
                                                 </div>
                                             </div>
                                             <div className="space-y-2">
@@ -323,7 +322,7 @@ const RegisterPage: React.FC = () => {
                                                 <div className="relative">
                                                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FBC02D]" />
                                                     <input
-                                                        type="password" name="confirmarSenha" required
+                                                        type={showPassword ? "text" : "password"} name="confirmarSenha" required
                                                         value={formData.confirmarSenha} onChange={handleChange}
                                                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] transition-all"
                                                         placeholder="********"
@@ -332,7 +331,7 @@ const RegisterPage: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        {/* Contract Acceptance Section */}
+                                        {/* Contract Acceptance */}
                                         <div className="bg-slate-50 rounded-[2rem] p-6 md:p-8 space-y-6">
                                             <div className="flex items-start gap-4">
                                                 <div className="p-3 bg-white rounded-xl shadow-sm">
@@ -375,6 +374,7 @@ const RegisterPage: React.FC = () => {
                                         </button>
                                     </div>
                                 </div>
+                                <input type="hidden" name="organization_id" value={ORGANIZATION_ID} />
                             </form>
                         </div>
                         <p className="mt-8 text-center text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">

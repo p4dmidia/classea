@@ -15,6 +15,7 @@ import {
     ChevronRight,
     RefreshCcw
 } from 'lucide-react';
+import { ORGANIZATION_ID } from '../lib/config';
 import AffiliateLayout from '../components/AffiliateLayout';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../components/AuthContext';
@@ -61,20 +62,24 @@ const AffiliateFinancial: React.FC = () => {
             // 1. Fetch Balances (user_settings)
             const { data: settings, error: settingsError } = await supabase
                 .from('user_settings')
-                .select('available_balance, frozen_balance, total_earnings, pix_key, organization_id')
+                .select('available_balance, frozen_balance, total_earnings, pix_key')
                 .eq('user_id', user?.id)
-                .single();
+                .eq('organization_id', ORGANIZATION_ID)
+                .maybeSingle();
 
             if (settingsError) throw settingsError;
-
-            const effectiveOrgId = settings.organization_id || profile?.organization_id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
+            
+            if (!settings) {
+                setLoading(false);
+                return;
+            }
 
             // 2. Fetch Withdrawal History
             const { data: withdrawData, error: withdrawError } = await supabase
                 .from('withdrawals')
                 .select('*')
                 .eq('user_id', user?.id)
-                .eq('organization_id', effectiveOrgId)
+                .eq('organization_id', ORGANIZATION_ID)
                 .order('created_at', { ascending: false });
 
             if (withdrawError) throw withdrawError;
@@ -125,14 +130,11 @@ const AffiliateFinancial: React.FC = () => {
         try {
             setSubmitting(true);
 
-            // Tenta pegar o organization_id das configurações ou perfil
-            const effectiveOrgId = profile?.organization_id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
-
             const { error: insertError } = await supabase
                 .from('withdrawals')
                 .insert([{
                     user_id: user?.id,
-                    organization_id: effectiveOrgId,
+                    organization_id: ORGANIZATION_ID,
                     amount_requested: amount,
                     net_amount: amount,
                     pix_key: pixKey,
@@ -165,13 +167,11 @@ const AffiliateFinancial: React.FC = () => {
         try {
             setSubmitting(true);
 
-            const effectiveOrgId = profile?.organization_id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
-
             const { error } = await supabase
                 .from('user_settings')
                 .update({ pix_key: newPixKey.trim() })
                 .eq('user_id', user?.id)
-                .eq('organization_id', effectiveOrgId);
+                .eq('organization_id', ORGANIZATION_ID);
 
             if (error) throw error;
 

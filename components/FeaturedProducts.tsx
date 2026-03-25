@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingCart, ArrowRight, Bookmark, Loader2, Star } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ORGANIZATION_ID } from '../lib/config';
 import { supabase } from '../lib/supabase';
 import { useCart } from './CartContext';
 import toast from 'react-hot-toast';
@@ -18,15 +19,7 @@ const FeaturedProducts: React.FC = () => {
   const fetchFeaturedProducts = async () => {
     setIsLoading(true);
     try {
-      // Primeiro busca a organização Classe A
-      const { data: orgData } = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('name', 'Classe A')
-          .single();
-      
-      const effectiveOrgId = orgData?.id || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
-      console.log('DEBUG: Fetching featured for org:', effectiveOrgId);
+      console.log('DEBUG: Fetching featured for org:', ORGANIZATION_ID);
 
       const { data, error } = await supabase
         .from('products')
@@ -34,7 +27,7 @@ const FeaturedProducts: React.FC = () => {
           *,
           product_categories (name)
         `)
-        .eq('organization_id', effectiveOrgId)
+        .eq('organization_id', ORGANIZATION_ID)
         .limit(4)
         .order('created_at', { ascending: false });
 

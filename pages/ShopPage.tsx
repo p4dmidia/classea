@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useCart } from '../components/CartContext';
 import CategorySidebar from '../components/CategorySidebar';
 import toast from 'react-hot-toast';
+import { ORGANIZATION_ID } from '../lib/config';
 
 const ShopPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -25,23 +26,10 @@ const ShopPage: React.FC = () => {
     const [minPrice, setMinPrice] = useState<string>(searchParams.get('min') || '');
     const [maxPrice, setMaxPrice] = useState<string>(searchParams.get('max') || '');
     const [onlyInStock, setOnlyInStock] = useState<boolean>(searchParams.get('stock') === 'true');
-    const [orgId, setOrgId] = useState<string | null>(null);
 
     useEffect(() => {
-        console.log("%c Classe A App Version: 4.5.3 - Image Encoding & Placeholder Fix ", "background: #FBC02D; color: #0B1221; font-weight: bold; padding: 4px; border-radius: 4px;");
-        
-        const fetchPrimaryOrg = async () => {
-            const { data } = await supabase
-                .from('organizations')
-                .select('id')
-                .eq('name', 'Classe A')
-                .single();
-            if (data) setOrgId(data.id);
-        };
-
-        fetchPrimaryOrg().then(() => {
-            fetchCategories();
-        });
+        console.log("%c Classe A App Version: 4.5.4 - Strict Tenant Isolation ", "background: #FBC02D; color: #0B1221; font-weight: bold; padding: 4px; border-radius: 4px;");
+        fetchCategories();
     }, []);
 
     useEffect(() => {
@@ -69,7 +57,7 @@ const ShopPage: React.FC = () => {
             const { data, error } = await supabase
                 .from('product_categories')
                 .select('id, name, parent_id')
-                .eq('organization_id', orgId || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd')
+                .eq('organization_id', ORGANIZATION_ID)
                 .order('name');
 
             if (error) throw error;
@@ -88,7 +76,7 @@ const ShopPage: React.FC = () => {
             const from = (pageNum - 1) * productsPerPage;
             const to = from + productsPerPage - 1;
 
-            const effectiveOrgId = orgId || '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
+            const effectiveOrgId = ORGANIZATION_ID;
             console.log('DEBUG: Fetching products for org:', effectiveOrgId);
             let query = supabase
                 .from('products')
@@ -102,115 +90,33 @@ const ShopPage: React.FC = () => {
                 .eq('organization_id', effectiveOrgId);
 
             const catId = searchParams.get('category_id');
-            console.log('DEBUG: catId from URL:', catId);
             if (catId) {
-                // Fetch the category name to enable "Smart Title Matching"
-                const { data: catInfo } = await supabase
-                    .from('product_categories')
-                    .select('name, parent_id')
-                    .eq('id', catId)
-                    .single();
-
-                const categoryName = catInfo?.name;
-                const parentId = catInfo?.parent_id;
-
                 // Fetch descendants recursively
-                const { data: descendantIds, error: rpcError } = await supabase
+                const { data: descendantIds } = await supabase
                     .rpc('get_category_descendants', { root_id: parseInt(catId) });
 
-                let idList: number[] = [];
+                let idList: number[] = [parseInt(catId)];
                 if (descendantIds && descendantIds.length > 0) {
-                    idList = descendantIds.map((d: any) => d.id);
-                } else {
-                    // Client-side recursion fallback if RPC fails or returns empty
-                    console.log('DEBUG: RPC failed or empty, using client-side recursion for catId:', catId);
-                    
-                    const fetchChildIds = async (pId: number): Promise<number[]> => {
-                        const { data: children } = await supabase
-                            .from('product_categories')
-                            .select('id')
-                            .eq('parent_id', pId)
-                            .eq('organization_id', effectiveOrgId);
-                        
-                        let ids = [pId];
-                        if (children && children.length > 0) {
-                            for (const child of children) {
-                                const childIds = await fetchChildIds(child.id);
-                                ids = [...ids, ...childIds];
-                            }
-                        }
-                        return ids;
-                    };
-
-                    idList = await fetchChildIds(parseInt(catId));
+                    idList = [...idList, ...descendantIds.map((d: any) => d.id)];
                 }
 
-                // Smart Category Filter: 
-                // Matches by category_id OR by name IF it belongs to the same parent category
-                const brands = ['HAIFLEX', 'CLASSIC', 'INTENSE', 'CLASS A', 'CLASSE A'];
-                const isBrandCategory = categoryName && brands.some(brand => categoryName.toUpperCase().includes(brand));
-
-                if (isBrandCategory && parentId) {
-                    // Search for products in the child category OR in the parent category with specific name/brand
-                    query = query.or(`category_id.in.(${idList.join(',')}),and(category_id.eq.${parentId},name.ilike.%${categoryName}%)`);
-                } else {
-                    query = query.in('category_id', idList);
-                }
+                query = query.in('category_id', idList);
             }
 
             const q = searchParams.get('q');
             if (q) {
-                console.log('DEBUG: Searching for:', q);
-                // Smart Search: Find categories that match the term
-                const { data: matchedCats } = await supabase
-                    .from('product_categories')
-                    .select('id')
-                    .ilike('name', `%${q}%`)
-                    .eq('organization_id', effectiveOrgId);
-
-                let allSearchCatIds: number[] = [];
-                if (matchedCats && matchedCats.length > 0) {
-                    // Recursive function to get all descendants for multiple root IDs
-                    const fetchAllDescendants = async (ids: number[]): Promise<number[]> => {
-                        let result = [...ids];
-                        for (const id of ids) {
-                            const { data: children } = await supabase
-                                .from('product_categories')
-                                .select('id')
-                                .eq('parent_id', id)
-                                .eq('organization_id', effectiveOrgId);
-                            
-                            if (children && children.length > 0) {
-                                const childIds = children.map(c => c.id);
-                                const deeperIds = await fetchAllDescendants(childIds);
-                                result = [...result, ...deeperIds];
-                            }
-                        }
-                        return Array.from(new Set(result));
-                    };
-
-                    allSearchCatIds = await fetchAllDescendants(matchedCats.map(c => c.id));
-                }
-                
-                if (allSearchCatIds.length > 0) {
-                    query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%,category_id.in.(${allSearchCatIds.join(',')})`);
-                } else {
-                    query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
-                }
+                query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
             }
 
-            const min = searchParams.get('min');
-            if (min) {
-                query = query.gte('price', parseFloat(min));
+            if (minPrice) {
+                query = query.gte('price', parseFloat(minPrice));
             }
 
-            const max = searchParams.get('max');
-            if (max) {
-                query = query.lte('price', parseFloat(max));
+            if (maxPrice) {
+                query = query.lte('price', parseFloat(maxPrice));
             }
 
-            const stock = searchParams.get('stock');
-            if (stock === 'true') {
+            if (onlyInStock) {
                 query = query.gt('stock_quantity', 0);
             }
 
@@ -226,38 +132,11 @@ const ShopPage: React.FC = () => {
             const { data, error, count } = await query
                 .range(from, to);
 
-            if (error) {
-                if (!catId) {
-                    const fallback = await supabase
-                        .from('products')
-                        .select(`*, product_categories (name)`, { count: 'exact' })
-                        .eq('organization_id', effectiveOrgId)
-                        .order('created_at', { ascending: false })
-                        .range(from, to);
+            if (error) throw error;
 
-                    if (fallback.error) throw fallback.error;
-
-                    console.log('DEBUG: Fallback data count:', fallback.data?.length);
-                    const formattedFallback = fallback.data?.map(p => ({
-                        ...p,
-                        category: p.product_categories?.name || 'Sem Categoria',
-                        display_image: (p.image_url || p.image || '').split(',')[0].trim()
-                    }));
-
-                    setProducts(formattedFallback || []);
-                    if (fallback.count !== null) {
-                        setTotalPages(Math.ceil(fallback.count / productsPerPage));
-                    }
-                    return;
-                }
-                throw error;
-            }
-
-            console.log('DEBUG: Products fetched:', data?.length, 'Count:', count);
             const formatted = data?.map(p => ({
                 ...p,
                 category: p.product_categories?.name || 'Sem Categoria',
-                // Fix image URLs if they are comma separated
                 display_image: (p.image_url || p.image || '').split(',')[0].trim()
             }));
 
@@ -278,7 +157,7 @@ const ShopPage: React.FC = () => {
         const params = new URLSearchParams(searchParams);
         if (searchTerm) params.set('q', searchTerm);
         else params.delete('q');
-        params.delete('page'); // Reset to page 1 on search
+        params.delete('page');
         setSearchParams(params);
     };
 
@@ -286,7 +165,7 @@ const ShopPage: React.FC = () => {
         const params = new URLSearchParams(searchParams);
         if (catId === null) params.delete('category_id');
         else params.set('category_id', catId.toString());
-        params.delete('page'); // Reset to page 1 on category change
+        params.delete('page');
         setSearchParams(params);
         setActiveCategoryId(catId);
     };
@@ -296,7 +175,7 @@ const ShopPage: React.FC = () => {
         if (minPrice) params.set('min', minPrice); else params.delete('min');
         if (maxPrice) params.set('max', maxPrice); else params.delete('max');
         if (onlyInStock) params.set('stock', 'true'); else params.delete('stock');
-        params.delete('page'); // Reset to page 1 on filter
+        params.delete('page');
         setSearchParams(params);
     };
 
@@ -345,7 +224,7 @@ const ShopPage: React.FC = () => {
                         <nav className="text-sm font-medium text-slate-400">
                             Home / Loja {currentCategoryName && `/ ${currentCategoryName}`}
                         </nav>
-                        <span className="text-[9px] text-slate-200">v4.5.3</span>
+                        <span className="text-[9px] text-slate-200">v4.5.4</span>
                     </div>
                 </div>
             </div>
