@@ -198,23 +198,26 @@ const AdminAffiliates: React.FC = () => {
 
     const handleDeleteAffiliate = async () => {
         if (!deletingAffiliate) return;
+        if (!deletingAffiliate.user_id) {
+            toast.error('ID de usuário não encontrado para este registro.');
+            return;
+        }
 
         setIsSaving(true);
         try {
-            const { error } = await supabase
-                .from('affiliates')
-                .delete()
-                .eq('id', deletingAffiliate.id)
-                .eq('organization_id', ORGANIZATION_ID);
+            // Chamamos o RPC que deleta o usuário do auth e todas as tabelas via CASCADE
+            const { error } = await supabase.rpc('admin_delete_user', { 
+                p_user_id: deletingAffiliate.user_id 
+            });
 
             if (error) throw error;
 
-            toast.success('Afiliado removido com sucesso!');
+            toast.success('Afiliado e usuário removidos com sucesso!');
             setDeletingAffiliate(null);
             fetchAffiliates();
         } catch (error: any) {
             console.error('Error deleting affiliate:', error);
-            toast.error(error.message || 'Erro ao remover afiliado');
+            toast.error(error.message || 'Erro ao remover afiliado totalmente');
         } finally {
             setIsSaving(false);
         }
