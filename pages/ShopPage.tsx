@@ -100,7 +100,19 @@ const ShopPage: React.FC = () => {
                     idList = [...idList, ...descendantIds.map((d: any) => d.id)];
                 }
 
-                query = query.in('category_id', idList);
+                // Dynamic Fallback: If it's a subcategory (has parent), also search by name keyword
+                const activeCat = categories.find(c => c.id === parseInt(catId));
+                const q = searchParams.get('q');
+
+                if (activeCat && activeCat.parent_id && !q) {
+                    // Use .or() to search both by ID and by keyword in name
+                    // Note: PostgREST .or() requires careful syntax with multiple conditions
+                    const idsFilter = `category_id.in.(${idList.join(',')})`;
+                    const nameFilter = `name.ilike.%${activeCat.name}%`;
+                    query = query.or(`${idsFilter},${nameFilter}`);
+                } else {
+                    query = query.in('category_id', idList);
+                }
             }
 
             const q = searchParams.get('q');

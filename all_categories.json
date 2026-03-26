@@ -125,6 +125,11 @@
     "parent_id": 25
   },
   {
+    "id": 55,
+    "name": "CLASSE A",
+    "parent_id": 54
+  },
+  {
     "id": 53,
     "name": "COLCHÕES ESTÁTICOS",
     "parent_id": 49
@@ -135,6 +140,11 @@
     "parent_id": 49
   },
   {
+    "id": 57,
+    "name": "CONSÓRCIO",
+    "parent_id": null
+  },
+  {
     "id": 24,
     "name": "FEMININO",
     "parent_id": null
@@ -143,6 +153,11 @@
     "id": 14,
     "name": "FIO INDIANO",
     "parent_id": 12
+  },
+  {
+    "id": 56,
+    "name": "HAIFLEX",
+    "parent_id": 54
   },
   {
     "id": 48,
@@ -168,6 +183,11 @@
     "id": 33,
     "name": "MULES",
     "parent_id": 29
+  },
+  {
+    "id": 58,
+    "name": "OFERTAS",
+    "parent_id": null
   },
   {
     "id": 34,
