@@ -124,7 +124,20 @@ const ShopPage: React.FC = () => {
 
             const q = searchParams.get('q');
             if (q) {
-                query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
+                const terms = q.trim().split(/\s+/);
+                if (terms.length > 1) {
+                    const conditions = terms
+                        .filter(t => t.length > 2)
+                        .map(t => `name.ilike.%${t}%,description.ilike.%${t}%`)
+                        .join(',');
+                    if (conditions) {
+                        query = query.or(conditions);
+                    } else {
+                        query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
+                    }
+                } else {
+                    query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
+                }
             }
 
             if (minPrice) {

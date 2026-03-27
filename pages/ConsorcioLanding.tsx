@@ -25,7 +25,7 @@ const ConsorcioLanding: React.FC = () => {
             desc: "Ideal para quem quer flexibilidade. Você escolhe qualquer item do nosso catálogo após a contemplação.",
             draw: "1 Sorteio Mensal",
             icon: <Gift className="w-6 h-6" />,
-            link: "/shop?q=CONSÓRCIO+MASTER+CLASSE+A"
+            link: "/shop?q=MASTER+PLUS"
         },
         {
             title: "Tipo 2: Colchão Premium",
@@ -69,10 +69,10 @@ const ConsorcioLanding: React.FC = () => {
                         A forma mais inteligente de adquirir produtos premium com parcelas que cabem no seu bolso e total segurança Classe A.
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center gap-4">
-                        <Link to="/shop?category_id=57" className="bg-[#0B1221] text-white font-black py-4 px-10 rounded-2xl shadow-xl shadow-slate-200 hover:scale-105 transition-all flex items-center justify-center gap-3">
+                        <a href="#groups" className="bg-[#0B1221] text-white font-black py-4 px-10 rounded-2xl shadow-xl shadow-slate-200 hover:scale-105 transition-all flex items-center justify-center gap-3">
                             ESCOLHER MEU GRUPO
                             <ArrowRight className="w-5 h-5 text-[#FBC02D]" />
-                        </Link>
+                        </a>
                         <a href="#rules-desc" className="bg-white border-2 border-slate-100 text-[#0B1221] font-black py-4 px-10 rounded-2xl hover:border-[#FBC02D] transition-all">
                             COMO FUNCIONA?
                         </a>
