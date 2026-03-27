@@ -89,13 +89,15 @@ const AdminProducts: React.FC = () => {
         sizes_raw: '',
         colors_raw: '',
         numbering_raw: '',
-        soles_tips_raw: ''
+        soles_raw: '',
+        tips_raw: ''
     });
     const [varErrors, setVarErrors] = useState({
         sizes_raw: '',
         colors_raw: '',
         numbering_raw: '',
-        soles_tips_raw: ''
+        soles_raw: '',
+        tips_raw: ''
     });
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -193,14 +195,16 @@ const AdminProducts: React.FC = () => {
             sizes_raw: prod.variations?.sizes?.join(', ') || '',
             colors_raw: prod.variations?.colors?.join(', ') || '',
             numbering_raw: prod.variations?.numbering?.join(', ') || '',
-            soles_tips_raw: [...(prod.variations?.soles || []), ...(prod.variations?.tips || [])].join(', ')
+            soles_raw: prod.variations?.soles?.join(', ') || '',
+            tips_raw: prod.variations?.tips?.join(', ') || ''
         });
         setImagePreview(prod.image_url);
         setVarErrors({
             sizes_raw: '',
             colors_raw: '',
             numbering_raw: '',
-            soles_tips_raw: ''
+            soles_raw: '',
+            tips_raw: ''
         });
         setIsNewModalOpen(true);
     };
@@ -275,8 +279,8 @@ const AdminProducts: React.FC = () => {
                     sizes: formData.sizes_raw.split(',').map(s => s.trim()).filter(s => s),
                     colors: formData.colors_raw.split(',').map(s => s.trim()).filter(s => s),
                     numbering: formData.numbering_raw.split(',').map(s => s.trim()).filter(s => s),
-                    soles: formData.soles_tips_raw.split(',').map(s => s.trim()).filter(s => s),
-                    tips: []
+                    soles: formData.soles_raw.split(',').map(s => s.trim()).filter(s => s),
+                    tips: formData.tips_raw.split(',').map(s => s.trim()).filter(s => s)
                 },
                 organization_id: ORGANIZATION_ID
             };
@@ -362,13 +366,15 @@ const AdminProducts: React.FC = () => {
             sizes_raw: '',
             colors_raw: '',
             numbering_raw: '',
-            soles_tips_raw: ''
+            soles_raw: '',
+            tips_raw: ''
         });
         setVarErrors({
             sizes_raw: '',
             colors_raw: '',
             numbering_raw: '',
-            soles_tips_raw: ''
+            soles_raw: '',
+            tips_raw: ''
         });
         setEditingProduct(null);
         setSelectedImage(null);
@@ -862,6 +868,8 @@ const AdminProducts: React.FC = () => {
                                                 <option value="82820-160">82820-160 (Curitiba - Feminino/Ternos)</option>
                                                 <option value="93542-440">93542-440 (Novo Hamburgo - Sapato Masc.)</option>
                                                 <option value="01104-001">01104-001 (São Paulo - Roupas Fem.)</option>
+                                                <option value="04303-001">04303-001 (São Paulo - São Judas)</option>
+                                                <option value="38445-072">38445-072 (Araguari - MG)</option>
                                             </select>
                                         </div>
                                     </div>
@@ -922,19 +930,35 @@ const AdminProducts: React.FC = () => {
                                             </div>
 
                                             <div className="space-y-2">
-                                                <label className="text-[9px] font-black uppercase text-slate-500 tracking-tighter pl-1">Modelos de Solado / Bicos</label>
+                                                <label className="text-[9px] font-black uppercase text-slate-500 tracking-tighter pl-1">Tipos de Solado</label>
                                                 <input
                                                     type="text"
-                                                    value={formData.soles_tips_raw}
+                                                    value={formData.soles_raw}
                                                     onChange={(e) => {
                                                         const val = e.target.value;
-                                                        setFormData({ ...formData, soles_tips_raw: val });
-                                                        validateVariations('soles_tips_raw', val);
+                                                        setFormData({ ...formData, soles_raw: val });
+                                                        validateVariations('soles_raw', val);
                                                     }}
-                                                    className={`w-full bg-white border ${varErrors.soles_tips_raw ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-100'} rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs transition-all`}
-                                                    placeholder="Ex: Solado Borracha, Bico Fino..."
+                                                    className={`w-full bg-white border ${varErrors.soles_raw ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-100'} rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs transition-all`}
+                                                    placeholder="Ex: Borracha, Emborrachado..."
                                                 />
-                                                {varErrors.soles_tips_raw && <p className="text-[10px] text-red-500 font-bold pl-1 animate-in fade-in slide-in-from-top-1">{varErrors.soles_tips_raw}</p>}
+                                                {varErrors.soles_raw && <p className="text-[10px] text-red-500 font-bold pl-1 animate-in fade-in slide-in-from-top-1">{varErrors.soles_raw}</p>}
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black uppercase text-slate-500 tracking-tighter pl-1">Tipos de Bico</label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.tips_raw}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setFormData({ ...formData, tips_raw: val });
+                                                        validateVariations('tips_raw', val);
+                                                    }}
+                                                    className={`w-full bg-white border ${varErrors.tips_raw ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-100'} rounded-xl py-3 px-4 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] text-xs transition-all`}
+                                                    placeholder="Ex: Fino, Quadrado..."
+                                                />
+                                                {varErrors.tips_raw && <p className="text-[10px] text-red-500 font-bold pl-1 animate-in fade-in slide-in-from-top-1">{varErrors.tips_raw}</p>}
                                             </div>
                                         </div>
                                     </div>
