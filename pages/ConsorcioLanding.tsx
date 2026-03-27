@@ -137,9 +137,9 @@ const ConsorcioLanding: React.FC = () => {
                         </div>
 
                         <div className="mt-12 pt-12 border-t border-slate-100 flex justify-center">
-                            <Link to="/shop?category_id=57" className="bg-[#FBC02D] text-[#0B1221] font-black py-4 px-12 rounded-2xl hover:bg-[#0B1221] hover:text-white transition-all">
+                            <a href="#groups" className="bg-[#FBC02D] text-[#0B1221] font-black py-4 px-12 rounded-2xl hover:bg-[#0B1221] hover:text-white transition-all text-center">
                                 ESCOLHER MEU PRODUTO AGORA
-                            </Link>
+                            </a>
                         </div>
                     </div>
                 </div>
