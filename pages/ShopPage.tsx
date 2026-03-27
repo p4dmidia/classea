@@ -91,26 +91,30 @@ const ShopPage: React.FC = () => {
 
             const catId = searchParams.get('category_id');
             if (catId) {
-                // Fetch descendants recursively
-                const { data: descendantIds } = await supabase
-                    .rpc('get_category_descendants', { root_id: parseInt(catId) });
-
-                let idList: number[] = [parseInt(catId)];
-                if (descendantIds && descendantIds.length > 0) {
-                    idList = [...idList, ...descendantIds.map((d: any) => d.id)];
-                }
-
-                // Dynamic Fallback: If it's a subcategory (has parent), also search by name keyword
                 const activeCat = categories.find(c => c.id === parseInt(catId));
-                const q = searchParams.get('q');
 
-                if (activeCat && activeCat.parent_id && !q) {
-                    // Use .or() to search both by ID and by keyword in name
-                    // Note: PostgREST .or() requires careful syntax with multiple conditions
-                    const idsFilter = `category_id.in.(${idList.join(',')})`;
-                    const nameFilter = `name.ilike.%${activeCat.name}%`;
-                    query = query.or(`${idsFilter},${nameFilter}`);
+                // If it's a subcategory (has a parent), restrict search to child of that parent
+                if (activeCat && activeCat.parent_id) {
+                    const { data: branchIds } = await supabase
+                        .rpc('get_category_descendants', { root_id: activeCat.parent_id });
+
+                    let branchIdList: number[] = [activeCat.parent_id];
+                    if (branchIds && branchIds.length > 0) {
+                        branchIdList = [...branchIdList, ...branchIds.map((d: any) => d.id)];
+                    }
+
+                    // Scope: must be in parent branch AND (match current cat ID OR match keyword in title)
+                    query = query.in('category_id', branchIdList)
+                        .or(`category_id.eq.${activeCat.id},name.ilike.%${activeCat.name}%`);
                 } else {
+                    // Top-level category: Fetch descendants normally
+                    const { data: descendantIds } = await supabase
+                        .rpc('get_category_descendants', { root_id: parseInt(catId) });
+
+                    let idList: number[] = [parseInt(catId)];
+                    if (descendantIds && descendantIds.length > 0) {
+                        idList = [...idList, ...descendantIds.map((d: any) => d.id)];
+                    }
                     query = query.in('category_id', idList);
                 }
             }
