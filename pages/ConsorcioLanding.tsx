@@ -24,14 +24,16 @@ const ConsorcioLanding: React.FC = () => {
             size: "12 Pessoas",
             desc: "Ideal para quem quer flexibilidade. Você escolhe qualquer item do nosso catálogo após a contemplação.",
             draw: "1 Sorteio Mensal",
-            icon: <Gift className="w-6 h-6" />
+            icon: <Gift className="w-6 h-6" />,
+            link: "/shop?q=CONSÓRCIO+MASTER+CLASSE+A"
         },
         {
             title: "Tipo 2: Colchão Premium",
             size: "18 Pessoas",
             desc: "Foco total na sua qualidade de sono. Grupo exclusivo para aquisição de nossos colchões magnéticos.",
             draw: "1 Sorteio Mensal",
-            icon: <ShoppingBag className="w-6 h-6" />
+            icon: <ShoppingBag className="w-6 h-6" />,
+            link: "/shop?category_id=57"
         }
     ];
 
@@ -104,7 +106,7 @@ const ConsorcioLanding: React.FC = () => {
                                 <p className="text-slate-500 font-medium leading-relaxed mb-8">
                                     {item.desc}
                                 </p>
-                                <Link to="/shop?category_id=57" className="w-full bg-[#FBC02D] text-[#0B1221] font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-[#0B1221] hover:text-white transition-all">
+                                <Link to={item.link} className="w-full bg-[#FBC02D] text-[#0B1221] font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-[#0B1221] hover:text-white transition-all">
                                     VER VAGAS
                                 </Link>
                             </div>
