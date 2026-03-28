@@ -19,11 +19,25 @@ serve(async (req) => {
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
         );
 
-        const accessToken = Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN");
-        if (!accessToken) {
-            console.error("[Webhook] MERCADO_PAGO_ACCESS_TOKEN não configurado.");
-            return new Response("Access Token missing", { status: 500 });
+        const orgId = url.searchParams.get("org_id");
+        if (!orgId) {
+            console.error("[Webhook] org_id não fornecido na URL.");
+            return new Response("org_id missing", { status: 400 });
         }
+
+        // Fetch organization token
+        const { data: org, error: orgError } = await supabase
+            .from("organizations")
+            .select("mercadopago_access_token")
+            .eq("id", orgId)
+            .single();
+
+        if (orgError || !org?.mercadopago_access_token) {
+            console.error(`[Webhook] Token não encontrado para org ${orgId}:`, orgError);
+            return new Response("Organization token not found", { status: 404 });
+        }
+
+        const accessToken = org.mercadopago_access_token;
 
         // Only process payment notifications
         if (topic === "payment" || topic === "merchant_order") {

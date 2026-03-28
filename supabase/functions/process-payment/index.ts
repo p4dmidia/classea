@@ -30,10 +30,19 @@ serve(async (req) => {
             throw new Error("Pedido não encontrado");
         }
 
-        const accessToken = Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN");
-        if (!accessToken) {
-            throw new Error("Access Token não configurado");
+        // 2. Get organization credentials
+        const { data: org, error: orgError } = await supabase
+            .from("organizations")
+            .select("mercadopago_access_token")
+            .eq("id", order.organization_id)
+            .single();
+
+        if (orgError || !org?.mercadopago_access_token) {
+            console.error(`MP Credentials missing for org ${order.organization_id}:`, orgError);
+            throw new Error("Configuração do Mercado Pago não encontrada para esta organização. Por favor, contate o administrador.");
         }
+
+        const accessToken = org.mercadopago_access_token;
 
         if (paymentMethod === "pix") {
             // Create PIX payment directly
@@ -51,7 +60,7 @@ serve(async (req) => {
                     }
                 },
                 external_reference: order.id,
-                notification_url: "https://clnuievcdnbwqbyqhwys.supabase.co/functions/v1/mercadopago-webhook",
+                notification_url: `https://clnuievcdnbwqbyqhwys.supabase.co/functions/v1/mercadopago-webhook?org_id=${order.organization_id}`,
             };
 
             const response = await fetch("https://api.mercadopago.com/v1/payments", {
@@ -106,7 +115,7 @@ serve(async (req) => {
                     pending: "https://classea.vercel.app/dashboard",
                 },
                 auto_return: "approved",
-                notification_url: "https://clnuievcdnbwqbyqhwys.supabase.co/functions/v1/mercadopago-webhook",
+                notification_url: `https://clnuievcdnbwqbyqhwys.supabase.co/functions/v1/mercadopago-webhook?org_id=${order.organization_id}`,
             };
 
             const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
