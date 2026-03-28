@@ -21,7 +21,7 @@ import toast from 'react-hot-toast';
 
 const CheckoutPage: React.FC = () => {
     const navigate = useNavigate();
-    const { cart, cartTotal, removeFromCart, clearCart } = useCart();
+    const { cart, cartTotal, removeFromCart, updateQuantity, clearCart } = useCart();
     const [acceptedConsorcio, setAcceptedConsorcio] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'credit' | 'pix'>('credit');
     const [isLoading, setIsLoading] = useState(false);
@@ -181,8 +181,8 @@ const CheckoutPage: React.FC = () => {
                                 Seu Carrinho
                             </h3>
                             <div className="space-y-6">
-                                {cart.length > 0 ? cart.map(item => (
-                                    <div key={item.id} className="flex justify-between items-center border-b border-slate-50 pb-6 last:border-0 last:pb-0">
+                                {cart.length > 0 ? cart.map((item, idx) => (
+                                    <div key={`${item.id}-${JSON.stringify(item.selectedVariations)}`} className="flex justify-between items-center border-b border-slate-50 pb-6 last:border-0 last:pb-0">
                                         <div className="flex gap-4">
                                             <div className="w-20 h-20 bg-slate-50 rounded-2xl overflow-hidden flex items-center justify-center text-slate-300">
                                                 {item.image ? (
@@ -193,13 +193,38 @@ const CheckoutPage: React.FC = () => {
                                             </div>
                                             <div>
                                                 <h4 className="font-bold text-[#0B1221] leading-tight line-clamp-1">{item.name}</h4>
-                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{item.category} • Qtd: {item.quantity}</p>
-                                                <button
-                                                    onClick={() => removeFromCart(item.id)}
-                                                    className="text-[10px] font-black text-red-400 uppercase tracking-widest mt-2 hover:text-red-600 transition-colors"
-                                                >
-                                                    Remover
-                                                </button>
+                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{item.category}</p>
+                                                {item.selectedVariations && Object.keys(item.selectedVariations).length > 0 && (
+                                                    <p className="text-[10px] font-bold text-[#FBC02D] uppercase tracking-widest mt-1">
+                                                        {Object.entries(item.selectedVariations).map(([key, val]) => {
+                                                            const labelMap: any = { sizes: 'Tam', colors: 'Cor', numbering: 'Num', soles: 'Solado', tips: 'Bico' };
+                                                            return `${labelMap[key] || key}: ${val}`;
+                                                        }).join(' • ')}
+                                                    </p>
+                                                )}
+                                                <div className="flex items-center gap-3 mt-3">
+                                                    <div className="flex items-center bg-slate-50 rounded-lg p-1 border border-slate-100">
+                                                        <button
+                                                            onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1), item.selectedVariations)}
+                                                            className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-[#0B1221] transition-colors font-bold"
+                                                        >
+                                                            -
+                                                        </button>
+                                                        <span className="w-8 text-center text-xs font-black text-[#0B1221]">{item.quantity}</span>
+                                                        <button
+                                                            onClick={() => updateQuantity(item.id, item.quantity + 1, item.selectedVariations)}
+                                                            className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-[#0B1221] transition-colors font-bold"
+                                                        >
+                                                            +
+                                                        </button>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => removeFromCart(item.id, item.selectedVariations)}
+                                                        className="text-[10px] font-black text-red-400 uppercase tracking-widest hover:text-red-600 transition-colors"
+                                                    >
+                                                        Remover
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="text-right">
