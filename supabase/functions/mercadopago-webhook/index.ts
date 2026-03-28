@@ -4,8 +4,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 serve(async (req) => {
     try {
         const url = new URL(req.url);
+        // MP sends notifications via 'topic' and 'id', or 'type' and 'data.id'
         const topic = url.searchParams.get("topic") || url.searchParams.get("type");
         const id = url.searchParams.get("id") || url.searchParams.get("data.id");
+
+        console.log(`[Webhook] Recebida notificação: topic=${topic}, id=${id}`);
 
         if (!id) {
             return new Response("No ID provided", { status: 200 });
@@ -17,42 +20,72 @@ serve(async (req) => {
         );
 
         const accessToken = Deno.env.get("MERCADO_PAGO_ACCESS_TOKEN");
+        if (!accessToken) {
+            console.error("[Webhook] MERCADO_PAGO_ACCESS_TOKEN não configurado.");
+            return new Response("Access Token missing", { status: 500 });
+        }
 
-        // Only process payment topic
-        if (topic === "payment") {
-            const response = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
-            });
+        // Only process payment notifications
+        if (topic === "payment" || topic === "merchant_order") {
+            let paymentId = id;
+            
+            // If it's a merchant_order, we might need to get the payment from it
+            // but for simplicity and common PIX/Credit cases, we focus on 'payment'
+            if (topic === "payment") {
+                const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                });
 
-            const payment = await response.json();
-            const orderId = payment.external_reference;
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`[Webhook] Erro ao buscar pagamento no MP: ${errorText}`);
+                    return new Response("Error fetching payment", { status: 200 }); // Return 200 to stop MP retries if it's a permanent error
+                }
 
-            if (orderId && (payment.status === "approved" || payment.status === "authorized")) {
-                // 1. Update order status
-                const { data: order, error: orderError } = await supabase
-                    .from("orders")
-                    .update({
-                        status: "Pago",
-                        payment_status_detail: payment.status_detail,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq("id", orderId)
-                    .select()
-                    .single();
+                const payment = await response.json();
+                const orderId = payment.external_reference;
+                const status = payment.status;
+                const statusDetail = payment.status_detail;
 
-                if (orderError) throw orderError;
+                console.log(`[Webhook] Pedido: ${orderId}, Status MP: ${status}, Detalhe: ${statusDetail}`);
 
-                // 2. Check if it's a consortium item and add to group if needed
-                // (This logic would be triggered here in a real scenario)
-                console.log(`Pagamento aprovado para o pedido: ${orderId}`);
+                if (orderId && (status === "approved" || status === "authorized")) {
+                    // Update order status to Pago
+                    const { data: order, error: orderError } = await supabase
+                        .from("orders")
+                        .update({
+                            status: "Pago",
+                            payment_id: payment.id.toString(),
+                            payment_status_detail: statusDetail,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq("id", orderId)
+                        .select()
+                        .maybeSingle();
+
+                    if (orderError) {
+                        console.error(`[Webhook] Erro ao atualizar pedido ${orderId}:`, orderError);
+                        throw orderError;
+                    }
+
+                    if (!order) {
+                        console.warn(`[Webhook] Pedido ${orderId} não encontrado no banco de dados.`);
+                    } else {
+                        console.log(`[Webhook] Pedido ${orderId} atualizado para 'Pago' com sucesso.`);
+                    }
+                } else if (orderId) {
+                    console.log(`[Webhook] Pagamento para o pedido ${orderId} ainda não aprovado (Status: ${status}).`);
+                }
             }
         }
 
         return new Response("Webhook received", { status: 200 });
     } catch (error) {
-        console.error("Webhook error:", error.message);
+        console.error("[Webhook Error]:", error.message);
+        // Important: Still return a 200 for some errors to prevent MP from retrying infinitely 
+        // if the error is deterministic (like order not found), but 400 helps seeing logs in MP dashboard.
         return new Response(error.message, { status: 400 });
     }
 });

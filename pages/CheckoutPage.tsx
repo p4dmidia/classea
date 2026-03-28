@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../components/CartContext';
+import { useAuth } from '../components/AuthContext';
 import { ORGANIZATION_ID } from '../lib/config';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
@@ -22,6 +23,7 @@ import toast from 'react-hot-toast';
 const CheckoutPage: React.FC = () => {
     const navigate = useNavigate();
     const { cart, cartTotal, removeFromCart, updateQuantity, clearCart } = useCart();
+    const { user } = useAuth();
     const [acceptedConsorcio, setAcceptedConsorcio] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'credit' | 'pix'>('credit');
     const [isLoading, setIsLoading] = useState(false);
@@ -38,6 +40,19 @@ const CheckoutPage: React.FC = () => {
     const [shippingOptions, setShippingOptions] = useState<any[]>([]);
     const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
     const [selectedShipping, setSelectedShipping] = useState<any>(null);
+
+    React.useEffect(() => {
+        if (user) {
+            // Pré-preencher dados se o perfil do usuário puder ser carregado
+            if (user.email) {
+                setCustomerInfo(prev => ({
+                    ...prev,
+                    email: user.email!,
+                    name: user.user_metadata?.full_name || user.user_metadata?.nome || prev.name
+                }));
+            }
+        }
+    }, [user]);
 
     const isConsorcioInCart = cart.some(item => item.category === 'Consórcio');
     const subtotal = cartTotal;
@@ -135,10 +150,16 @@ const CheckoutPage: React.FC = () => {
             if (paymentError) throw paymentError;
 
             if (paymentMethod === 'pix') {
+                if (!paymentResult.qr_code_base64) {
+                    throw new Error('Erro ao gerar QR Code do PIX. Tente novamente.');
+                }
                 setPixData(paymentResult);
                 toast.success('PIX gerado com sucesso!');
             } else {
                 // Checkout Pro Redirect
+                if (!paymentResult.init_point) {
+                    throw new Error('Link de pagamento não gerado. Verifique os dados do cartão.');
+                }
                 window.location.href = paymentResult.init_point;
             }
 

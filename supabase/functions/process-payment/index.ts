@@ -120,6 +120,11 @@ serve(async (req) => {
 
             const result = await response.json();
 
+            if (!result.id || !result.init_point) {
+                console.error("MP Preference Error:", result);
+                throw new Error(result.message || "Erro ao criar preferência de pagamento");
+            }
+
             // Update order with preference ID
             await supabase
                 .from("orders")
