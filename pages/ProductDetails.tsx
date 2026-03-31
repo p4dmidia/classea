@@ -23,6 +23,7 @@ const ProductDetails: React.FC = () => {
     const [product, setProduct] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [quantity, setQuantity] = useState(1);
+    const [activeImageIndex, setActiveImageIndex] = useState(0);
 
     useEffect(() => {
         console.log("%c Classe A Product Details Version: 4.5.3 ", "background: #FBC02D; color: #0B1221; font-weight: bold; padding: 4px; border-radius: 4px;");
@@ -62,10 +63,11 @@ const ProductDetails: React.FC = () => {
                 }
             }
 
+            const images = (data.image_url || data.image || '').split(',').map((s: string) => s.trim()).filter(Boolean);
             const formatted = {
                 ...data,
                 category: categoryLabel,
-                image_url: (data.image_url || data.image || '').split(',')[0].trim() || 'https://placehold.co/600x600?text=Classe+A'
+                images: images.length > 0 ? images : ['https://placehold.co/600x600?text=Classe+A']
             };
 
             setProduct(formatted);
@@ -150,16 +152,74 @@ const ProductDetails: React.FC = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
                     {/* Image Gallery */}
-                    <div className="space-y-4">
-                        <div className="aspect-square bg-slate-50 rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm group">
-                            <img
-                                src={product.image_url || 'https://placehold.co/600x600?text=Classe+A'}
-                                alt={product.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                                onError={(e: any) => {
-                                    e.target.src = 'https://placehold.co/600x600?text=Classe+A';
-                                }}
-                            />
+                    <div className="flex flex-col md:flex-row gap-4 lg:gap-6">
+                        {/* Thumbnails - Sidebar on Desktop */}
+                        {product.images.length > 1 && (
+                            <div className="flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto md:max-h-[500px] lg:max-h-[600px] no-scrollbar shrink-0 order-2 md:order-1 py-1 px-1">
+                                {product.images.map((img: string, idx: number) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => setActiveImageIndex(idx)}
+                                        onMouseEnter={() => setActiveImageIndex(idx)}
+                                        className={`w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-2xl overflow-hidden border-2 transition-all shrink-0 relative group p-0 ${
+                                            activeImageIndex === idx 
+                                            ? 'border-[#FBC02D] shadow-lg shadow-[#FBC02D]/10 scale-[1.02] z-10' 
+                                            : 'border-slate-100 hover:border-slate-300'
+                                        }`}
+                                    >
+                                        <img 
+                                            src={img} 
+                                            alt={`${product.name} thumbnail ${idx + 1}`} 
+                                            className={`w-full h-full object-cover transition-opacity duration-300 ${activeImageIndex === idx ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'}`}
+                                            onError={(e: any) => {
+                                                e.target.src = 'https://placehold.co/600x600?text=Classe+A';
+                                            }}
+                                        />
+                                        {activeImageIndex === idx && (
+                                            <div className="absolute inset-0 bg-[#FBC02D]/10 ring-1 ring-inset ring-[#FBC02D]/20"></div>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Main Image Container */}
+                        <div className="flex-grow aspect-square bg-[#F8FAFC] rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm group relative order-1 md:order-2">
+                            <div className="absolute inset-0 flex items-center justify-center p-4">
+                                <img
+                                    key={activeImageIndex}
+                                    src={product.images[activeImageIndex]}
+                                    alt={product.name}
+                                    className="max-w-full max-h-full w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-all duration-700 animate-in fade-in zoom-in-95 ease-out"
+                                    onError={(e: any) => {
+                                        e.target.src = 'https://placehold.co/600x600?text=Classe+A';
+                                    }}
+                                />
+                            </div>
+                            
+                            {/* Navigation Arrows for Mobile (Optional, but nice) */}
+                            {product.images.length > 1 && (
+                                <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveImageIndex(prev => (prev === 0 ? product.images.length - 1 : prev - 1));
+                                        }}
+                                        className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-slate-600 hover:text-[#FBC02D] pointer-events-auto transition-colors shadow-lg"
+                                    >
+                                        <ChevronLeft className="w-6 h-6" />
+                                    </button>
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveImageIndex(prev => (prev === product.images.length - 1 ? 0 : prev + 1));
+                                        }}
+                                        className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-slate-600 hover:text-[#FBC02D] pointer-events-auto transition-colors shadow-lg rotate-180"
+                                    >
+                                        <ChevronLeft className="w-6 h-6" />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 

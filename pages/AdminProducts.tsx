@@ -99,8 +99,9 @@ const AdminProducts: React.FC = () => {
         soles_raw: '',
         tips_raw: ''
     });
-    const [selectedImage, setSelectedImage] = useState<File | null>(null);
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [selectedImages, setSelectedImages] = useState<File[]>([]);
+    const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+    const [existingImages, setExistingImages] = useState<string[]>([]);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const itemsPerPage = 8;
@@ -198,7 +199,10 @@ const AdminProducts: React.FC = () => {
             soles_raw: prod.variations?.soles?.join(', ') || '',
             tips_raw: prod.variations?.tips?.join(', ') || ''
         });
-        setImagePreview(prod.image_url);
+        const imgs = (prod.image_url || '').split(',').map(s => s.trim()).filter(Boolean);
+        setExistingImages(imgs);
+        setImagePreviews([]);
+        setSelectedImages([]);
         setVarErrors({
             sizes_raw: '',
             colors_raw: '',
@@ -235,23 +239,27 @@ const AdminProducts: React.FC = () => {
         setIsSaving(true);
 
         try {
-            let imageUrl = editingProduct?.image_url || '';
+            let finalImageUrls = [...existingImages];
 
-            if (selectedImage) {
-                const fileExt = selectedImage.name.split('.').pop();
-                const fileName = `${Math.random()}.${fileExt}`;
-                const { error: uploadError, data } = await supabase.storage
-                    .from('product-images')
-                    .upload(`products/${fileName}`, selectedImage);
+            if (selectedImages.length > 0) {
+                for (const file of selectedImages) {
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `${Math.random()}.${fileExt}`;
+                    const { error: uploadError, data } = await supabase.storage
+                        .from('product-images')
+                        .upload(`products/${fileName}`, file);
 
-                if (uploadError) throw uploadError;
+                    if (uploadError) throw uploadError;
 
-                const { data: { publicUrl } } = supabase.storage
-                    .from('product-images')
-                    .getPublicUrl(data.path);
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('product-images')
+                        .getPublicUrl(data.path);
 
-                imageUrl = publicUrl;
+                    finalImageUrls.push(publicUrl);
+                }
             }
+
+            const imageUrl = finalImageUrls.join(',');
 
             const rawPrice = formData.price.toString().replace(/[R$\s.]/g, '').replace(',', '.');
             const parsedPrice = parseFloat(rawPrice);
@@ -377,8 +385,9 @@ const AdminProducts: React.FC = () => {
             tips_raw: ''
         });
         setEditingProduct(null);
-        setSelectedImage(null);
-        setImagePreview(null);
+        setSelectedImages([]);
+        setImagePreviews([]);
+        setExistingImages([]);
     };
 
     const filteredProducts = products.filter(prod => {
@@ -407,19 +416,45 @@ const AdminProducts: React.FC = () => {
     };
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            if (file.size > 5 * 1024 * 1024) {
-                toast.error('A imagem deve ter no máximo 5MB');
-                return;
-            }
-            setSelectedImage(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImagePreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+        const files = Array.from(e.target.files || []) as File[];
+        if (files.length === 0) return;
+
+        const totalCount = existingImages.length + selectedImages.length + files.length;
+        if (totalCount > 10) {
+            toast.error('Você pode cadastrar no máximo 10 imagens por produto');
+            return;
         }
+
+        const validFiles: File[] = [];
+        const newPreviews: string[] = [];
+
+        for (const file of files) {
+            if (file.size > 2 * 1024 * 1024) {
+                toast.error(`A imagem ${file.name} excede o limite de 2MB`);
+                continue;
+            }
+            validFiles.push(file);
+            newPreviews.push(URL.createObjectURL(file));
+        }
+
+        setSelectedImages(prev => [...prev, ...validFiles]);
+        setImagePreviews(prev => [...prev, ...newPreviews]);
+        
+        // Reset input to allow selecting same file again if needed
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const removeExistingImage = (index: number) => {
+        setExistingImages(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const removeNewImage = (index: number) => {
+        setSelectedImages(prev => prev.filter((_, i) => i !== index));
+        setImagePreviews(prev => {
+            const previewToRemove = prev[index];
+            if (previewToRemove) URL.revokeObjectURL(previewToRemove);
+            return prev.filter((_, i) => i !== index);
+        });
     };
 
     return (
@@ -973,22 +1008,63 @@ const AdminProducts: React.FC = () => {
                                         />
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Imagem</label>
-                                        <div
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className={`border-2 border-dashed rounded-3xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${imagePreview ? 'border-[#FBC02D]/30 bg-amber-50/5' : 'border-slate-100 bg-slate-50 hover:border-[#FBC02D]/50'}`}
-                                        >
-                                            {imagePreview ? (
-                                                <img src={imagePreview} alt="Preview" className="h-32 rounded-xl object-cover" />
-                                            ) : (
-                                                <>
-                                                    <Upload className="w-8 h-8 text-[#FBC02D]" />
-                                                    <p className="text-xs font-bold text-slate-400">Clique para subir imagem</p>
-                                                </>
-                                            )}
-                                            <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/*" />
+                                    <div className="space-y-4 bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100 shadow-inner">
+                                        <div className="flex items-center justify-between px-2">
+                                            <div className="flex flex-col">
+                                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">Galeria de Imagens</label>
+                                                <p className="text-[9px] font-bold text-slate-400 opacity-70">Máximo de 10 fotos • Até 2MB cada</p>
+                                            </div>
+                                            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${existingImages.length + selectedImages.length >= 10 ? 'bg-red-50 text-red-500' : 'bg-white text-slate-400 border border-slate-100'}`}>
+                                                {existingImages.length + selectedImages.length}/10
+                                            </div>
                                         </div>
+                                        
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                            {/* Existing Images */}
+                                            {existingImages.map((url, idx) => (
+                                                <div key={`existing-${idx}`} className="relative group aspect-square rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
+                                                    <img src={url} alt="Produto" className="w-full h-full object-cover" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeExistingImage(idx)}
+                                                        className="absolute top-1.5 right-1.5 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-red-600 shadow-md transform hover:scale-110 active:scale-95"
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <div className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-[#05080F]/40 backdrop-blur-[2px] rounded-md text-[7px] font-black text-white uppercase tracking-widest">Salva</div>
+                                                </div>
+                                            ))}
+
+                                            {/* Local Previews */}
+                                            {imagePreviews.map((blob, idx) => (
+                                                <div key={`new-${idx}`} className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-dashed border-[#FBC02D]/40 bg-[#FBC02D]/5 shadow-sm">
+                                                    <img src={blob} alt="Preview" className="w-full h-full object-cover" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeNewImage(idx)}
+                                                        className="absolute top-1.5 right-1.5 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-red-600 shadow-md transform hover:scale-110 active:scale-95"
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <div className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-[#FBC02D] rounded-md text-[7px] font-black text-[#05080F] uppercase tracking-widest">Nova</div>
+                                                </div>
+                                            ))}
+
+                                            {/* Add Button */}
+                                            {existingImages.length + selectedImages.length < 10 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="aspect-square border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-1.5 hover:border-[#FBC02D] hover:bg-white hover:shadow-xl hover:shadow-[#FBC02D]/5 transition-all group bg-slate-50/50"
+                                                >
+                                                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-slate-100 group-hover:border-[#FBC02D]/30 transition-colors">
+                                                        <Upload className="w-4 h-4 text-slate-400 group-hover:text-[#FBC02D] transition-colors" />
+                                                    </div>
+                                                    <span className="text-[8px] font-black text-slate-400 group-hover:text-[#05080F] uppercase tracking-widest">Adicionar</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                        <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/*" multiple />
                                     </div>
 
                                     <button

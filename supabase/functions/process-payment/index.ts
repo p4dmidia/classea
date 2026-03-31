@@ -30,15 +30,14 @@ serve(async (req) => {
             throw new Error("Pedido não encontrado");
         }
 
-        // 2. Get organization credentials (Dual Mode)
+        // 2. Get organization credentials (Dual Mode Support)
         const { data: org, error: orgError } = await supabase
             .from("organizations")
-            .select("mercadopago_access_token, mercadopago_config")
+            .select("*")
             .eq("id", order.organization_id)
             .single();
 
-        const config = org?.mercadopago_config as any;
-        const accessToken = org?.mercadopago_access_token || config?.access_token;
+        const accessToken = org?.mercadopago_access_token || (org?.mercadopago_config as any)?.access_token;
 
         if (orgError || !accessToken) {
             console.error(`MP Credentials missing for org ${order.organization_id}:`, orgError);
@@ -47,14 +46,17 @@ serve(async (req) => {
 
         if (paymentMethod === "pix") {
             // Create PIX payment directly
+            const customerFirstName = order.customer_name?.split(" ")[0] || "Cliente";
+            const customerLastName = order.customer_name?.split(" ").slice(1).join(" ") || "Classe A";
+
             const paymentData = {
                 transaction_amount: order.total_amount,
                 description: `Pedido ${order.id} - Classe A`,
                 payment_method_id: "pix",
                 payer: {
                     email: order.customer_email || "cliente@classea.com",
-                    first_name: order.customer_name.split(" ")[0],
-                    last_name: order.customer_name.split(" ").slice(1).join(" ") || "Cliente",
+                    first_name: customerFirstName,
+                    last_name: customerLastName,
                     identification: {
                         type: "CPF",
                         number: customerCpf ? customerCpf.replace(/\D/g, "") : (order.customer_cpf ? order.customer_cpf.replace(/\D/g, "") : "")
@@ -63,6 +65,8 @@ serve(async (req) => {
                 external_reference: order.id,
                 notification_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/mercadopago-webhook?org_id=${order.organization_id}`,
             };
+
+            console.log("Full MP Request Payload:", JSON.stringify(paymentData, null, 2));
 
             const response = await fetch("https://api.mercadopago.com/v1/payments", {
                 method: "POST",
@@ -76,9 +80,10 @@ serve(async (req) => {
 
             const result = await response.json();
 
-            if (result.error || result.status === 400 || result.status === 401) {
-                console.error("MP Error:", result);
-                throw new Error(result.message || (result.cause ? result.cause[0].description : "Erro ao criar PIX"));
+            if (!response.ok || result.error || result.status === 400 || result.status === 401) {
+                console.error("Full MP Error Response:", JSON.stringify(result, null, 2));
+                const mpErrorMessage = result.message || (result.cause ? result.cause[0].description : "Erro desconhecido no Mercado Pago");
+                throw new Error(mpErrorMessage);
             }
 
             // Update order with payment ID
