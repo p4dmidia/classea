@@ -148,11 +148,15 @@ const CheckoutPage: React.FC = () => {
             if (itemsError) throw itemsError;
 
             // 3. Process Payment via Edge Function
+            console.log('Invoking process-payment with:', { orderId, paymentMethod });
             const { data: paymentResult, error: paymentError } = await supabase.functions.invoke('process-payment', {
                 body: { orderId, paymentMethod, customerCpf: customerInfo.cpf }
             });
 
-            if (paymentError) throw paymentError;
+            if (paymentError) {
+                console.error('Edge Function Error:', paymentError);
+                throw new Error(paymentError.message || 'Erro ao processar pagamento via Mercado Pago');
+            }
 
             if (paymentMethod === 'pix') {
                 if (!paymentResult.qr_code_base64) {
