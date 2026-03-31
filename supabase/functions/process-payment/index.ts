@@ -30,20 +30,20 @@ serve(async (req) => {
             throw new Error("Pedido não encontrado");
         }
 
-        // 2. Get organization credentials
+        // 2. Get organization credentials (Dual Mode)
         const { data: org, error: orgError } = await supabase
             .from("organizations")
-            .select("mercadopago_config")
+            .select("mercadopago_access_token, mercadopago_config")
             .eq("id", order.organization_id)
             .single();
 
         const config = org?.mercadopago_config as any;
-        if (orgError || !config?.access_token) {
+        const accessToken = org?.mercadopago_access_token || config?.access_token;
+
+        if (orgError || !accessToken) {
             console.error(`MP Credentials missing for org ${order.organization_id}:`, orgError);
             throw new Error("Configuração do Mercado Pago não encontrada para esta organização. Por favor, contate o administrador.");
         }
-
-        const accessToken = config.access_token;
 
         if (paymentMethod === "pix") {
             // Create PIX payment directly
