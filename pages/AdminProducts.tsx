@@ -215,7 +215,7 @@ const AdminProducts: React.FC = () => {
             return;
         }
 
-        const invalidChars = /[;.:|/\\]/;
+        const invalidChars = /[;.:|\\]/;
         let error = '';
         
         if (invalidChars.test(value)) {

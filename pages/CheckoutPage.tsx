@@ -19,6 +19,7 @@ import { useAuth } from '../components/AuthContext';
 import { ORGANIZATION_ID } from '../lib/config';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
+import Cookies from 'js-cookie';
 
 const CheckoutPage: React.FC = () => {
     const navigate = useNavigate();
@@ -109,11 +110,15 @@ const CheckoutPage: React.FC = () => {
         try {
             // 1. Create order in Supabase
             const orderId = `#ORD-${Math.floor(1000 + Math.random() * 9000)}`;
+            const referralCode = Cookies.get('classea_ref');
+            
             const { error: orderError } = await supabase
                 .from('orders')
                 .insert([{
                     id: orderId,
                     organization_id: ORGANIZATION_ID,
+                    user_id: user?.id,
+                    referral_code: referralCode,
                     customer_name: customerInfo.name,
                     customer_email: customerInfo.email,
                     customer_phone: customerInfo.phone,

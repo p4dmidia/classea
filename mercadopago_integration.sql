@@ -4,6 +4,7 @@
 ALTER TABLE public.orders 
 ADD COLUMN IF NOT EXISTS payment_id TEXT, -- ID do Mercado Pago
 ADD COLUMN IF NOT EXISTS payment_preference_id TEXT, -- Preference ID para Checkout Pro
+ADD COLUMN IF NOT EXISTS payment_status TEXT, -- Status do pagamento (pending, paid, failed)
 ADD COLUMN IF NOT EXISTS payment_status_detail TEXT; -- Detalhes como "accredited", "pending_contingency"
 
 -- 2. Index for fast lookup by payment_id (needed for webhooks)

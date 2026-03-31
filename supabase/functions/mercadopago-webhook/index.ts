@@ -28,16 +28,17 @@ serve(async (req) => {
         // Fetch organization token
         const { data: org, error: orgError } = await supabase
             .from("organizations")
-            .select("mercadopago_access_token")
+            .select("mercadopago_config")
             .eq("id", orgId)
             .single();
 
-        if (orgError || !org?.mercadopago_access_token) {
+        const config = org?.mercadopago_config as any;
+        if (orgError || !config?.access_token) {
             console.error(`[Webhook] Token não encontrado para org ${orgId}:`, orgError);
             return new Response("Organization token not found", { status: 404 });
         }
 
-        const accessToken = org.mercadopago_access_token;
+        const accessToken = config.access_token;
 
         // Only process payment notifications
         if (topic === "payment" || topic === "merchant_order") {
@@ -71,6 +72,7 @@ serve(async (req) => {
                         .from("orders")
                         .update({
                             status: "Pago",
+                            payment_status: 'paid',
                             payment_id: payment.id.toString(),
                             payment_status_detail: statusDetail,
                             updated_at: new Date().toISOString()
