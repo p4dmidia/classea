@@ -215,8 +215,12 @@ const CheckoutPage: React.FC = () => {
                                     <div key={`${item.id}-${JSON.stringify(item.selectedVariations)}`} className="flex justify-between items-center border-b border-slate-50 pb-6 last:border-0 last:pb-0">
                                         <div className="flex gap-4">
                                             <div className="w-20 h-20 bg-slate-50 rounded-2xl overflow-hidden flex items-center justify-center text-slate-300">
-                                                {item.image ? (
-                                                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                                                {(item.image || (item as any).display_image || (item as any).image_url) ? (
+                                                    <img 
+                                                        src={(item.image || (item as any).display_image || (item as any).image_url).split(',')[0].trim()} 
+                                                        alt={item.name} 
+                                                        className="w-full h-full object-cover" 
+                                                    />
                                                 ) : (
                                                     <ShoppingCart className="w-8 h-8" />
                                                 )}

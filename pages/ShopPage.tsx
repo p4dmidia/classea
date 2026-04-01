@@ -346,7 +346,7 @@ const ShopPage: React.FC = () => {
                                         >
                                             <div className="aspect-square relative overflow-hidden bg-white flex items-center justify-center p-4">
                                                 <img
-                                                    src={product.image_url || 'https://placehold.co/400x400?text=Classe+A'}
+                                                    src={product.display_image || 'https://placehold.co/400x400?text=Classe+A'}
                                                     alt={product.name}
                                                     className="max-w-full max-h-full object-contain transition-all duration-500 group-hover:scale-105"
                                                     onError={(e: any) => {

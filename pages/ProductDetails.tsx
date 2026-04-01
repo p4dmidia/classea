@@ -67,6 +67,7 @@ const ProductDetails: React.FC = () => {
             const formatted = {
                 ...data,
                 category: categoryLabel,
+                image: images[0] || 'https://placehold.co/600x600?text=Classe+A',
                 images: images.length > 0 ? images : ['https://placehold.co/600x600?text=Classe+A']
             };
 

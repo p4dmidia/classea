@@ -599,7 +599,7 @@ const AdminProducts: React.FC = () => {
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-[#05080F] overflow-hidden shrink-0">
                                                             {prod.image_url ? (
-                                                                <img src={prod.image_url} alt={prod.name} className="w-full h-full object-cover" />
+                                                                <img src={prod.image_url.split(',')[0].trim()} alt={prod.name} className="w-full h-full object-cover" />
                                                             ) : (
                                                                 <Package className="w-6 h-6 text-[#FBC02D]" />
                                                             )}
