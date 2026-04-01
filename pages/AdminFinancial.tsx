@@ -191,15 +191,14 @@ const AdminFinancial: React.FC = () => {
                     </div>
 
                     <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 border border-slate-100 shadow-sm flex flex-col justify-center sm:col-span-2 lg:col-span-1">
-                        <h4 className="font-black text-[#05080F] mb-1">Pagamento em Lote</h4>
-                        <p className="text-[10px] md:text-xs font-medium text-slate-500 mb-4 md:mb-6 leading-relaxed">Conforme o PRD, os pagamentos são consolidados no dia 15 de cada mês.</p>
+                        <p className="text-[10px] md:text-xs font-medium text-slate-500 mb-4 md:mb-6 leading-relaxed">Conforme as novas diretrizes, os pagamentos devem ser processados em até 3 dias úteis após a aprovação.</p>
                         <button
                             disabled={processingLot}
                             onClick={handleProcessBatch}
                             className={`w-full py-4 rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${processingLot ? 'bg-slate-100 text-slate-400' : 'bg-[#FBC02D] text-[#0B1221] hover:bg-[#ffc947] shadow-xl shadow-amber-200/50'}`}
                         >
                             {processingLot ? <Loader2 className="w-4 h-4 animate-spin" /> : <Banknote className="w-4 h-4" />}
-                            {processingLot ? 'PROCESSANDO...' : 'PROCESSAR LOTE (DIA 15)'}
+                            {processingLot ? 'PROCESSANDO...' : 'EFETUAR PAGAMENTOS'}
                         </button>
                     </div>
                 </div>
@@ -389,10 +388,10 @@ const AdminFinancial: React.FC = () => {
                         <Calendar className="w-6 h-6" />
                     </div>
                     <div>
-                        <h4 className="font-black text-[#05080F] text-xs md:text-sm uppercase tracking-widest leading-none mb-2 text-center sm:text-left">Pagamentos Consolidados</h4>
+                        <h4 className="font-black text-[#05080F] text-xs md:text-sm uppercase tracking-widest leading-none mb-2 text-center sm:text-left">Processamento de Pagamentos</h4>
                         <p className="text-[10px] md:text-xs font-bold text-slate-500 leading-relaxed text-center sm:text-left">
                             O processamento em lote move todos os pedidos <span className="text-[#05080F]">Aprovados</span> para o status <span className="text-[#05080F]">Pago</span>. 
-                            Recomenda-se realizar esta ação no dia 15 de cada mês conforme as diretrizes do sistema.
+                            Certifique-se de realizar esta ação para cumprir o prazo de 3 dias úteis.
                         </p>
                     </div>
                 </div>

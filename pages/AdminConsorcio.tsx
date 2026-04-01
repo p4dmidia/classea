@@ -29,6 +29,9 @@ const AdminConsorcio: React.FC = () => {
     const [totalDraws, setTotalDraws] = useState(0);
     const [totalParticipants, setTotalParticipants] = useState(0);
     const [irregularMembers, setIrregularMembers] = useState<any[]>([]);
+    const [isSpinning, setIsSpinning] = useState(false);
+    const [drawWinner, setDrawWinner] = useState<any>(null);
+    const [drawHistory, setDrawHistory] = useState<any[]>([]);
 
     // New Group State
     const [newGroup, setNewGroup] = useState({
@@ -65,6 +68,7 @@ const AdminConsorcio: React.FC = () => {
             setTotalParticipants(participantCount || 0);
 
             await fetchIrregularMembers();
+            await fetchDrawHistory();
 
         } catch (error) {
             console.error('Error fetching groups:', error);
@@ -109,6 +113,27 @@ const AdminConsorcio: React.FC = () => {
         }
     };
 
+    const fetchDrawHistory = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('consortium_draws')
+                .select(`
+                    *,
+                    winner:consortium_participants(
+                        lucky_number,
+                        user:auth.users(email)
+                    )
+                `)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setDrawHistory(data || []);
+        } catch (error) {
+            console.error('Error fetching draw history:', error);
+        }
+    };
+
+
     const handleCreateGroup = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
@@ -150,35 +175,45 @@ const AdminConsorcio: React.FC = () => {
             const luckyWinnerNumber = (lotterySeed % selectedGroup.max_participants) + 1;
 
             // 3. Find the participant with that lucky number
-            // Note: In a real system, we'd check if the participant is active or if we need to pick the next one
             const winner = participants.find(p => p.lucky_number === luckyWinnerNumber) || participants[0];
 
-            // 4. Record Draw
-            const { error: drawError } = await supabase
-                .from('consortium_draws')
-                .insert([{
-                    group_id: selectedGroup.id,
-                    winner_id: winner.id,
-                    lottery_number: lotteryNumber,
-                    video_url: videoUrl,
-                    official_result_url: officialResultUrl,
-                    details: `Sorteio realizado com base na Loteria Federal nº ${lotteryNumber}. Vencedor: Número ${luckyWinnerNumber}.`
-                }]);
+            // ROLETTA EFFECT
+            setIsSpinning(true);
+            setDrawWinner(null);
+            
+            setTimeout(async () => {
+                try {
+                    // 4. Record Draw
+                    const { error: drawError } = await supabase
+                        .from('consortium_draws')
+                        .insert([{
+                            group_id: selectedGroup.id,
+                            winner_id: winner.id,
+                            lottery_number: lotteryNumber,
+                            video_url: videoUrl,
+                            official_result_url: officialResultUrl,
+                            details: `Sorteio realizado com base na Loteria Federal nº ${lotteryNumber}. Vencedor: Número ${luckyWinnerNumber}.`
+                        }]);
 
-            if (drawError) throw drawError;
+                    if (drawError) throw drawError;
 
-            // 5. Update participant status
-            await supabase
-                .from('consortium_participants')
-                .update({ status: 'contemplated' })
-                .eq('id', winner.id);
+                    // 5. Update participant status
+                    await supabase
+                        .from('consortium_participants')
+                        .update({ status: 'contemplated' })
+                        .eq('id', winner.id);
 
-            toast.success(`Sorteio realizado! Vencedor: Nº ${luckyWinnerNumber}`);
-            setIsDrawModalOpen(false);
-            setLotteryNumber('');
-            setVideoUrl('');
-            setOfficialResultUrl('');
-            fetchGroups();
+                    setDrawWinner(winner);
+                    setIsSpinning(false);
+                    toast.success(`Sorteio realizado! Vendedor: Nº ${luckyWinnerNumber}`);
+                    fetchGroups();
+                    fetchDrawHistory();
+                } catch (err) {
+                    setIsSpinning(false);
+                    toast.error('Erro ao finalizar sorteio.');
+                }
+            }, 3000);
+
         } catch (error) {
             console.error('Error performing draw:', error);
             toast.error('Erro ao realizar sorteio.');
@@ -191,7 +226,12 @@ const AdminConsorcio: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                     <div>
                         <h1 className="text-2xl md:text-3xl font-black text-[#0B1221]">Consórcios</h1>
-                        <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px] md:text-[10px] mt-1">Administração de grupos e sorteios</p>
+                        <div className="flex items-center gap-2 mt-1">
+                            <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
+                                <Calendar className="w-3 h-3" /> SORTEIOS TODO DIA 11
+                            </span>
+                            <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px] md:text-[10px]">Administração de grupos e sorteios</p>
+                        </div>
                     </div>
                     <button
                         onClick={() => setIsCreateModalOpen(true)}
@@ -521,32 +561,111 @@ const AdminConsorcio: React.FC = () => {
                                             </div>
                                         </div>
                                     </div>
+                                    
+                                    {isSpinning && (
+                                        <div className="py-8 flex flex-col items-center justify-center gap-4 animate-pulse">
+                                            <div className="w-16 h-16 border-4 border-[#FBC02D] border-t-transparent rounded-full animate-spin"></div>
+                                            <p className="font-black text-[#0B1221] animate-bounce">SORTEANDO...</p>
+                                        </div>
+                                    )}
+
+                                    {drawWinner && !isSpinning && (
+                                        <div className="py-8 bg-amber-50 rounded-[2rem] border-2 border-amber-200 flex flex-col items-center justify-center gap-2 animate-in zoom-in duration-500">
+                                            <Trophy className="w-12 h-12 text-[#FBC02D]" />
+                                            <h4 className="font-black text-[#0B1221]">TEMOS UM GANHADOR!</h4>
+                                            <p className="text-2xl font-black text-amber-600">NÚMERO {drawWinner.lucky_number.toString().padStart(2, '0')}</p>
+                                            <p className="text-xs font-bold text-slate-500">{drawWinner.user?.email}</p>
+                                        </div>
+                                    )}
 
                                     <div className="flex gap-4 pt-8 md:pt-4 mt-auto">
                                         <button
                                             type="button"
-                                            onClick={() => setIsDrawModalOpen(false)}
-                                            className="flex-1 bg-slate-50 text-slate-400 font-black py-4 rounded-xl text-sm md:text-base"
+                                            disabled={isSpinning}
+                                            onClick={() => { setIsDrawModalOpen(false); setDrawWinner(null); }}
+                                            className="flex-1 bg-slate-50 text-slate-400 font-black py-4 rounded-xl hover:bg-slate-100 transition-all text-sm md:text-base disabled:opacity-50"
                                         >
-                                            CANCELAR
+                                            FECHAR
                                         </button>
-                                        <button
-                                            type="submit"
-                                            disabled={!lotteryNumber}
-                                            className="flex-1 bg-[#0B1221] text-white font-black py-4 rounded-xl hover:bg-slate-800 disabled:opacity-50 transition-all flex items-center justify-center gap-2 text-sm md:text-base shadow-lg shadow-[#0B1221]/20"
-                                        >
-                                            <Trophy className="w-5 h-5 text-[#FBC02D]" />
-                                            CONFIRMAR
-                                        </button>
+                                        {!drawWinner && (
+                                            <button
+                                                type="submit"
+                                                disabled={isSpinning || !lotteryNumber}
+                                                className="flex-1 bg-[#0B1221] text-white font-black py-4 rounded-xl hover:bg-[#FBC02D] hover:text-[#0B1221] transition-all text-sm md:text-base shadow-lg disabled:opacity-50"
+                                            >
+                                                {isSpinning ? 'SORTEANDO...' : 'INICIAR SORTEIO'}
+                                            </button>
+                                        )}
                                     </div>
                                 </form>
                             </div>
                         </div>
                     </div>
                 )}
+                {/* Draw History Section */}
+                <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm mt-12">
+                    <div className="p-6 md:p-8 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <h3 className="text-lg md:text-xl font-black text-[#0B1221] flex items-center gap-2">
+                            <Trophy className="w-5 h-5 text-[#FBC02D]" />
+                            Ganhadores (Sorteados)
+                        </h3>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Lista Oficial de Contemplados</p>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                <tr>
+                                    <th className="px-8 py-4">Data</th>
+                                    <th className="px-8 py-4">Ganhador</th>
+                                    <th className="px-8 py-4">Nº Sorte</th>
+                                    <th className="px-8 py-4">Loteria Federal</th>
+                                    <th className="px-8 py-4 text-right">Detalhes</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {drawHistory.length > 0 ? drawHistory.map((draw) => (
+                                    <tr key={draw.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-8 py-6 font-bold text-slate-600">
+                                            {new Date(draw.created_at).toLocaleDateString('pt-BR')}
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="font-black text-[#0B1221]">{draw.winner?.user?.email || 'N/A'}</div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <span className="w-8 h-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-black text-xs">
+                                                {draw.winner?.lucky_number.toString().padStart(2, '0') || '00'}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-6 font-medium text-slate-500">
+                                            nº {draw.lottery_number}
+                                        </td>
+                                        <td className="px-8 py-6 text-right">
+                                            <a 
+                                                href={draw.official_result_url || '#'} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="text-[10px] font-black text-blue-500 uppercase hover:underline"
+                                            >
+                                                Ver Comprovante
+                                            </a>
+                                        </td>
+                                    </tr>
+                                )) : (
+                                    <tr>
+                                        <td colSpan={5} className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">
+                                            Nenhum sorteio realizado ainda.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </AdminLayout>
     );
 };
 
 export default AdminConsorcio;
+

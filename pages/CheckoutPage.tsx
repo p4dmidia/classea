@@ -55,12 +55,17 @@ const CheckoutPage: React.FC = () => {
         }
     }, [user]);
 
-    const isConsorcioInCart = cart.some(item => item.category === 'Consórcio');
+    const isConsorcioInCart = cart.some(item => item.category === 'Consórcio' || item.name.includes('CONSÓRCIO'));
     const subtotal = cartTotal;
-    const shipping = selectedShipping ? parseFloat(selectedShipping.price) : 0;
+    const shipping = isConsorcioInCart ? 0 : (selectedShipping ? parseFloat(selectedShipping.price) : 0);
     const total = subtotal + shipping;
 
     const calculateShipping = async () => {
+        if (isConsorcioInCart) {
+            toast.success('Produtos digitais possuem frete isento!');
+            return;
+        }
+
         if (!customerInfo.cep || customerInfo.cep.length < 8) {
             toast.error('Informe um CEP válido para calcular o frete.');
             return;
