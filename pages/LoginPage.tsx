@@ -72,7 +72,14 @@ const LoginPage: React.FC = () => {
         } catch (err: any) {
             let message = 'Erro ao realizar login. Verifique suas credenciais.';
             if (err.message === 'Invalid login credentials') {
-                message = 'E-mail, usuário ou senha incorretos.';
+                // Se a pessoa digitou um username que puxou um email, podemos avisar que a senha daquele email está errada
+                if (!formData.email.includes('@') && loginIdentifier.includes('@')) {
+                    const parts = loginIdentifier.split('@');
+                    const maskedEmail = `${parts[0].substring(0, 3)}***@${parts[1]}`;
+                    message = `Senha incorreta para o e-mail vinculado (${maskedEmail})`;
+                } else {
+                    message = 'E-mail ou senha incorretos.';
+                }
             } else if (err.message) {
                 message = err.message;
             }
