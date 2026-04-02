@@ -41,12 +41,22 @@ CREATE OR REPLACE FUNCTION public.handle_new_affiliate_user()
 
    -- D. Resolver Padrinho (Sponsor) - PEGAR AMBOS OS IDS
    v_sponsor_code := NULLIF(new.raw_user_meta_data ->> 'sponsor_code', '');
+   
    IF v_sponsor_code IS NOT NULL THEN
      -- Pegamos o id (afiliado) e user_id (usuário) do padrinho
      SELECT id, user_id INTO v_sponsor_affiliate_id, v_sponsor_user_id
      FROM public.affiliates 
      WHERE LOWER(referral_code) = LOWER(v_sponsor_code)
      AND organization_id = v_org_id
+     LIMIT 1;
+   END IF;
+
+   -- Fallback para cabeça de rede (se não tem patrocinador, vincula ao root da empresa)
+   IF v_sponsor_user_id IS NULL THEN
+     SELECT id, user_id INTO v_sponsor_affiliate_id, v_sponsor_user_id
+     FROM public.affiliates
+     WHERE organization_id = v_org_id
+     ORDER BY created_at ASC
      LIMIT 1;
    END IF;
 

@@ -25,18 +25,18 @@ const LoginPage: React.FC = () => {
         try {
             // Se não for um e-mail (não tem @), tenta buscar o e-mail pelo login/username
             if (!loginIdentifier.includes('@')) {
-                const { data: affiliateData, error: lookupError } = await supabase
-                    .from('affiliates')
+                const { data: profileData, error: lookupError } = await supabase
+                    .from('user_profiles')
                     .select('email')
-                    .ilike('referral_code', loginIdentifier)
+                    .ilike('login', loginIdentifier)
                     .eq('organization_id', ORGANIZATION_ID)
-                    .single();
+                    .maybeSingle();
 
-                if (lookupError || !affiliateData) {
+                if (lookupError || !profileData || !profileData.email) {
                     throw new Error('Usuário não encontrado. Verifique seu login ou e-mail.');
                 }
 
-                loginIdentifier = affiliateData.email;
+                loginIdentifier = profileData.email.trim();
             }
 
             const { data, error: signInError } = await supabase.auth.signInWithPassword({
