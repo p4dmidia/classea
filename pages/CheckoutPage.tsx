@@ -167,13 +167,28 @@ const CheckoutPage: React.FC = () => {
                 if (!paymentResult.qr_code_base64) {
                     throw new Error('Erro ao gerar QR Code do PIX. Tente novamente.');
                 }
-                setPixData(paymentResult);
-                toast.success('PIX gerado com sucesso!');
+                
+                // Salvar dados do PIX no pedido para persistência na página de sucesso
+                const { error: updateError } = await supabase
+                    .from('orders')
+                    .update({
+                        pix_qr_code: paymentResult.qr_code,
+                        pix_qr_code_base64: paymentResult.qr_code_base64,
+                        pix_copy_paste: paymentResult.copy_paste || paymentResult.qr_code
+                    })
+                    .eq('id', orderId);
+
+                if (updateError) console.error('Error saving PIX data:', updateError);
+
+                clearCart();
+                navigate(`/checkout/success/${orderId}`);
+                toast.success('Pedido gerado! Conclua o PIX para finalizar.');
             } else {
                 // Checkout Pro Redirect
                 if (!paymentResult.init_point) {
                     throw new Error('Link de pagamento não gerado. Verifique os dados do cartão.');
                 }
+                clearCart();
                 window.location.href = paymentResult.init_point;
             }
 

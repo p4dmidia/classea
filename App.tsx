@@ -32,6 +32,7 @@ import CheckoutPage from './pages/CheckoutPage';
 import AdminFinancial from './pages/AdminFinancial';
 import ProductDetails from './pages/ProductDetails';
 import ConsorcioTerms from './pages/ConsorcioTerms';
+import CheckoutSuccess from './pages/CheckoutSuccess';
 
 import ProtectedRoute from './components/ProtectedRoute';
 import ReferralHandler from './components/ReferralHandler';
@@ -51,8 +52,9 @@ const AppContent: React.FC = () => {
           <Route path="/consorcio" element={<ConsorcioLanding />} />
           <Route path="/consorcio/termos" element={<ConsorcioTerms />} />
           <Route path="/p/:id" element={<ProductDetails />} />
-          <Route path="/checkout" element={<CheckoutPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+           <Route path="/checkout" element={<CheckoutPage />} />
+           <Route path="/checkout/success/:orderId" element={<CheckoutSuccess />} />
+           <Route path="/register" element={<RegisterPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
