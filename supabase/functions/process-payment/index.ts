@@ -82,8 +82,9 @@ serve(async (req) => {
 
             if (!response.ok || result.error || result.status === 400 || result.status === 401) {
                 console.error("Full MP Error Response:", JSON.stringify(result, null, 2));
-                const mpErrorMessage = result.message || (result.cause ? result.cause[0].description : "Erro desconhecido no Mercado Pago");
-                throw new Error(mpErrorMessage);
+                const mpErrorMessage = result.message || (result.cause ? result.cause[0].description : "Erro desconhecido");
+                const mpErrorCode = result.error || (result.cause ? result.cause[0].code : "unknown");
+                throw new Error(`Mercado Pago (${mpErrorCode}): ${mpErrorMessage}`);
             }
 
             // Update order with payment ID

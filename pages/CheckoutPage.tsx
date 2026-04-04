@@ -159,8 +159,8 @@ const CheckoutPage: React.FC = () => {
             });
 
             if (paymentError) {
-                console.error('Edge Function Error:', paymentError);
-                throw new Error(paymentError.message || 'Erro ao processar pagamento via Mercado Pago');
+                console.error('Edge Function Error Details:', paymentError);
+                throw new Error(paymentError.message || 'Erro ao processar pagamento via Mercado Pago. Verifique o console.');
             }
 
             if (paymentMethod === 'pix') {
