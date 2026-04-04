@@ -50,7 +50,7 @@ serve(async (req) => {
             const customerLastName = order.customer_name?.split(" ").slice(1).join(" ") || "Classe A";
 
             const paymentData = {
-                transaction_amount: order.total_amount,
+                transaction_amount: Number(order.total_amount),
                 description: `Pedido ${order.id} - Classe A`,
                 payment_method_id: "pix",
                 payer: {
@@ -82,8 +82,8 @@ serve(async (req) => {
 
             if (!response.ok || result.error || result.status === 400 || result.status === 401) {
                 console.error("Full MP Error Response:", JSON.stringify(result, null, 2));
-                const mpErrorMessage = result.message || (result.cause ? result.cause[0].description : "Erro desconhecido");
-                const mpErrorCode = result.error || (result.cause ? result.cause[0].code : "unknown");
+                const mpErrorMessage = result.message || (result.cause?.[0]?.description) || "Erro desconhecido";
+                const mpErrorCode = result.error || (result.cause?.[0]?.code) || "unknown";
                 throw new Error(`Mercado Pago (${mpErrorCode}): ${mpErrorMessage}`);
             }
 
