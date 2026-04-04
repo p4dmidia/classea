@@ -114,7 +114,7 @@ const CheckoutPage: React.FC = () => {
 
         try {
             // 1. Create order in Supabase
-            const orderId = `#ORD-${Math.floor(1000 + Math.random() * 9000)}`;
+            const orderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
             const referralCode = Cookies.get('classea_ref');
             
             const { error: orderError } = await supabase

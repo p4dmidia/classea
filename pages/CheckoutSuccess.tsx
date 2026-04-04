@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { 
   CheckCircle2, 
   Clock, 
@@ -17,19 +17,26 @@ import toast from 'react-hot-toast';
 
 const CheckoutSuccess: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
+  const location = useLocation();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Determinar o ID do pedido (priorizar params, fallback para hash da URL)
+  const effectiveOrderId = orderId || (location.hash ? location.hash.substring(1) : null);
+
   useEffect(() => {
-    if (!orderId) return;
+    if (!effectiveOrderId) {
+        setLoading(false);
+        return;
+    };
 
     const fetchOrder = async () => {
       try {
         const { data, error } = await supabase
           .from('orders')
           .select('*')
-          .eq('id', orderId)
+          .eq('id', effectiveOrderId)
           .single();
 
         if (error) throw error;
@@ -46,14 +53,14 @@ const CheckoutSuccess: React.FC = () => {
 
     // Inscrição Realtime para mudanças no status do pedido
     const subscription = supabase
-      .channel(`order_status_${orderId}`)
+      .channel(`order_status_${effectiveOrderId}`)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'orders',
-          filter: `id=eq.${orderId}`
+          filter: `id=eq.${effectiveOrderId}`
         },
         (payload) => {
           console.log('Order updated in realtime:', payload.new);
@@ -71,7 +78,7 @@ const CheckoutSuccess: React.FC = () => {
     return () => {
       supabase.removeChannel(subscription);
     };
-  }, [orderId]);
+  }, [effectiveOrderId]);
 
   if (loading) {
     return (
@@ -132,7 +139,7 @@ const CheckoutSuccess: React.FC = () => {
 
               <div className="mt-8 flex flex-wrap justify-center gap-3">
                 <span className="px-4 py-2 bg-slate-100 rounded-full text-[10px] font-black text-slate-400 uppercase tracking-widest border border-slate-200">
-                  Pedido: {order.id}
+                  Pedido: #{order.id.replace(/^#/, '')}
                 </span>
                 <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${
                   isPaid ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'

@@ -183,7 +183,7 @@ const AdminOrders: React.FC = () => {
                                         <td className="py-6 px-10">
                                             <div>
                                                 <p className="font-black text-[#05080F] text-sm">{order.customer_name || 'Cliente de Teste'}</p>
-                                                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tight">#{order.id.slice(0, 8)}</p>
+                                                <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tight">#{order.id.replace(/^#/, '').slice(0, 8)}</p>
                                             </div>
                                         </td>
                                         <td className="py-6 px-4">
