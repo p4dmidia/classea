@@ -9,8 +9,8 @@ ADD COLUMN IF NOT EXISTS mercadopago_public_key TEXT;
 -- SUBSTITUA 'SEU_ACCESS_TOKEN_AQUI' e 'SUA_PUBLIC_KEY_AQUI' pelos valores corretos da Classe A
 UPDATE public.organizations
 SET 
-    mercadopago_access_token = 'APP_USR-6519047848898101-112815-b0c58d19c97019eb4dd2943254c12e58-3013508460',
-    mercadopago_public_key = 'APP_USR-e152f8ab-5122-4a75-bf98-fac1d3faca4b'
+    mercadopago_access_token = 'TEST-6519047848898101-112815-28e967399e9d831e0bec3791feabc705-3013508460',
+    mercadopago_public_key = 'TEST-eb9de097-ca53-4cd0-8a36-eabe8a5751ee'
 WHERE id = '5111af72-27a5-41fd-8ed9-8c51b78b4fdd';
 
 -- 3. Verifica se a atualização foi bem sucedida (não mostrará os valores sensíveis aqui por segurança)

@@ -22,8 +22,8 @@ const CheckoutSuccess: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Determinar o ID do pedido (priorizar params, fallback para hash da URL)
-  const effectiveOrderId = orderId || (location.hash ? location.hash.substring(1) : null);
+  // Determinar o ID do pedido (limpo, via params)
+  const effectiveOrderId = orderId;
 
   useEffect(() => {
     if (!effectiveOrderId) {
