@@ -26,7 +26,7 @@ interface Order {
     id: string;
     customer_name: string;
     total_amount: number;
-    status: 'pending' | 'completed' | 'shipped' | 'cancelled';
+    status: 'Pendente' | 'Pago' | 'Enviado' | 'Entregue' | 'Cancelado' | 'pending' | 'shipped' | 'completed' | 'cancelled';
     payment_status: 'pending' | 'paid' | 'failed';
     created_at: string;
     items_count: number;
@@ -62,16 +62,24 @@ const AdminOrders: React.FC = () => {
         }
     };
 
-    const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
+    const updateOrderStatus = async (orderId: string, newStatus: Order['status'], paymentStatus?: Order['payment_status']) => {
         try {
+            const updateData: any = { status: newStatus };
+            if (paymentStatus) {
+                updateData.payment_status = paymentStatus;
+                if (paymentStatus === 'paid') {
+                    updateData.payment_status_detail = 'Accreditated Manual';
+                }
+            }
+
             const { error } = await supabase
                 .from('orders')
-                .update({ status: newStatus })
+                .update(updateData)
                 .eq('id', orderId)
                 .eq('organization_id', ORGANIZATION_ID);
 
             if (error) throw error;
-            toast.success('Status do pedido atualizado!');
+            toast.success(`Pedido atualizado para ${newStatus}!`);
             fetchOrders();
         } catch (error) {
             console.error('Error updating order status:', error);
@@ -205,42 +213,54 @@ const AdminOrders: React.FC = () => {
                                         </td>
                                         <td className="py-6 px-4">
                                             <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider ${order.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
-                                                order.status === 'shipped' ? 'bg-purple-50 text-purple-600' :
-                                                    order.status === 'cancelled' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'
+                                                order.status === 'Enviado' || order.status === 'shipped' ? 'bg-purple-50 text-purple-600' :
+                                                    order.status === 'Cancelado' || order.status === 'cancelled' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'
                                                 }`}>
-                                                <div className={`w-1.5 h-1.5 rounded-full ${order.status === 'completed' ? 'bg-emerald-500' :
-                                                    order.status === 'shipped' ? 'bg-purple-500' :
-                                                        order.status === 'cancelled' ? 'bg-red-500' : 'bg-amber-500'
+                                                <div className={`w-1.5 h-1.5 rounded-full ${order.status === 'Pago' || order.status === 'completed' ? 'bg-emerald-500' :
+                                                    order.status === 'Enviado' || order.status === 'shipped' ? 'bg-purple-500' :
+                                                        order.status === 'Cancelado' || order.status === 'cancelled' ? 'bg-red-500' : 'bg-amber-500'
                                                     }`}></div>
-                                                {order.status === 'pending' ? 'Pendente' :
-                                                    order.status === 'shipped' ? 'Enviado' :
-                                                        order.status === 'completed' ? 'Concluído' : 'Cancelado'}
+                                                {order.status === 'pending' || order.status === 'Pendente' ? 'Pendente' :
+                                                    order.status === 'shipped' || order.status === 'Enviado' ? 'Enviado' :
+                                                        order.status === 'completed' || order.status === 'Pago' ? 'Pago' : 'Cancelado'}
                                             </span>
                                         </td>
                                         <td className="py-6 px-10 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <button className="p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:bg-[#FBC02D] hover:text-[#05080F] transition-all">
-                                                    <Eye className="w-5 h-5" />
-                                                </button>
-                                                {order.status === 'pending' && (
-                                                    <button
-                                                        onClick={() => updateOrderStatus(order.id, 'shipped')}
-                                                        className="p-2.5 bg-[#05080F] text-white rounded-xl hover:bg-emerald-500 transition-all"
-                                                        title="Marcar como Enviado"
-                                                    >
-                                                        <Truck className="w-5 h-5" />
+                                                <div className="flex flex-col gap-2">
+                                                    {(order.status === 'Pendente' || order.status === 'pending') && (
+                                                        <>
+                                                            <button 
+                                                                onClick={() => updateOrderStatus(order.id, 'Pago', 'paid')}
+                                                                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase hover:bg-emerald-600 transition-all"
+                                                                title="Marcar como Pago"
+                                                            >
+                                                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                                                PAGO
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => updateOrderStatus(order.id, 'Cancelado')}
+                                                                className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[9px] font-black uppercase hover:bg-red-100 transition-all"
+                                                                title="Cancelar Pedido"
+                                                            >
+                                                                <XCircle className="w-3.5 h-3.5" />
+                                                                CANCELAR
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    {(order.status === 'Pago' || order.status === 'completed') && (
+                                                        <button 
+                                                            onClick={() => updateOrderStatus(order.id, 'Enviado')}
+                                                            className="flex items-center gap-2 px-3 py-1.5 bg-[#05080F] text-white rounded-lg text-[9px] font-black uppercase hover:bg-slate-800 transition-all"
+                                                            title="Marcar como Enviado"
+                                                        >
+                                                            <Truck className="w-3.5 h-3.5" />
+                                                            ENVIAR
+                                                        </button>
+                                                    )}
+                                                    <button className="flex items-center justify-center p-2 bg-slate-50 text-slate-400 rounded-lg hover:text-[#05080F] transition-all">
+                                                        <Eye className="w-4 h-4" />
                                                     </button>
-                                                )}
-                                                {order.status === 'shipped' && (
-                                                    <button
-                                                        onClick={() => updateOrderStatus(order.id, 'completed')}
-                                                        className="p-2.5 bg-[#05080F] text-white rounded-xl hover:bg-emerald-500 transition-all"
-                                                        title="Concluir Pedido"
-                                                    >
-                                                        <CheckCircle2 className="w-5 h-5" />
-                                                    </button>
-                                                )}
-                                            </div>
+                                                </div>
                                         </td>
                                     </tr>
                                 )) : (
