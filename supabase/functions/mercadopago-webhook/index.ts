@@ -122,8 +122,9 @@ serve(async (req) => {
                 if (orderError) throw orderError;
 
                 if (order) {
-                    console.log(`[Webhook] Pedido ${orderId} atualizado. Disparando email...`);
-                    await sendConfirmationEmail(order);
+                    console.log(`[Webhook] Pedido ${orderId} atualizado com sucesso para 'Pago'.`);
+                    // E-mail desativado a pedido do usuário (Mercado Pago faz isso nativamente)
+                    // await sendConfirmationEmail(order);
                 }
             }
         }

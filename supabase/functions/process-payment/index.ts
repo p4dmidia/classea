@@ -53,6 +53,7 @@ serve(async (req) => {
                 transaction_amount: Number(order.total_amount),
                 description: `Pedido ${order.id} - Classe A`,
                 payment_method_id: "pix",
+                installments: 1,
                 payer: {
                     email: order.customer_email || "cliente@classea.com",
                     first_name: customerFirstName,
@@ -66,8 +67,6 @@ serve(async (req) => {
                 notification_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/mercadopago-webhook?org_id=${order.organization_id}`,
             };
 
-            console.log("Full MP Request Payload:", JSON.stringify(paymentData, null, 2));
-
             const response = await fetch("https://api.mercadopago.com/v1/payments", {
                 method: "POST",
                 headers: {
@@ -80,17 +79,21 @@ serve(async (req) => {
 
             const result = await response.json();
 
-            if (!response.ok || result.error || result.status === 400 || result.status === 401) {
+            if (!response.ok || result.error) {
                 console.error("Full MP Error Response:", JSON.stringify(result, null, 2));
                 const mpErrorMessage = result.message || (result.cause?.[0]?.description) || "Erro desconhecido";
-                const mpErrorCode = result.error || (result.cause?.[0]?.code) || "unknown";
-                throw new Error(`Mercado Pago (${mpErrorCode}): ${mpErrorMessage}`);
+                throw new Error(`Mercado Pago: ${mpErrorMessage}`);
             }
 
-            // Update order with payment ID
+            // Update order with payment ID and PIX details
             await supabase
                 .from("orders")
-                .update({ payment_id: result.id.toString() })
+                .update({ 
+                    payment_id: result.id.toString(),
+                    pix_qr_code: result.point_of_interaction.transaction_data.qr_code,
+                    pix_qr_code_base64: result.point_of_interaction.transaction_data.qr_code_base64,
+                    pix_copy_paste: result.point_of_interaction.transaction_data.qr_code
+                })
                 .eq("id", orderId);
 
             return new Response(
@@ -98,7 +101,8 @@ serve(async (req) => {
                     qr_code: result.point_of_interaction.transaction_data.qr_code,
                     qr_code_base64: result.point_of_interaction.transaction_data.qr_code_base64,
                     copy_paste: result.point_of_interaction.transaction_data.qr_code,
-                    payment_id: result.id
+                    payment_id: result.id,
+                    ticket_url: result.point_of_interaction.transaction_data.ticket_url // Adicionado para redirecionamento nativo
                 }),
                 { headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );

@@ -40,6 +40,15 @@ const CheckoutSuccess: React.FC = () => {
           .single();
 
         if (error) throw error;
+        
+        // Merge with session state if available for better experience
+        const state = location.state as any;
+        if (state && data) {
+          data.pix_qr_code = state.qrCode || data.pix_qr_code;
+          data.pix_qr_code_base64 = state.qrCodeBase64 || data.pix_qr_code_base64;
+          data.pix_copy_paste = state.copyPaste || data.pix_copy_paste;
+        }
+        
         setOrder(data);
       } catch (err: any) {
         console.error('Error fetching order:', err);

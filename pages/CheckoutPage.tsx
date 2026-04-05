@@ -164,25 +164,14 @@ const CheckoutPage: React.FC = () => {
             }
 
             if (paymentMethod === 'pix') {
-                if (!paymentResult.qr_code_base64) {
-                    throw new Error('Erro ao gerar QR Code do PIX. Tente novamente.');
+                if (!paymentResult.ticket_url) {
+                    throw new Error('Erro ao gerar link do PIX. Tente novamente.');
                 }
                 
-                // Salvar dados do PIX no pedido para persistência na página de sucesso
-                const { error: updateError } = await supabase
-                    .from('orders')
-                    .update({
-                        pix_qr_code: paymentResult.qr_code,
-                        pix_qr_code_base64: paymentResult.qr_code_base64,
-                        pix_copy_paste: paymentResult.copy_paste || paymentResult.qr_code
-                    })
-                    .eq('id', orderId);
-
-                if (updateError) console.error('Error saving PIX data:', updateError);
-
                 clearCart();
-                navigate(`/checkout/success/${orderId}`);
-                toast.success('Pedido gerado! Conclua o PIX para finalizar.');
+                // Redirecionamento direto para a página de finalização do Mercado Pago (Ticket PIX)
+                window.location.href = paymentResult.ticket_url;
+                toast.success('Redirecionando para o pagamento...');
             } else {
                 // Checkout Pro Redirect
                 if (!paymentResult.init_point) {
@@ -402,55 +391,22 @@ const CheckoutPage: React.FC = () => {
                                 <CreditCard className="w-6 h-6 text-[#FBC02D]" />
                                 Pagamento
                             </h3>
-                            {pixData ? (
-                                <div className="text-center space-y-6">
-                                    <div className="bg-slate-50 p-6 rounded-3xl inline-block">
-                                        <img src={`data:image/jpeg;base64,${pixData.qr_code_base64}`} alt="PIX QR Code" className="w-48 h-48 mx-auto" />
-                                    </div>
-                                    <div className="space-y-4">
-                                        <p className="text-sm font-bold text-slate-600">Escaneie o QR Code ou copie a chave abaixo:</p>
-                                        <div className="flex gap-2">
-                                            <input
-                                                readOnly
-                                                value={pixData.copy_paste}
-                                                className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs font-mono flex-grow outline-none"
-                                            />
-                                            <button
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(pixData.copy_paste);
-                                                    toast.success('Código PIX copiado!');
-                                                }}
-                                                className="bg-[#0B1221] text-white px-4 rounded-xl text-[10px] font-black uppercase"
-                                            >
-                                                Copiar
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="pt-6 border-t border-slate-50">
-                                        <p className="text-xs font-bold text-slate-400 flex items-center justify-center gap-2">
-                                            <Loader2 className="w-3 h-3 animate-spin" />
-                                            Aguardando confirmação do pagamento...
-                                        </p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 gap-4">
-                                    <button
-                                        onClick={() => setPaymentMethod('credit')}
-                                        className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${paymentMethod === 'credit' ? 'border-[#FBC02D] bg-amber-50/30' : 'border-slate-100 hover:border-slate-200'}`}
-                                    >
-                                        <CreditCard className={`w-8 h-8 ${paymentMethod === 'credit' ? 'text-[#FBC02D]' : 'text-slate-300'}`} />
-                                        <span className="text-xs font-black uppercase tracking-widest">Cartão de Crédito</span>
-                                    </button>
-                                    <button
-                                        onClick={() => setPaymentMethod('pix')}
-                                        className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${paymentMethod === 'pix' ? 'border-[#FBC02D] bg-amber-50/30' : 'border-slate-100 hover:border-slate-200'}`}
-                                    >
-                                        <div className={`w-8 h-8 flex items-center justify-center font-black rounded-lg ${paymentMethod === 'pix' ? 'bg-[#FBC02D] text-[#0B1221]' : 'bg-slate-100 text-slate-300'}`}>PIX</div>
-                                        <span className="text-xs font-black uppercase tracking-widest">Pix</span>
-                                    </button>
-                                </div>
-                            )}
+                            <div className="grid grid-cols-2 gap-4">
+                                <button
+                                    onClick={() => setPaymentMethod('credit')}
+                                    className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${paymentMethod === 'credit' ? 'border-[#FBC02D] bg-amber-50/30' : 'border-slate-100 hover:border-slate-200'}`}
+                                >
+                                    <CreditCard className={`w-8 h-8 ${paymentMethod === 'credit' ? 'text-[#FBC02D]' : 'text-slate-300'}`} />
+                                    <span className="text-xs font-black uppercase tracking-widest">Cartão de Crédito</span>
+                                </button>
+                                <button
+                                    onClick={() => setPaymentMethod('pix')}
+                                    className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${paymentMethod === 'pix' ? 'border-[#FBC02D] bg-amber-50/30' : 'border-slate-100 hover:border-slate-200'}`}
+                                >
+                                    <div className={`w-8 h-8 flex items-center justify-center font-black rounded-lg ${paymentMethod === 'pix' ? 'bg-[#FBC02D] text-[#0B1221]' : 'bg-slate-100 text-slate-300'}`}>PIX</div>
+                                    <span className="text-xs font-black uppercase tracking-widest">Pix</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
