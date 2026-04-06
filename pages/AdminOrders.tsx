@@ -38,10 +38,17 @@ const AdminOrders: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'shipped' | 'cancelled'>('all');
+    const [currentPage, setCurrentPage] = useState(1);
+    const ordersPerPage = 10;
 
     useEffect(() => {
         fetchOrders();
     }, []);
+
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter]);
 
     const fetchOrders = async () => {
         setIsLoading(true);
@@ -75,8 +82,7 @@ const AdminOrders: React.FC = () => {
             const { error } = await supabase
                 .from('orders')
                 .update(updateData)
-                .eq('id', orderId)
-                .eq('organization_id', ORGANIZATION_ID);
+                .eq('id', orderId);
 
             if (error) throw error;
             toast.success(`Pedido atualizado para ${newStatus}!`);
@@ -90,15 +96,34 @@ const AdminOrders: React.FC = () => {
     const filteredOrders = orders.filter(order => {
         const matchesSearch = order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             order.id.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+        
+        let matchesStatus = true;
+        if (statusFilter !== 'all') {
+            if (statusFilter === 'pending') {
+                matchesStatus = order.status === 'pending' || order.status === 'Pendente';
+            } else if (statusFilter === 'shipped') {
+                matchesStatus = order.status === 'shipped' || order.status === 'Enviado';
+            } else if (statusFilter === 'completed') {
+                matchesStatus = order.status === 'completed' || order.status === 'Pago' || order.status === 'Entregue';
+            } else if (statusFilter === 'cancelled') {
+                matchesStatus = order.status === 'cancelled' || order.status === 'Cancelado';
+            }
+        }
+        
         return matchesSearch && matchesStatus;
     });
 
+    // Pagination calculations
+    const indexOfLastOrder = currentPage * ordersPerPage;
+    const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
+    const paginatedOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+    const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
+
     const stats = {
         total: orders.length,
-        pending: orders.filter(o => o.status === 'pending').length,
-        revenue: orders.filter(o => o.status === 'completed').reduce((acc, curr) => acc + curr.total_amount, 0),
-        shipped: orders.filter(o => o.status === 'shipped').length
+        pending: orders.filter(o => o.status === 'pending' || o.status === 'Pendente').length,
+        revenue: orders.filter(o => o.status === 'completed' || o.status === 'Pago' || o.status === 'Entregue').reduce((acc, curr) => acc + curr.total_amount, 0),
+        shipped: orders.filter(o => o.status === 'shipped' || o.status === 'Enviado').length
     };
 
     if (isLoading) {
@@ -186,11 +211,11 @@ const AdminOrders: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                                {filteredOrders.length > 0 ? filteredOrders.map((order) => (
+                                {paginatedOrders.length > 0 ? paginatedOrders.map((order) => (
                                     <tr key={order.id} className="group hover:bg-slate-50/30 transition-all">
                                         <td className="py-6 px-10">
                                             <div>
-                                                <p className="font-black text-[#05080F] text-sm">{order.customer_name || 'Cliente de Teste'}</p>
+                                                <p className="font-black text-[#05080F] text-sm">{order.customer_name || 'Cliente'}</p>
                                                 <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tight">#{order.id.replace(/^#/, '').slice(0, 8)}</p>
                                             </div>
                                         </td>
@@ -212,55 +237,57 @@ const AdminOrders: React.FC = () => {
                                             <p className="text-[10px] font-bold text-slate-400">{order.items_count} Itens</p>
                                         </td>
                                         <td className="py-6 px-4">
-                                            <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider ${order.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                                            <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                                order.status === 'completed' || order.status === 'Pago' || order.status === 'Entregue' ? 'bg-emerald-50 text-emerald-600' :
                                                 order.status === 'Enviado' || order.status === 'shipped' ? 'bg-purple-50 text-purple-600' :
-                                                    order.status === 'Cancelado' || order.status === 'cancelled' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'
-                                                }`}>
-                                                <div className={`w-1.5 h-1.5 rounded-full ${order.status === 'Pago' || order.status === 'completed' ? 'bg-emerald-500' :
+                                                order.status === 'Cancelado' || order.status === 'cancelled' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'
+                                            }`}>
+                                                <div className={`w-1.5 h-1.5 rounded-full ${
+                                                    order.status === 'completed' || order.status === 'Pago' || order.status === 'Entregue' ? 'bg-emerald-500' :
                                                     order.status === 'Enviado' || order.status === 'shipped' ? 'bg-purple-500' :
-                                                        order.status === 'Cancelado' || order.status === 'cancelled' ? 'bg-red-500' : 'bg-amber-500'
-                                                    }`}></div>
+                                                    order.status === 'Cancelado' || order.status === 'cancelled' ? 'bg-red-500' : 'bg-amber-500'
+                                                }`}></div>
                                                 {order.status === 'pending' || order.status === 'Pendente' ? 'Pendente' :
-                                                    order.status === 'shipped' || order.status === 'Enviado' ? 'Enviado' :
-                                                        order.status === 'completed' || order.status === 'Pago' ? 'Pago' : 'Cancelado'}
+                                                 order.status === 'shipped' || order.status === 'Enviado' ? 'Enviado' :
+                                                 order.status === 'completed' || order.status === 'Pago' || order.status === 'Entregue' ? 'Concluído' : 'Cancelado'}
                                             </span>
                                         </td>
                                         <td className="py-6 px-10 text-right">
-                                                <div className="flex flex-col gap-2">
-                                                    {(order.status === 'Pendente' || order.status === 'pending') && (
-                                                        <>
-                                                            <button 
-                                                                onClick={() => updateOrderStatus(order.id, 'Pago', 'paid')}
-                                                                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase hover:bg-emerald-600 transition-all"
-                                                                title="Marcar como Pago"
-                                                            >
-                                                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                                                PAGO
-                                                            </button>
-                                                            <button 
-                                                                onClick={() => updateOrderStatus(order.id, 'Cancelado')}
-                                                                className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[9px] font-black uppercase hover:bg-red-100 transition-all"
-                                                                title="Cancelar Pedido"
-                                                            >
-                                                                <XCircle className="w-3.5 h-3.5" />
-                                                                CANCELAR
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                    {(order.status === 'Pago' || order.status === 'completed') && (
+                                            <div className="flex flex-col gap-2">
+                                                {(order.status === 'Pendente' || order.status === 'pending') && (
+                                                    <>
                                                         <button 
-                                                            onClick={() => updateOrderStatus(order.id, 'Enviado')}
-                                                            className="flex items-center gap-2 px-3 py-1.5 bg-[#05080F] text-white rounded-lg text-[9px] font-black uppercase hover:bg-slate-800 transition-all"
-                                                            title="Marcar como Enviado"
+                                                            onClick={() => updateOrderStatus(order.id, 'Pago', 'paid')}
+                                                            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase hover:bg-emerald-600 transition-all"
+                                                            title="Marcar como Pago"
                                                         >
-                                                            <Truck className="w-3.5 h-3.5" />
-                                                            ENVIAR
+                                                            <CheckCircle2 className="w-3.5 h-3.5" />
+                                                            PAGO
                                                         </button>
-                                                    )}
-                                                    <button className="flex items-center justify-center p-2 bg-slate-50 text-slate-400 rounded-lg hover:text-[#05080F] transition-all">
-                                                        <Eye className="w-4 h-4" />
+                                                        <button 
+                                                            onClick={() => updateOrderStatus(order.id, 'Cancelado')}
+                                                            className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[9px] font-black uppercase hover:bg-red-100 transition-all"
+                                                            title="Cancelar Pedido"
+                                                        >
+                                                            <XCircle className="w-3.5 h-3.5" />
+                                                            CANCELAR
+                                                        </button>
+                                                    </>
+                                                )}
+                                                {(order.status === 'Pago' || order.status === 'completed') && (
+                                                    <button 
+                                                        onClick={() => updateOrderStatus(order.id, 'Enviado')}
+                                                        className="flex items-center gap-2 px-3 py-1.5 bg-[#05080F] text-white rounded-lg text-[9px] font-black uppercase hover:bg-slate-800 transition-all"
+                                                        title="Marcar como Enviado"
+                                                    >
+                                                        <Truck className="w-3.5 h-3.5" />
+                                                        ENVIAR
                                                     </button>
-                                                </div>
+                                                )}
+                                                <button className="flex items-center justify-center p-2 bg-slate-50 text-slate-400 rounded-lg hover:text-[#05080F] transition-all">
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 )) : (
@@ -276,6 +303,42 @@ const AdminOrders: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Pagination Control */}
+                    {totalPages > 1 && (
+                        <div className="p-6 md:p-10 bg-slate-50/30 border-t border-slate-50 flex flex-col sm:flex-row justify-between items-center gap-6">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                Página {currentPage} de {totalPages} — {filteredOrders.length} Pedidos
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-4 py-2 border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white disabled:opacity-30 transition-all hover:bg-slate-50"
+                                >
+                                    Anterior
+                                </button>
+                                <div className="flex items-center gap-1">
+                                    {[...Array(totalPages)].map((_, i) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => setCurrentPage(i + 1)}
+                                            className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${currentPage === i + 1 ? 'bg-[#FBC02D] text-white' : 'hover:bg-slate-50 text-slate-400'}`}
+                                        >
+                                            {i + 1}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-4 py-2 border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white disabled:opacity-30 transition-all hover:bg-slate-50"
+                                >
+                                    Próximo
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </AdminLayout>
