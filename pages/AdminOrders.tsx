@@ -71,7 +71,6 @@ const AdminOrders: React.FC = () => {
 
     const updateOrderStatus = async (orderId: string, newStatus: Order['status'], paymentStatus?: Order['payment_status']) => {
         try {
-            const formattedId = orderId.startsWith('#') ? orderId : `#${orderId}`;
             const updateData: any = { status: newStatus };
             if (paymentStatus) {
                 updateData.payment_status = paymentStatus;
@@ -83,7 +82,7 @@ const AdminOrders: React.FC = () => {
             const { error } = await supabase
                 .from('orders')
                 .update(updateData)
-                .eq('id', formattedId);
+                .eq('id', orderId);
 
             if (error) throw error;
             toast.success(`Pedido atualizado para ${newStatus}!`);
