@@ -70,25 +70,38 @@ const AdminOrders: React.FC = () => {
     };
 
     const updateOrderStatus = async (orderId: string, newStatus: Order['status'], paymentStatus?: Order['payment_status']) => {
+        console.log('🚀 [DEBUG] Botão clicado para o pedido:', orderId);
         try {
-            const updateData: any = { status: newStatus };
+            const updateData: any = { 
+                status: newStatus,
+                updated_at: new Date().toISOString()
+            };
+            
             if (paymentStatus) {
                 updateData.payment_status = paymentStatus;
                 if (paymentStatus === 'paid') {
-                    updateData.payment_status_detail = 'Accreditated Manual';
+                    updateData.payment_status_detail = 'Accreditated Manual (Admin UI)';
                 }
             }
 
-            const { error } = await supabase
+            console.log('📡 [DEBUG] Enviando para o Supabase...', updateData);
+
+            const { error, status, statusText } = await supabase
                 .from('orders')
                 .update(updateData)
                 .eq('id', orderId);
 
-            if (error) throw error;
+            console.log('📥 [DEBUG] Resposta do Banco:', { status, statusText, error });
+
+            if (error) {
+                console.error('❌ [DEBUG] Erro retornado pela API:', error);
+                throw error;
+            }
+
             toast.success(`Pedido atualizado para ${newStatus}!`);
             fetchOrders();
         } catch (error) {
-            console.error('Error updating order status:', error);
+            console.error('💥 [DEBUG] Erro capturado no catch:', error);
             toast.error('Erro ao atualizar status.');
         }
     };
