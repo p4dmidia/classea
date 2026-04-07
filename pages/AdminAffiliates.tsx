@@ -569,7 +569,7 @@ const AdminAffiliates: React.FC = () => {
                             </button>
                         </div>
                         <div className="flex-grow overflow-y-auto p-4 md:p-10 bg-slate-50/30">
-                            <AffiliateNetwork startAffiliateId={viewingNetworkId} />
+                            <AffiliateNetwork rootAffiliateId={viewingNetworkId} />
                         </div>
                     </div>
                 </div>
