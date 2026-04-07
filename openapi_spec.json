@@ -1713,6 +1713,12 @@
             "$ref": "#/parameters/rowFilter.consortium_groups.created_at"
           },
           {
+            "$ref": "#/parameters/rowFilter.consortium_groups.organization_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.consortium_groups.product_id"
+          },
+          {
             "$ref": "#/parameters/select"
           },
           {
@@ -1797,6 +1803,12 @@
             "$ref": "#/parameters/rowFilter.consortium_groups.created_at"
           },
           {
+            "$ref": "#/parameters/rowFilter.consortium_groups.organization_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.consortium_groups.product_id"
+          },
+          {
             "$ref": "#/parameters/preferReturn"
           }
         ],
@@ -1831,6 +1843,12 @@
           },
           {
             "$ref": "#/parameters/rowFilter.consortium_groups.created_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.consortium_groups.organization_id"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.consortium_groups.product_id"
           },
           {
             "$ref": "#/parameters/body.consortium_groups"
@@ -3716,6 +3734,15 @@
             "$ref": "#/parameters/rowFilter.consortium_participants.joined_at"
           },
           {
+            "$ref": "#/parameters/rowFilter.consortium_participants.customer_name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.consortium_participants.customer_cpf"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.consortium_participants.customer_email"
+          },
+          {
             "$ref": "#/parameters/select"
           },
           {
@@ -3797,6 +3824,15 @@
             "$ref": "#/parameters/rowFilter.consortium_participants.joined_at"
           },
           {
+            "$ref": "#/parameters/rowFilter.consortium_participants.customer_name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.consortium_participants.customer_cpf"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.consortium_participants.customer_email"
+          },
+          {
             "$ref": "#/parameters/preferReturn"
           }
         ],
@@ -3828,6 +3864,15 @@
           },
           {
             "$ref": "#/parameters/rowFilter.consortium_participants.joined_at"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.consortium_participants.customer_name"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.consortium_participants.customer_cpf"
+          },
+          {
+            "$ref": "#/parameters/rowFilter.consortium_participants.customer_email"
           },
           {
             "$ref": "#/parameters/body.consortium_participants"
@@ -5985,6 +6030,16 @@
           "default": "now()",
           "format": "timestamp with time zone",
           "type": "string"
+        },
+        "organization_id": {
+          "description": "Note:\nThis is a Foreign Key to `organizations.id`.<fk table='organizations' column='id'/>",
+          "format": "uuid",
+          "type": "string"
+        },
+        "product_id": {
+          "description": "Note:\nThis is a Foreign Key to `products.id`.<fk table='products' column='id'/>",
+          "format": "uuid",
+          "type": "string"
         }
       },
       "type": "object"
@@ -6602,6 +6657,7 @@
           "type": "string"
         },
         "user_id": {
+          "description": "Note:\nThis is a Foreign Key to `user_profiles.id`.<fk table='user_profiles' column='id'/>",
           "format": "uuid",
           "type": "string"
         },
@@ -6617,6 +6673,18 @@
         "joined_at": {
           "default": "now()",
           "format": "timestamp with time zone",
+          "type": "string"
+        },
+        "customer_name": {
+          "format": "text",
+          "type": "string"
+        },
+        "customer_cpf": {
+          "format": "text",
+          "type": "string"
+        },
+        "customer_email": {
+          "format": "text",
           "type": "string"
         }
       },
@@ -7752,6 +7820,18 @@
       "in": "query",
       "type": "string"
     },
+    "rowFilter.consortium_groups.organization_id": {
+      "name": "organization_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.consortium_groups.product_id": {
+      "name": "product_id",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
     "body.site_configs": {
       "name": "site_configs",
       "description": "site_configs",
@@ -8522,6 +8602,24 @@
     },
     "rowFilter.consortium_participants.joined_at": {
       "name": "joined_at",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.consortium_participants.customer_name": {
+      "name": "customer_name",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.consortium_participants.customer_cpf": {
+      "name": "customer_cpf",
+      "required": false,
+      "in": "query",
+      "type": "string"
+    },
+    "rowFilter.consortium_participants.customer_email": {
+      "name": "customer_email",
       "required": false,
       "in": "query",
       "type": "string"

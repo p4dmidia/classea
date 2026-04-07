@@ -3,6 +3,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Header from './components/Header';
 import ConsorcioLanding from './pages/ConsorcioLanding';
+import ConsorcioTracking from './pages/ConsorcioTracking';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
 import ShopPage from './pages/ShopPage';
@@ -51,6 +52,7 @@ const AppContent: React.FC = () => {
           <Route path="/loja" element={<ShopPage />} />
           <Route path="/consorcio" element={<ConsorcioLanding />} />
           <Route path="/consorcio/termos" element={<ConsorcioTerms />} />
+          <Route path="/meu-consorcio" element={<ConsorcioTracking />} />
           <Route path="/p/:id" element={<ProductDetails />} />
            <Route path="/checkout" element={<CheckoutPage />} />
            <Route path="/checkout/success/:orderId" element={<CheckoutSuccess />} />
