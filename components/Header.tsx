@@ -80,6 +80,7 @@ const Header: React.FC = () => {
           <Link to="/" className="hover:text-[#FBC02D]">Home</Link>
           <Link to="/shop" className="hover:text-[#FBC02D]">Loja</Link>
           <Link to="/consorcio" className="hover:text-[#FBC02D]">Consórcio</Link>
+          <Link to="/meu-consorcio" className="hover:text-[#FBC02D]">Acompanhar Consórcio</Link>
           <Link to="/register" className="hover:text-[#FBC02D]">Cadastre-se</Link>
         </nav>
 
@@ -225,6 +226,7 @@ const Header: React.FC = () => {
             <Link to="/" onClick={() => setIsMenuOpen(false)} className="hover:text-[#FBC02D]">Home</Link>
             <Link to="/shop" onClick={() => setIsMenuOpen(false)} className="hover:text-[#FBC02D]">Loja</Link>
             <Link to="/consorcio" onClick={() => setIsMenuOpen(false)} className="hover:text-[#FBC02D]">Consórcio</Link>
+            <Link to="/meu-consorcio" onClick={() => setIsMenuOpen(false)} className="hover:text-[#FBC02D]">Acompanhar Consórcio</Link>
             <Link to="/register" onClick={() => setIsMenuOpen(false)} className="hover:text-[#FBC02D]">Cadastre-se</Link>
             <Link to="/login" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 text-[#FBC02D]">
               <User className="w-6 h-6" />

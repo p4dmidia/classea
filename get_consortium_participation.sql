@@ -24,8 +24,8 @@ BEGIN
     INTO v_participant
     FROM public.consortium_participants p
     JOIN public.consortium_groups g ON p.group_id = g.id
-    WHERE p.customer_cpf = p_cpf
-    ORDER BY p.created_at DESC
+    WHERE regexp_replace(p.customer_cpf, '\D', '', 'g') = regexp_replace(p_cpf, '\D', '', 'g')
+    ORDER BY p.joined_at DESC
     LIMIT 1;
 
     -- Se não encontrar, retorna nulo

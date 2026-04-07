@@ -44,7 +44,7 @@ const Footer: React.FC = () => {
               <li><a href="#" className="hover:text-[#FBC02D] transition-colors">Sobre Nós</a></li>
               <li><a href="#" className="hover:text-[#FBC02D] transition-colors">Negócio Classe A (MMN)</a></li>
               <li><a href="#" className="hover:text-[#FBC02D] transition-colors">Seja um Afiliado</a></li>
-              <li><a href="/meu-consorcio" className="hover:text-[#FBC02D] transition-colors font-bold">Acompanhar Consórcio</a></li>
+              <li><a href="/meu-consorcio" className="inline-block mt-4 bg-[#0B1221] text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#FBC02D] hover:text-[#0B1221] transition-all shadow-lg shadow-black/5">Acompanhar Consórcio</a></li>
               <li><a href="#" className="hover:text-[#FBC02D] transition-colors">Política de Privacidade</a></li>
               <li><a href="#" className="hover:text-[#FBC02D] transition-colors">Termos de Uso</a></li>
             </ul>

@@ -5350,6 +5350,45 @@
         ]
       }
     },
+    "/rpc/get_consortium_by_cpf": {
+      "post": {
+        "parameters": [
+          {
+            "in": "body",
+            "name": "args",
+            "required": true,
+            "schema": {
+              "properties": {
+                "p_cpf": {
+                  "format": "text",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "p_cpf"
+              ],
+              "type": "object"
+            }
+          },
+          {
+            "$ref": "#/parameters/preferParams"
+          }
+        ],
+        "produces": [
+          "application/json",
+          "application/vnd.pgrst.object+json;nulls=stripped",
+          "application/vnd.pgrst.object+json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "(rpc) get_consortium_by_cpf"
+        ]
+      }
+    },
     "/rpc/is_consortium_member": {
       "post": {
         "parameters": [
