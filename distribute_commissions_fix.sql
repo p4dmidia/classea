@@ -14,6 +14,8 @@ DECLARE
     v_gen_count integer := 0;
     v_active_gens integer;
     v_target_user_id uuid;
+    v_is_master boolean := false;
+    v_config_key text;
 BEGIN
     -- Only process if status changed to 'Pago'
     IF (OLD.status IS NULL OR OLD.status != 'Pago') AND NEW.status = 'Pago' THEN
@@ -23,18 +25,33 @@ BEGIN
             RETURN NEW;
         END IF;
 
-        -- Get configuration (Default to 'geral')
-        -- Strictly filtered by organization_id if possible, though config is usually global or shared.
-        -- Assuming key 'geral' is the fallback.
-        SELECT * INTO v_config FROM public.commission_configs WHERE key = 'geral';
+        -- 1. Identify product type (Master/Mattress vs Livre Escolha/Geral)
+        SELECT EXISTS (
+            SELECT 1 FROM public.order_items oi
+            JOIN public.products p ON oi.product_id = p.id
+            LEFT JOIN public.product_categories pc ON p.category_id = pc.id
+            WHERE oi.order_id = NEW.id
+            AND (p.name ILIKE '%Colchão%' OR pc.name ILIKE '%Colchão%')
+        ) INTO v_is_master;
+
+        v_config_key := CASE WHEN v_is_master THEN 'mattress' ELSE 'geral' END;
+
+        -- 2. Get configuration
+        SELECT * INTO v_config FROM public.commission_configs WHERE key = v_config_key;
+        
+        IF v_config IS NULL THEN
+            -- Fallback to 'geral' if specific not found
+            SELECT * INTO v_config FROM public.commission_configs WHERE key = 'geral';
+        END IF;
+
         IF v_config IS NULL THEN
             RETURN NEW;
         END IF;
 
         v_active_gens := v_config.active_generations;
 
-        -- 1. Identify the initial affiliate (the one who referred the sale)
-        -- priority 1: referral_code in the order (CASE INSENSITIVE)
+        -- 3. Identify the initial affiliate (the one who referred the sale)
+        -- priority 1: referral_code in the order
         IF NEW.referral_code IS NOT NULL AND NEW.referral_code != '' THEN
             SELECT * INTO v_affiliate FROM public.affiliates 
             WHERE LOWER(referral_code) = LOWER(NEW.referral_code) 
@@ -42,8 +59,7 @@ BEGIN
             LIMIT 1;
         END IF;
 
-        -- priority 2: buyer's sponsor in user_profiles
-        -- Fix: Join sponsor_id (User UUID) with affiliates.user_id (User UUID)
+        -- priority 2: buyer's sponsor
         IF v_affiliate IS NULL AND NEW.user_id IS NOT NULL THEN
             SELECT a.* INTO v_affiliate 
             FROM public.affiliates a
@@ -58,10 +74,10 @@ BEGIN
             RETURN NEW;
         END IF;
 
-        -- Initialize the sponsor chain with the found affiliate's ID (the one who gets Level 1)
+        -- Initialize the sponsor chain with the found affiliate's ID (Level 1)
         v_current_sponsor_id := v_affiliate.id;
 
-        -- 2. Distribute through levels
+        -- 4. Distribute through levels
         WHILE v_gen_count < v_active_gens AND v_current_sponsor_id IS NOT NULL LOOP
             v_gen_count := v_gen_count + 1;
             
@@ -72,17 +88,16 @@ BEGIN
 
             IF v_commission_amount IS NOT NULL AND v_commission_amount > 0 THEN
                 
-                -- Calculate amount
+                -- Calculate amount (Total amount of order)
                 IF v_config.type = 'percent' THEN
                     v_commission_amount := NEW.total_amount * (v_commission_amount / 100);
                 END IF;
 
-                -- Get the user_id of the current sponsor to pay them
+                -- Get the user_id of the current sponsor
                 SELECT user_id INTO v_target_user_id FROM public.affiliates WHERE id = v_current_sponsor_id;
 
                 IF v_target_user_id IS NOT NULL THEN
-                    -- Update balances (User Settings table)
-                    -- We update the user balance for the given user_id
+                    -- Update balances
                     UPDATE public.user_settings 
                     SET 
                         total_earnings = total_earnings + v_commission_amount,
@@ -106,7 +121,7 @@ BEGIN
                         v_commission_amount,
                         v_gen_count,
                         v_config.type,
-                        'Comissão de Geração ' || v_gen_count || ' - Pedido ' || NEW.id
+                        'Comissão ' || v_config_key || ' Geração ' || v_gen_count || ' - Pedido ' || NEW.id
                     );
                 END IF;
             END IF;

@@ -41,7 +41,7 @@ BEGIN
             (
                 SELECT lucky_number 
                 FROM public.consortium_participants 
-                WHERE id = d.winner_participant_id
+                WHERE id = d.winner_id
             ) as winner_lucky_number
         FROM public.consortium_draws d
         WHERE d.group_id = v_participant.group_id
