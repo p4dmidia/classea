@@ -1,39 +1,37 @@
--- CORREÇÃO DA AUTOMAÇÃO DE GRUPOS DE CONSÓRCIO
--- 1. AJUSTES DE SCHEMA (Estrutura)
--- Adiciona o product_id nos grupos para agrupar por produto específico
+-- FIX CONSORTIUM AUTOMATION LOGIC
+-- 1. ADAPT SCHEMA
 ALTER TABLE public.consortium_groups 
 ADD COLUMN IF NOT EXISTS product_id uuid REFERENCES public.products(id);
 
--- Adiciona campos do cliente nos participantes para suportar quem não tem conta
 ALTER TABLE public.consortium_participants 
 ADD COLUMN IF NOT EXISTS customer_name text,
 ADD COLUMN IF NOT EXISTS customer_cpf text,
 ADD COLUMN IF NOT EXISTS customer_email text;
 
--- Torna o user_id opcional (pode ser NULL para convidados)
 ALTER TABLE public.consortium_participants 
 ALTER COLUMN user_id DROP NOT NULL;
 
--- Remove a trava que impedia a mesma pessoa de entrar no mesmo grupo várias vezes
+-- Remove the unique constraint that prevents same user from joining group multiple times
 DO $$ 
 BEGIN 
+    -- Try to find and drop the unique constraint on (group_id, user_id)
     EXECUTE (
         SELECT 'ALTER TABLE public.consortium_participants DROP CONSTRAINT ' || quote_ident(conname)
         FROM pg_constraint 
         WHERE conrelid = 'public.consortium_participants'::regclass 
         AND contype = 'u' 
-        AND conkey @> (
-            SELECT array_agg(attnum) 
+        AND conkey = (
+            SELECT array_agg(attnum ORDER BY attnum) 
             FROM pg_attribute 
             WHERE attrelid = 'public.consortium_participants'::regclass 
             AND attname IN ('group_id', 'user_id')
         )
     );
 EXCEPTION WHEN OTHERS THEN 
-    NULL;
+    RAISE NOTICE 'Constraint group_id_user_id not found or already dropped';
 END $$;
 
--- 2. ATUALIZAÇÃO DA FUNÇÃO DE PROCESSAMENTO
+-- 2. UPDATE PROCESSING FUNCTION
 CREATE OR REPLACE FUNCTION public.handle_consortium_purchase()
 RETURNS trigger AS $$
 DECLARE
@@ -72,13 +70,13 @@ BEGIN
             AND g.product_id = v_item.product_id  -- AGRUPAMENTO POR PRODUTO
             AND g.organization_id = NEW.organization_id
             AND g.current_participants < v_max_p
-            ORDER BY g.created_at ASC   -- Pega o primeiro que foi criado para preencher totalmente
+            ORDER BY g.created_at ASC   -- Pega o primeiro que foi criado para preencher
             LIMIT 1;
 
             -- Se não houver grupo aberto para este produto, cria um novo
             IF v_group_id IS NULL THEN
                 v_group_name := 'Grupo ' || v_item.p_name || ' #' || 
-                    (SELECT count(*) + 1 FROM public.consortium_groups WHERE product_id = v_item.product_id AND organization_id = NEW.organization_id);
+                    (SELECT count(*) + 1 FROM public.consortium_groups WHERE product_id = v_item.product_id);
 
                 INSERT INTO public.consortium_groups (
                     name,
@@ -108,7 +106,7 @@ BEGIN
             ORDER BY next_num ASC
             LIMIT 1;
 
-            -- Adiciona o participante (identificando por CPF/Nome para suportar clientes convidados)
+            -- Adiciona o participante (identificando por CPF/Nome para suportar convidados)
             IF v_lucky_number IS NOT NULL THEN
                 INSERT INTO public.consortium_participants (
                     group_id,
