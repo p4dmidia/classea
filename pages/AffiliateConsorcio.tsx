@@ -56,7 +56,7 @@ const AffiliateConsorcio: React.FC = () => {
                         *,
                         winner:consortium_participants (
                             lucky_number,
-                            user:auth.users (email)
+                            user:user_profiles (email)
                         )
                     `)
                     .eq('group_id', partData.group_id)

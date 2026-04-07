@@ -23,7 +23,7 @@ serve(async (req) => {
         const { data: order, error: orderError } = await supabase
             .from("orders")
             .select("*, order_items(*)")
-            .eq("id", orderId)
+            .or(`id.eq.${orderId},id.eq.#${orderId.replace(/^#/, '')}`)
             .single();
 
         if (orderError || !order) {

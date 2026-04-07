@@ -88,7 +88,7 @@ const AdminConsorcio: React.FC = () => {
                     user_id,
                     lucky_number,
                     consortium_groups (name),
-                    user:auth.users (email)
+                    user:user_profiles (email)
                 `);
 
             if (pError) throw pError;
@@ -121,7 +121,7 @@ const AdminConsorcio: React.FC = () => {
                     *,
                     winner:consortium_participants(
                         lucky_number,
-                        user:auth.users(email)
+                        user:user_profiles(email)
                     )
                 `)
                 .order('created_at', { ascending: false });

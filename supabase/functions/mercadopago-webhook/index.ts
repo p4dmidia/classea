@@ -115,7 +115,7 @@ serve(async (req) => {
                         payment_status_detail: payment.status_detail,
                         updated_at: new Date().toISOString()
                     })
-                    .eq("id", orderId)
+                    .or(`id.eq.${orderId},id.eq.#${orderId.replace(/^#/, '')}`)
                     .select()
                     .maybeSingle();
 
