@@ -36,13 +36,14 @@ const AdminDashboard: React.FC = () => {
     const fetchDashboardData = async () => {
         setIsLoading(true);
         try {
-            // 1. Total Sales
+            // 1. Total Sales from Orders
             const { data: salesData } = await supabase
-                .from('company_purchases')
-                .select('purchase_value')
-                .eq('organization_id', ORGANIZATION_ID);
+                .from('orders')
+                .select('total_amount')
+                .eq('organization_id', ORGANIZATION_ID)
+                .eq('status', 'Pago');
 
-            const totalSales = salesData?.reduce((acc, curr) => acc + Number(curr.purchase_value), 0) || 0;
+            const totalSales = salesData?.reduce((acc, curr) => acc + Number(curr.total_amount), 0) || 0;
             const avgTicket = salesData && salesData.length > 0 ? totalSales / salesData.length : 0;
 
             // 2. New Affiliates (last 30 days)
