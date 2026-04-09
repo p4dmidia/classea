@@ -36,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             if (data && data.organization_id !== ORGANIZATION_ID) {
                 console.error('User belongs to a different organization:', data.organization_id);
-                toast.error('Acesso negado: Este usuário pertence a outro sistema.');
+                toast.error('E-mail ou senha não encontrados.');
                 await supabase.auth.signOut();
                 setProfile(null);
                 setUser(null);

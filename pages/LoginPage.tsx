@@ -56,7 +56,7 @@ const LoginPage: React.FC = () => {
 
                 if (profileError || !profile || profile.organization_id !== ORGANIZATION_ID) {
                     await supabase.auth.signOut();
-                    throw new Error('Acesso negado: Esta conta pertence a outro sistema.');
+                    throw new Error('E-mail ou senha não encontrados.');
                 }
 
                 toast.success('Login realizado com sucesso!', {
