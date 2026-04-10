@@ -44,14 +44,29 @@ const CheckoutPage: React.FC = () => {
 
     React.useEffect(() => {
         if (user) {
-            // Pré-preencher dados se o perfil do usuário puder ser carregado
-            if (user.email) {
-                setCustomerInfo(prev => ({
-                    ...prev,
-                    email: user.email!,
-                    name: user.user_metadata?.full_name || user.user_metadata?.nome || prev.name
-                }));
-            }
+            const fetchProfile = async () => {
+                try {
+                    const { data, error } = await supabase
+                        .from('affiliates')
+                        .select('full_name, email, whatsapp, cpf, address, cep')
+                        .eq('user_id', user.id)
+                        .single();
+
+                    if (data) {
+                        setCustomerInfo({
+                            name: data.full_name || user.user_metadata?.full_name || user.user_metadata?.nome || '',
+                            email: data.email || user.email || '',
+                            phone: data.whatsapp || '',
+                            cpf: data.cpf || '',
+                            address: data.address || '',
+                            cep: data.cep || ''
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error auto-filling profile:', error);
+                }
+            };
+            fetchProfile();
         }
     }, [user]);
 

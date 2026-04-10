@@ -35,9 +35,10 @@ interface PurchaseDetail {
 
 const AffiliateReports: React.FC = () => {
     const { user } = useAuth();
-    const [loading, setLoading] = useState(true);
+    const [reportType, setReportType] = useState<'network' | 'personal'>('network');
     const [selectedPeriod, setSelectedPeriod] = useState(30); // days
     const [selectedGen, setSelectedGen] = useState<string>('all');
+    const [personalOrders, setPersonalOrders] = useState<any[]>([]);
 
     const [stats, setStats] = useState({
         clicks: 0,
@@ -60,9 +61,39 @@ const AffiliateReports: React.FC = () => {
 
     useEffect(() => {
         if (user) {
-            fetchReportsData();
+            if (reportType === 'network') {
+                fetchReportsData();
+            } else {
+                fetchPersonalPurchases();
+            }
         }
-    }, [user, selectedPeriod]);
+    }, [user, selectedPeriod, reportType]);
+
+    const fetchPersonalPurchases = async () => {
+        try {
+            setLoading(true);
+            let query = supabase
+                .from('orders')
+                .select('*')
+                .eq('user_id', user?.id)
+                .order('created_at', { ascending: false });
+
+            if (selectedPeriod > 0) {
+                const dateLimit = new Date();
+                dateLimit.setDate(dateLimit.getDate() - selectedPeriod);
+                query = query.gte('created_at', dateLimit.toISOString());
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+            setPersonalOrders(data || []);
+        } catch (error) {
+            console.error('Error fetching personal orders:', error);
+            toast.error('Erro ao carregar seu histórico de compras.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchReportsData = async () => {
         try {
@@ -195,8 +226,22 @@ const AffiliateReports: React.FC = () => {
                 {/* Header */}
                 <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <h1 className="text-3xl font-black text-[#0B1221]">Relatórios de Desempenho</h1>
-                        <p className="text-slate-500 font-medium">Dados atualizados das suas vendas e rede.</p>
+                        <h1 className="text-3xl font-black text-[#0B1221]">Relatórios & Histórico</h1>
+                        <p className="text-slate-500 font-medium">Acompanhe seu desempenho e suas compras.</p>
+                    </div>
+                    <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
+                        <button
+                            onClick={() => setReportType('network')}
+                            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${reportType === 'network' ? 'bg-white text-[#0B1221] shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            Minha Rede
+                        </button>
+                        <button
+                            onClick={() => setReportType('personal')}
+                            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${reportType === 'personal' ? 'bg-white text-[#0B1221] shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            Minhas Compras
+                        </button>
                     </div>
                     <div className="flex gap-3">
                         <select
@@ -221,138 +266,223 @@ const AffiliateReports: React.FC = () => {
                 </header>
 
                 {/* Main Stats Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {mainStatsDisplay.map((stat, idx) => (
-                        <div key={idx} className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 transition-all group">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className={`p-3 rounded-2xl bg-slate-50 ${stat.color}`}>
-                                    <stat.icon className="w-6 h-6" />
+                {reportType === 'network' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {mainStatsDisplay.map((stat, idx) => (
+                            <div key={idx} className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 transition-all group">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className={`p-3 rounded-2xl bg-slate-50 ${stat.color}`}>
+                                        <stat.icon className="w-6 h-6" />
+                                    </div>
+                                    <div className={`flex items-center text-xs font-bold px-2 py-1 rounded-full ${stat.isPositive ? 'text-emerald-500 bg-emerald-50' : 'text-red-500 bg-red-50'}`}>
+                                        {stat.isPositive ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
+                                        {stat.change}
+                                    </div>
                                 </div>
-                                <div className={`flex items-center text-xs font-bold px-2 py-1 rounded-full ${stat.isPositive ? 'text-emerald-500 bg-emerald-50' : 'text-red-500 bg-red-50'}`}>
-                                    {stat.isPositive ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
-                                    {stat.change}
-                                </div>
+                                <p className="text-slate-400 text-xs font-black uppercase tracking-widest leading-none mb-1">{stat.label}</p>
+                                <h3 className="text-2xl font-black text-[#0B1221]">
+                                    {loading ? '...' : stat.value}
+                                </h3>
                             </div>
-                            <p className="text-slate-400 text-xs font-black uppercase tracking-widest leading-none mb-1">{stat.label}</p>
-                            <h3 className="text-2xl font-black text-[#0B1221]">
-                                {loading ? '...' : stat.value}
+                        ))}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-center">
+                            <p className="text-slate-400 text-xs font-black uppercase tracking-widest leading-none mb-1">Total Gasto</p>
+                            <h3 className="text-3xl font-black text-[#0B1221]">
+                                {formatCurrency(personalOrders.reduce((acc, curr) => acc + (curr.total_amount || 0), 0))}
                             </h3>
                         </div>
-                    ))}
-                </div>
+                        <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-center">
+                            <p className="text-slate-400 text-xs font-black uppercase tracking-widest leading-none mb-1">Pedidos Realizados</p>
+                            <h3 className="text-3xl font-black text-[#0B1221]">
+                                {personalOrders.length}
+                            </h3>
+                        </div>
+                        <div className="bg-[#0B1221] p-8 rounded-[2rem] shadow-lg text-white flex flex-col justify-center">
+                            <p className="text-slate-400 text-xs font-black uppercase tracking-widest leading-none mb-1">Última Compra</p>
+                            <h3 className="text-xl font-black text-[#FBC02D]">
+                                {personalOrders.length > 0 ? new Date(personalOrders[0].created_at).toLocaleDateString() : 'Nenhuma'}
+                            </h3>
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    {/* Generation Breakdown */}
-                    <div className="lg:col-span-5 bg-[#0B1221] rounded-[3rem] p-10 text-white shadow-xl">
-                        <div className="flex items-center justify-between mb-8">
-                            <div className="flex items-center gap-4">
-                                <div className="p-3 bg-white/10 rounded-2xl text-[#FBC02D]">
-                                    <Layers className="w-6 h-6" />
+                    {reportType === 'network' ? (
+                        <>
+                            {/* Generation Breakdown */}
+                            <div className="lg:col-span-5 bg-[#0B1221] rounded-[3rem] p-10 text-white shadow-xl">
+                                <div className="flex items-center justify-between mb-8">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-3 bg-white/10 rounded-2xl text-[#FBC02D]">
+                                            <Layers className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-black">Ganhos por Geração</h3>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sua rede ativa</p>
+                                        </div>
+                                    </div>
+                                    <RefreshCcw
+                                        onClick={fetchReportsData}
+                                        className={`w-4 h-4 cursor-pointer hover:text-[#FBC02D] transition-all ${loading ? 'animate-spin' : ''}`}
+                                    />
                                 </div>
-                                <div>
-                                    <h3 className="text-xl font-black">Ganhos por Geração</h3>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sua rede ativa</p>
+
+                                <div className="space-y-6">
+                                    {generationGains.map((item, idx) => (
+                                        <div key={idx} className="group">
+                                            <div className="flex justify-between items-end mb-2">
+                                                <span className="text-xs font-black uppercase tracking-widest text-[#FBC02D]">{item.gen} Geração</span>
+                                                <span className="text-sm font-black">
+                                                    {loading ? '...' : formatCurrency(item.amount)}
+                                                </span>
+                                            </div>
+                                            <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-[#FBC02D]/40 to-[#FBC02D] rounded-full transition-all duration-1000 origin-left"
+                                                    style={{ width: `${item.percentage}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="mt-10 p-6 bg-white/5 rounded-3xl border border-white/10">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Dica de Crescimento</p>
+                                    <p className="text-xs font-medium text-slate-300 leading-relaxed">
+                                        Recrute mais afiliados diretos para aumentar sua 1ª geração e destravar bônus de liderança em profundidade.
+                                    </p>
                                 </div>
                             </div>
-                            <RefreshCcw
-                                onClick={fetchReportsData}
-                                className={`w-4 h-4 cursor-pointer hover:text-[#FBC02D] transition-all ${loading ? 'animate-spin' : ''}`}
-                            />
-                        </div>
 
-                        <div className="space-y-6">
-                            {generationGains.map((item, idx) => (
-                                <div key={idx} className="group">
-                                    <div className="flex justify-between items-end mb-2">
-                                        <span className="text-xs font-black uppercase tracking-widest text-[#FBC02D]">{item.gen} Geração</span>
-                                        <span className="text-sm font-black">
-                                            {loading ? '...' : formatCurrency(item.amount)}
-                                        </span>
-                                    </div>
-                                    <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-gradient-to-r from-[#FBC02D]/40 to-[#FBC02D] rounded-full transition-all duration-1000 origin-left"
-                                            style={{ width: `${item.percentage}%` }}
-                                        ></div>
+                            {/* Detailed Transaction Table */}
+                            <div className="lg:col-span-7 bg-white rounded-[3rem] p-4 md:p-8 border border-slate-100 shadow-sm flex flex-col">
+                                <div className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-4">
+                                    <h3 className="text-xl font-black text-[#0B1221]">Extrato de Vendas</h3>
+                                    <div className="flex gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                                        {['all', '1ª'].map(f => (
+                                            <button
+                                                key={f}
+                                                onClick={() => setSelectedGen(f)}
+                                                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedGen === f ? 'bg-white shadow-sm text-[#0B1221]' : 'text-slate-400'}`}
+                                            >
+                                                {f === 'all' ? 'Tudo' : f}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
-                            ))}
-                        </div>
 
-                        <div className="mt-10 p-6 bg-white/5 rounded-3xl border border-white/10">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Dica de Crescimento</p>
-                            <p className="text-xs font-medium text-slate-300 leading-relaxed">
-                                Recrute mais afiliados diretos para aumentar sua 1ª geração e destravar bônus de liderança em profundidade.
-                            </p>
-                        </div>
-                    </div>
+                                <div className="overflow-x-auto flex-grow">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="border-b border-slate-50">
+                                                <th className="text-left py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cupom</th>
+                                                <th className="text-left py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor Venda</th>
+                                                <th className="text-left py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Comissão</th>
+                                                <th className="text-right py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50 text-xs">
+                                            {loading ? (
+                                                <tr>
+                                                    <td colSpan={4} className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                                                        Buscando dados no banco...
+                                                    </td>
+                                                </tr>
+                                            ) : purchases.length > 0 ? (
+                                                purchases.map((p) => (
+                                                    <tr key={p.id} className="group hover:bg-slate-50 transition-all">
+                                                        <td className="py-5 px-4 font-bold text-[#0B1221] uppercase">{p.customer_coupon}</td>
+                                                        <td className="py-5 px-4 font-medium text-slate-500">{formatCurrency(p.purchase_value)}</td>
+                                                        <td className="py-5 px-4">
+                                                            <p className="font-black text-emerald-600">+{formatCurrency(p.cashback_generated)}</p>
+                                                        </td>
+                                                        <td className="py-5 px-4 text-right">
+                                                            <p className="text-slate-400 font-bold">{new Date(p.purchase_date).toLocaleDateString()}</p>
+                                                            <p className="text-[10px] text-slate-300 font-bold uppercase">{p.purchase_time}</p>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan={4} className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                                                        Nenhuma venda encontrada para o filtro selecionado.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
 
-                    {/* Detailed Transaction Table */}
-                    <div className="lg:col-span-7 bg-white rounded-[3rem] p-4 md:p-8 border border-slate-100 shadow-sm flex flex-col">
-                        <div className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-4">
-                            <h3 className="text-xl font-black text-[#0B1221]">Extrato de Vendas</h3>
-                            <div className="flex gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                                {['all', '1ª'].map(f => (
-                                    <button
-                                        key={f}
-                                        onClick={() => setSelectedGen(f)}
-                                        className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedGen === f ? 'bg-white shadow-sm text-[#0B1221]' : 'text-slate-400'}`}
-                                    >
-                                        {f === 'all' ? 'Tudo' : f}
-                                    </button>
-                                ))}
+                                <button
+                                    onClick={fetchReportsData}
+                                    className="w-full mt-6 py-4 rounded-2xl border border-dashed border-slate-200 text-slate-400 font-black text-[10px] uppercase tracking-widest hover:border-[#FBC02D] hover:text-[#0B1221] transition-all"
+                                >
+                                    Atualizar Agora
+                                </button>
                             </div>
-                        </div>
+                        </>
+                    ) : (
+                        <div className="lg:col-span-12 bg-white rounded-[3rem] p-4 md:p-8 border border-slate-100 shadow-sm flex flex-col">
+                            <div className="p-4 flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-black text-[#0B1221]">Meus Pedidos</h3>
+                                <div className="p-3 bg-slate-50 rounded-xl text-[#FBC02D]">
+                                    <Clock className="w-5 h-5" />
+                                </div>
+                            </div>
 
-                        <div className="overflow-x-auto flex-grow">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="border-b border-slate-50">
-                                        <th className="text-left py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cupom</th>
-                                        <th className="text-left py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor Venda</th>
-                                        <th className="text-left py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Comissão</th>
-                                        <th className="text-right py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50 text-xs">
-                                    {loading ? (
-                                        <tr>
-                                            <td colSpan={4} className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
-                                                Buscando dados no banco...
-                                            </td>
+                            <div className="overflow-x-auto flex-grow">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-slate-50">
+                                            <th className="text-left py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Pedido ID</th>
+                                            <th className="text-left py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor</th>
+                                            <th className="text-left py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                            <th className="text-left py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Pagamento</th>
+                                            <th className="text-right py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</th>
                                         </tr>
-                                    ) : purchases.length > 0 ? (
-                                        purchases.map((p) => (
-                                            <tr key={p.id} className="group hover:bg-slate-50 transition-all">
-                                                <td className="py-5 px-4 font-bold text-[#0B1221] uppercase">{p.customer_coupon}</td>
-                                                <td className="py-5 px-4 font-medium text-slate-500">{formatCurrency(p.purchase_value)}</td>
-                                                <td className="py-5 px-4">
-                                                    <p className="font-black text-emerald-600">+{formatCurrency(p.cashback_generated)}</p>
-                                                </td>
-                                                <td className="py-5 px-4 text-right">
-                                                    <p className="text-slate-400 font-bold">{new Date(p.purchase_date).toLocaleDateString()}</p>
-                                                    <p className="text-[10px] text-slate-300 font-bold uppercase">{p.purchase_time}</p>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50 text-xs">
+                                        {loading ? (
+                                            <tr>
+                                                <td colSpan={5} className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                                                    Carregando histórico...
                                                 </td>
                                             </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan={4} className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
-                                                Nenhuma venda encontrada para o filtro selecionado.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
+                                        ) : personalOrders.length > 0 ? (
+                                            personalOrders.map((o) => (
+                                                <tr key={o.id} className="group hover:bg-slate-50 transition-all">
+                                                    <td className="py-5 px-4 font-black text-[#0B1221] uppercase">{o.id}</td>
+                                                    <td className="py-5 px-4 font-bold text-slate-600">{formatCurrency(o.total_amount)}</td>
+                                                    <td className="py-5 px-4">
+                                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                                            o.status === 'Pago' ? 'bg-emerald-50 text-emerald-600' : 
+                                                            o.status === 'Cancelado' ? 'bg-red-50 text-red-600' : 
+                                                            'bg-amber-50 text-amber-600'
+                                                        }`}>
+                                                            {o.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-5 px-4 font-medium text-slate-400 uppercase tracking-widest text-[10px]">{o.payment_method}</td>
+                                                    <td className="py-5 px-4 text-right">
+                                                        <p className="text-slate-400 font-bold">{new Date(o.created_at).toLocaleDateString()}</p>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={5} className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                                                    Você ainda não realizou nenhuma compra.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-
-                        <button
-                            onClick={fetchReportsData}
-                            className="w-full mt-6 py-4 rounded-2xl border border-dashed border-slate-200 text-slate-400 font-black text-[10px] uppercase tracking-widest hover:border-[#FBC02D] hover:text-[#0B1221] transition-all"
-                        >
-                            Atualizar Agora
-                        </button>
-                    </div>
+                    )}
                 </div>
             </div>
         </AffiliateLayout>

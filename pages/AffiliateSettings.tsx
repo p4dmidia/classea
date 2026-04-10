@@ -32,6 +32,9 @@ const AffiliateSettings: React.FC = () => {
         full_name: '',
         email: '',
         whatsapp: '',
+        cpf: '',
+        cep: '',
+        address: '',
         avatar_url: ''
     });
 
@@ -54,7 +57,7 @@ const AffiliateSettings: React.FC = () => {
             // Fetch from affiliates table (synced with user_profiles)
             const { data, error } = await supabase
                 .from('affiliates')
-                .select('full_name, email, whatsapp, avatar_url')
+                .select('full_name, email, whatsapp, cpf, cep, address, avatar_url')
                 .eq('user_id', user?.id)
                 .single();
 
@@ -65,6 +68,9 @@ const AffiliateSettings: React.FC = () => {
                     full_name: data.full_name || '',
                     email: data.email || user?.email || '',
                     whatsapp: data.whatsapp || '',
+                    cpf: data.cpf || '',
+                    cep: data.cep || '',
+                    address: data.address || '',
                     avatar_url: data.avatar_url || ''
                 });
             }
@@ -99,6 +105,9 @@ const AffiliateSettings: React.FC = () => {
                 .update({
                     full_name: profileData.full_name,
                     whatsapp: profileData.whatsapp,
+                    cpf: profileData.cpf,
+                    cep: profileData.cep,
+                    address: profileData.address,
                     updated_at: new Date().toISOString()
                 })
                 .eq('user_id', user.id);
@@ -111,6 +120,27 @@ const AffiliateSettings: React.FC = () => {
             toast.error(error.message || 'Erro ao salvar alterações.');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleCepLookup = async (cep: string) => {
+        const cleanCep = cep.replace(/\D/g, '');
+        if (cleanCep.length !== 8) return;
+
+        try {
+            const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+            const data = await response.json();
+            
+            if (!data.erro) {
+                const fullAddress = `${data.logradouro}, ${data.bairro}, ${data.localidade} - ${data.uf}`;
+                setProfileData(prev => ({
+                    ...prev,
+                    address: fullAddress,
+                    cep: cleanCep
+                }));
+            }
+        } catch (error) {
+            console.error('Error fetching CEP:', error);
         }
     };
 
@@ -319,6 +349,45 @@ const AffiliateSettings: React.FC = () => {
                                             placeholder="(00) 00000-0000"
                                         />
                                     </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">CPF</label>
+                                    <input
+                                        type="text"
+                                        value={profileData.cpf}
+                                        onChange={(e) => setProfileData({ ...profileData, cpf: e.target.value })}
+                                        className="block w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-[#FBC02D] focus:border-transparent outline-none transition-all font-bold text-[#0B1221]"
+                                        placeholder="000.000.000-00"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">CEP</label>
+                                    <input
+                                        type="text"
+                                        value={profileData.cep}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setProfileData({ ...profileData, cep: val });
+                                            if (val.replace(/\D/g, '').length === 8) {
+                                                handleCepLookup(val);
+                                            }
+                                        }}
+                                        className="block w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-[#FBC02D] focus:border-transparent outline-none transition-all font-bold text-[#0B1221]"
+                                        placeholder="00000-000"
+                                    />
+                                </div>
+
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Endereço Completo</label>
+                                    <input
+                                        type="text"
+                                        value={profileData.address}
+                                        onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
+                                        className="block w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-[#FBC02D] focus:border-transparent outline-none transition-all font-bold text-[#0B1221]"
+                                        placeholder="Rua, Número, Bairro, Cidade - UF"
+                                    />
                                 </div>
 
                                 <div className="md:col-span-2 pt-4">
