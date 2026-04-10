@@ -705,7 +705,8 @@ const AdminConsorcio: React.FC = () => {
                                             />
                                         </div>
 
-                                        {!drawWinner && (
+                                        {/* Campos de Links: Visíveis se não houver ganhador OU se estivermos editando */}
+                                        {(!drawWinner || isEditDrawMode) && (
                                             <div className="grid grid-cols-1 gap-4">
                                                 <div>
                                                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Link do Vídeo</label>
@@ -827,6 +828,15 @@ const AdminConsorcio: React.FC = () => {
                                             ))}
                                         </div>
                                     )}
+                                </div>
+
+                                <div className="p-6 md:p-10 border-t border-slate-50 shrink-0 mt-auto">
+                                    <button
+                                        onClick={() => setIsParticipantsModalOpen(false)}
+                                        className="w-full bg-[#0B1221] text-white font-black py-4 rounded-xl hover:opacity-90 transition-all text-sm md:text-base shadow-lg"
+                                    >
+                                        FECHAR
+                                    </button>
                                 </div>
                             </div>
                         </div>
