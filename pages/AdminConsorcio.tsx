@@ -215,6 +215,7 @@ const AdminConsorcio: React.FC = () => {
             setLotteryNumber(draw.lottery_number);
             setVideoUrl(draw.video_url || '');
             setOfficialResultUrl(draw.official_result_url || '');
+            setDrawWinner(draw.winner); // Set the winner to display in the modal
             setIsDrawModalOpen(true);
         } else {
             // This shouldn't happen if UI logic is correct
@@ -521,6 +522,7 @@ const AdminConsorcio: React.FC = () => {
                                                         setLotteryNumber('');
                                                         setVideoUrl('');
                                                         setOfficialResultUrl('');
+                                                        setDrawWinner(null);
                                                     }}
                                                     className="flex-1 sm:flex-none justify-center bg-[#FBC02D] text-[#0B1221] p-3 rounded-xl hover:bg-[#0B1221] hover:text-white transition-all shadow-lg shadow-[#FBC02D]/10"
                                                     title="Realizar Sorteio"
@@ -656,7 +658,16 @@ const AdminConsorcio: React.FC = () => {
                 {isDrawModalOpen && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4 bg-[#0B1221]/80 backdrop-blur-sm animate-in fade-in duration-300">
                         <div className="bg-white w-full h-full md:h-auto md:max-w-md md:rounded-[2.5rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300 border-2 border-[#FBC02D]/20 flex flex-col">
-                            <div className="p-6 md:p-10 flex-1 flex flex-col">
+                            
+                            {/* Botão X de Fechar (Sempre Visível) */}
+                            <button 
+                                onClick={() => { setIsDrawModalOpen(false); setDrawWinner(null); setIsEditDrawMode(false); }}
+                                className="absolute top-6 right-6 p-2 bg-slate-50 text-slate-400 hover:text-[#0B1221] rounded-xl transition-all z-20"
+                            >
+                                <Plus className="w-5 h-5 rotate-45" />
+                            </button>
+
+                            <div className="p-6 md:p-10 flex-1 flex flex-col min-h-0">
                                 <div className={`w-12 h-12 md:w-16 md:h-16 ${isEditDrawMode ? 'bg-blue-50 text-blue-500' : 'bg-[#FBC02D]/10 text-[#FBC02D]'} rounded-2xl flex items-center justify-center mx-auto mb-4 md:mb-6 shrink-0`}>
                                     {isEditDrawMode ? <Edit3 className="w-6 h-6 md:w-8 md:h-8" /> : <Target className="w-6 h-6 md:w-8 md:h-8" />}
                                 </div>
@@ -667,89 +678,91 @@ const AdminConsorcio: React.FC = () => {
                                     Grupo: <span className="text-[#0B1221] font-black">{selectedGroup?.name}</span>
                                 </p>
 
-                                {!isEditDrawMode && (
-                                    <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 mb-6 md:mb-8 shrink-0">
-                                        <div className="flex items-center gap-2 text-emerald-600 mb-1">
-                                            <AlertCircle className="w-4 h-4" />
-                                            <span className="text-[9px] md:text-[10px] font-black uppercase">Transparência</span>
-                                        </div>
-                                        <p className="text-[10px] md:text-xs text-emerald-800 font-medium">
-                                            (Federal Loteria % {selectedGroup?.max_participants}) + 1
-                                        </p>
-                                    </div>
-                                )}
+                                <form onSubmit={handleDraw} className="flex-1 flex flex-col min-h-0">
+                                    <div className="flex-1 overflow-y-auto pr-2 space-y-6 mb-6">
+                                        {!isEditDrawMode && !drawWinner && (
+                                            <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 shrink-0">
+                                                <div className="flex items-center gap-2 text-emerald-600 mb-1">
+                                                    <AlertCircle className="w-4 h-4" />
+                                                    <span className="text-[9px] md:text-[10px] font-black uppercase">Transparência</span>
+                                                </div>
+                                                <p className="text-[10px] md:text-xs text-emerald-800 font-medium">
+                                                    (Federal Loteria % {selectedGroup?.max_participants}) + 1
+                                                </p>
+                                            </div>
+                                        )}
 
-                                <form onSubmit={handleDraw} className="space-y-6 flex-1 flex flex-col overflow-auto px-1">
-                                    <div className="space-y-6 flex-1">
                                         <div>
                                             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Resultado Federal (1º Prêmio)</label>
                                             <input
                                                 type="text"
                                                 required
-                                                disabled={isEditDrawMode}
-                                                className={`w-full ${isEditDrawMode ? 'bg-slate-100 text-slate-400' : 'bg-slate-50'} rounded-xl px-4 py-4 border border-slate-100 outline-none focus:ring-2 focus:ring-[#FBC02D]/50 text-center text-xl md:text-2xl font-black`}
+                                                disabled={isEditDrawMode || !!drawWinner}
+                                                className={`w-full ${isEditDrawMode || drawWinner ? 'bg-slate-100 text-slate-400' : 'bg-slate-50'} rounded-xl px-4 py-4 border border-slate-100 outline-none focus:ring-2 focus:ring-[#FBC02D]/50 text-center text-xl md:text-2xl font-black`}
                                                 placeholder="Ex: 57342"
                                                 value={lotteryNumber}
                                                 onChange={(e) => setLotteryNumber(e.target.value)}
                                             />
                                         </div>
 
-                                        <div className="grid grid-cols-1 gap-4">
-                                            <div>
-                                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Link do Vídeo</label>
-                                                <input
-                                                    type="url"
-                                                    className="w-full bg-slate-50 rounded-xl px-4 py-4 border border-slate-100 outline-none focus:ring-2 focus:ring-[#FBC02D]/50 text-xs md:text-sm"
-                                                    placeholder="Drive, YouTube, etc"
-                                                    value={videoUrl}
-                                                    onChange={(e) => setVideoUrl(e.target.value)}
-                                                />
+                                        {!drawWinner && (
+                                            <div className="grid grid-cols-1 gap-4">
+                                                <div>
+                                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Link do Vídeo</label>
+                                                    <input
+                                                        type="url"
+                                                        className="w-full bg-slate-50 rounded-xl px-4 py-4 border border-slate-100 outline-none focus:ring-2 focus:ring-[#FBC02D]/50 text-xs md:text-sm"
+                                                        placeholder="Drive, YouTube, etc"
+                                                        value={videoUrl}
+                                                        onChange={(e) => setVideoUrl(e.target.value)}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Resultado Oficial</label>
+                                                    <input
+                                                        type="url"
+                                                        className="w-full bg-slate-50 rounded-xl px-4 py-4 border border-slate-100 outline-none focus:ring-2 focus:ring-[#FBC02D]/50 text-xs md:text-sm"
+                                                        placeholder="Link do site da Caixa"
+                                                        value={officialResultUrl}
+                                                        onChange={(e) => setOfficialResultUrl(e.target.value)}
+                                                    />
+                                                </div>
                                             </div>
-                                            <div>
-                                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Resultado Oficial</label>
-                                                <input
-                                                    type="url"
-                                                    className="w-full bg-slate-50 rounded-xl px-4 py-4 border border-slate-100 outline-none focus:ring-2 focus:ring-[#FBC02D]/50 text-xs md:text-sm"
-                                                    placeholder="Link do site da Caixa"
-                                                    value={officialResultUrl}
-                                                    onChange={(e) => setOfficialResultUrl(e.target.value)}
-                                                />
+                                        )}
+                                        
+                                        {isSpinning && (
+                                            <div className="py-8 flex flex-col items-center justify-center gap-4 animate-pulse">
+                                                <div className="w-16 h-16 border-4 border-[#FBC02D] border-t-transparent rounded-full animate-spin"></div>
+                                                <p className="font-black text-[#0B1221] animate-bounce">SORTEANDO...</p>
                                             </div>
-                                        </div>
+                                        )}
+
+                                        {drawWinner && !isSpinning && (
+                                            <div className="py-8 bg-amber-50 rounded-[2rem] border-2 border-amber-200 flex flex-col items-center justify-center gap-2 animate-in zoom-in duration-500 shadow-inner">
+                                                <Trophy className="w-12 h-12 text-[#FBC02D]" />
+                                                <h4 className="font-black text-[#0B1221]">TEMOS UM GANHADOR!</h4>
+                                                <p className="text-2xl font-black text-amber-600">NÚMERO {drawWinner.lucky_number.toString().padStart(2, '0')}</p>
+                                                <p className="text-xs font-bold text-slate-500">{drawWinner.user?.email}</p>
+                                            </div>
+                                        )}
                                     </div>
                                     
-                                    {isSpinning && (
-                                        <div className="py-8 flex flex-col items-center justify-center gap-4 animate-pulse">
-                                            <div className="w-16 h-16 border-4 border-[#FBC02D] border-t-transparent rounded-full animate-spin"></div>
-                                            <p className="font-black text-[#0B1221] animate-bounce">SORTEANDO...</p>
-                                        </div>
-                                    )}
-
-                                    {drawWinner && !isSpinning && (
-                                        <div className="py-8 bg-amber-50 rounded-[2rem] border-2 border-amber-200 flex flex-col items-center justify-center gap-2 animate-in zoom-in duration-500">
-                                            <Trophy className="w-12 h-12 text-[#FBC02D]" />
-                                            <h4 className="font-black text-[#0B1221]">TEMOS UM GANHADOR!</h4>
-                                            <p className="text-2xl font-black text-amber-600">NÚMERO {drawWinner.lucky_number.toString().padStart(2, '0')}</p>
-                                            <p className="text-xs font-bold text-slate-500">{drawWinner.user?.email}</p>
-                                        </div>
-                                    )}
-
-                                    <div className="flex gap-4 pt-8 md:pt-4 mt-auto">
+                                    <div className="flex gap-4 shrink-0 pt-4 border-t border-slate-50">
                                         <button
                                             type="button"
                                             disabled={isSpinning}
                                             onClick={() => { setIsDrawModalOpen(false); setDrawWinner(null); setIsEditDrawMode(false); }}
-                                            className="flex-1 bg-slate-50 text-slate-400 font-black py-4 rounded-xl hover:bg-slate-100 transition-all text-sm md:text-base disabled:opacity-50"
+                                            className={`flex-1 ${drawWinner ? 'bg-[#0B1221] text-white' : 'bg-slate-50 text-slate-400'} font-black py-4 rounded-xl hover:opacity-90 transition-all text-sm md:text-base disabled:opacity-50`}
                                         >
-                                            FECHAR
+                                            {drawWinner ? 'CONCLUÍDO' : 'CANCELAR'}
                                         </button>
                                         {!drawWinner && (
                                             <button
                                                 type="submit"
                                                 disabled={isSpinning || (!isEditDrawMode && !lotteryNumber)}
-                                                className={`flex-1 ${isEditDrawMode ? 'bg-blue-500' : 'bg-[#0B1221]'} text-white font-black py-4 rounded-xl hover:opacity-90 transition-all text-sm md:text-base shadow-lg disabled:opacity-50`}
+                                                className={`flex-1 ${isEditDrawMode ? 'bg-blue-500' : 'bg-[#FBC02D]'} text-[#0B1221] font-black py-4 rounded-xl hover:opacity-90 transition-all text-sm md:text-base shadow-lg disabled:opacity-50`}
                                             >
-                                                {isSpinning ? 'SORTEANDO...' : isEditDrawMode ? 'SALVAR ALTERAÇÕES' : 'INICIAR SORTEIO'}
+                                                {isSpinning ? 'PROCESSANDO...' : isEditDrawMode ? 'SALVAR LINKS' : 'FINALIZAR'}
                                             </button>
                                         )}
                                     </div>
