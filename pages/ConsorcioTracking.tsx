@@ -124,17 +124,17 @@ const ConsorcioTracking: React.FC = () => {
                             </div>
                             <div className="relative z-10 grid md:grid-cols-2 gap-12 items-center">
                                 <div>
-                                    <p className="text-[#FBC02D] font-black uppercase text-xs tracking-[0.2em] mb-4">Olá, {data.participant.name.split(' ')[0]}!</p>
+                                    <p className="text-[#FBC02D] font-black uppercase text-xs tracking-[0.2em] mb-4">Olá, {data.participant?.name ? data.participant.name.split(' ')[0] : 'Consorciado'}!</p>
                                     <h2 className="text-3xl md:text-5xl font-black mb-8 leading-tight">
                                         Seu Número da Sorte: <br />
-                                        <span className="text-[#FBC02D] text-6xl md:text-8xl">{data.participant.lucky_number.toString().padStart(2, '0')}</span>
+                                        <span className="text-[#FBC02D] text-6xl md:text-8xl">{data.participant?.lucky_number?.toString().padStart(2, '0') || '00'}</span>
                                     </h2>
                                     <div className="flex flex-wrap gap-4">
                                         <span className="px-5 py-2 bg-white/10 rounded-full text-[10px] font-black tracking-widest uppercase">
-                                            {data.group.name}
+                                            {data.group?.name || 'Grupo Especial'}
                                         </span>
-                                        <span className={`px-5 py-2 rounded-full text-[10px] font-black tracking-widest uppercase ${data.participant.regularity.is_regular ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
-                                            {data.participant.regularity.status_text}
+                                        <span className={`px-5 py-2 rounded-full text-[10px] font-black tracking-widest uppercase ${data.participant?.regularity?.is_regular ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
+                                            {data.participant?.regularity?.status_text || 'Situação não identificada'}
                                         </span>
                                     </div>
                                 </div>
@@ -143,7 +143,7 @@ const ConsorcioTracking: React.FC = () => {
                                     <div className="bg-white/5 backdrop-blur-md rounded-3xl p-6 border border-white/10">
                                         <Users className="w-6 h-6 text-[#FBC02D] mb-4" />
                                         <p className="text-slate-400 text-[10px] font-black uppercase mb-1">Grupo</p>
-                                        <p className="text-xl font-black">{data.group.current} / {data.group.max}</p>
+                                        <p className="text-xl font-black">{data.group?.current || 0} / {data.group?.max || 100}</p>
                                     </div>
                                     <div className="bg-white/5 backdrop-blur-md rounded-3xl p-6 border border-white/10">
                                         <Calendar className="w-6 h-6 text-[#FBC02D] mb-4" />
