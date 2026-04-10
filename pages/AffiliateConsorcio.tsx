@@ -60,7 +60,7 @@ const AffiliateConsorcio: React.FC = () => {
                         )
                     `)
                     .eq('group_id', partData.group_id)
-                    .order('draw_date', { ascending: false });
+                    .order('created_at', { ascending: false });
 
                 if (drawError) throw drawError;
                 setDraws(drawData || []);
@@ -231,32 +231,33 @@ const AffiliateConsorcio: React.FC = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-8 py-6 text-right">
-                                                    <div className="flex items-center justify-end gap-3">
-                                                        {draw.video_url && (
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        {draw.video_url ? (
                                                             <a
                                                                 href={draw.video_url}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                className="p-2 bg-slate-100 rounded-lg text-slate-400 hover:text-[#FBC02D] hover:bg-[#FBC02D]/10 transition-all"
-                                                                title="Assistir Gravação"
+                                                                className="flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-xl text-[#0B1221] hover:bg-[#FBC02D] transition-all text-[10px] font-black"
                                                             >
-                                                                <Video className="w-4 h-4" />
+                                                                <Video className="w-3 h-3" />
+                                                                VER VÍDEO
                                                             </a>
+                                                        ) : (
+                                                            <span className="text-[9px] font-bold text-slate-300 uppercase italic">Vídeo Pendente</span>
                                                         )}
-                                                        {draw.official_result_url && (
+                                                        {draw.official_result_url ? (
                                                             <a
                                                                 href={draw.official_result_url}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                className="p-2 bg-slate-100 rounded-lg text-slate-400 hover:text-[#FBC02D] hover:bg-[#FBC02D]/10 transition-all"
-                                                                title="Ver Resultado Oficial"
+                                                                className="flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-xl text-[#0B1221] hover:bg-[#FBC02D] transition-all text-[10px] font-black"
                                                             >
-                                                                <ExternalLink className="w-4 h-4" />
+                                                                <ExternalLink className="w-3 h-3" />
+                                                                PROVA CAIXA
                                                             </a>
+                                                        ) : (
+                                                            <span className="text-[9px] font-bold text-slate-300 uppercase italic">Link Pendente</span>
                                                         )}
-                                                        <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-full text-[10px] font-black uppercase">
-                                                            Entregue
-                                                        </span>
                                                     </div>
                                                 </td>
                                             </tr>
