@@ -35,6 +35,7 @@ interface PurchaseDetail {
 
 const AffiliateReports: React.FC = () => {
     const { user } = useAuth();
+    const [loading, setLoading] = useState(true);
     const [reportType, setReportType] = useState<'network' | 'personal'>('network');
     const [selectedPeriod, setSelectedPeriod] = useState(30); // days
     const [selectedGen, setSelectedGen] = useState<string>('all');

@@ -41,6 +41,7 @@ const CheckoutPage: React.FC = () => {
     const [shippingOptions, setShippingOptions] = useState<any[]>([]);
     const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
     const [selectedShipping, setSelectedShipping] = useState<any>(null);
+    const [isEditingProfile, setIsEditingProfile] = useState(true);
 
     React.useEffect(() => {
         if (user) {
@@ -61,6 +62,10 @@ const CheckoutPage: React.FC = () => {
                             address: data.address || '',
                             cep: data.cep || ''
                         });
+                        // If we have at least name and email, consider it identified
+                        if (data.full_name || data.email) {
+                            setIsEditingProfile(false);
+                        }
                     }
                 } catch (error) {
                     console.error('Error auto-filling profile:', error);
@@ -300,104 +305,161 @@ const CheckoutPage: React.FC = () => {
 
                         {/* Customer Information */}
                         <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm border border-slate-100">
-                            <h3 className="text-xl font-black text-[#0B1221] mb-8 flex items-center gap-3">
-                                <Truck className="w-6 h-6 text-[#FBC02D]" />
-                                Dados de Envio
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Nome Completo</label>
-                                    <input
-                                        type="text"
-                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
-                                        placeholder="Seu nome"
-                                        value={customerInfo.name}
-                                        onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
-                                    />
+                            <div className="flex justify-between items-center mb-8">
+                                <h3 className="text-xl font-black text-[#0B1221] flex items-center gap-3">
+                                    <Truck className="w-6 h-6 text-[#FBC02D]" />
+                                    Dados de Envio
+                                </h3>
+                                {user && !isEditingProfile && (
+                                    <button
+                                        onClick={() => setIsEditingProfile(true)}
+                                        className="text-[10px] font-black text-[#FBC02D] uppercase tracking-widest bg-amber-50 px-4 py-2 rounded-xl hover:bg-amber-100 transition-all"
+                                    >
+                                        Alterar Dados
+                                    </button>
+                                )}
+                            </div>
+
+                            {user && !isEditingProfile ? (
+                                <div className="bg-slate-50/50 rounded-3xl p-6 border border-slate-100 space-y-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#FBC02D] border border-slate-100 shadow-sm">
+                                            <CheckCircle2 className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none mb-1">Identificamos sua conta</p>
+                                            <p className="text-lg font-black text-[#0B1221]">{customerInfo.name}</p>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                                        <div className="bg-white p-4 rounded-2xl border border-slate-100/50">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">CPF</p>
+                                            <p className="text-sm font-bold text-[#0B1221]">{customerInfo.cpf || 'Não informado'}</p>
+                                        </div>
+                                        <div className="bg-white p-4 rounded-2xl border border-slate-100/50">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Contato</p>
+                                            <p className="text-sm font-bold text-[#0B1221]">{customerInfo.phone || customerInfo.email}</p>
+                                        </div>
+                                        <div className="bg-white p-4 rounded-2xl border border-slate-100/50 md:col-span-2">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Endereço de Entrega</p>
+                                            <p className="text-sm font-bold text-[#0B1221]">{customerInfo.address || 'Endereço não cadastrado'} - {customerInfo.cep}</p>
+                                        </div>
+                                    </div>
+                                    {!customerInfo.cep && (
+                                        <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest">
+                                            <AlertCircle className="w-4 h-4" />
+                                            Complete seu CEP para calcular o frete
+                                        </div>
+                                    )}
+                                    {customerInfo.cep && !selectedShipping && (
+                                        <div className="pt-2">
+                                            <button
+                                                type="button"
+                                                onClick={calculateShipping}
+                                                disabled={isCalculatingShipping}
+                                                className="w-full py-4 bg-[#0B1221] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#1a2436] transition-all flex items-center justify-center gap-2"
+                                            >
+                                                {isCalculatingShipping ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Calcular Frete para este Endereço'}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">E-mail</label>
-                                    <input
-                                        type="email"
-                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
-                                        placeholder="seu@email.com"
-                                        value={customerInfo.email}
-                                        onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Telefone / WhatsApp</label>
-                                    <input
-                                        type="tel"
-                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
-                                        placeholder="(00) 00000-0000"
-                                        value={customerInfo.phone}
-                                        onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CPF</label>
-                                    <input
-                                        type="text"
-                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
-                                        placeholder="000.000.000-00"
-                                        value={customerInfo.cpf}
-                                        onChange={(e) => setCustomerInfo({ ...customerInfo, cpf: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CEP</label>
-                                    <div className="flex gap-2">
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-2 duration-500">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Nome Completo</label>
                                         <input
                                             type="text"
                                             className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
-                                            placeholder="00000-000"
-                                            value={customerInfo.cep}
-                                            onChange={(e) => setCustomerInfo({ ...customerInfo, cep: e.target.value })}
+                                            placeholder="Seu nome"
+                                            value={customerInfo.name}
+                                            onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
                                         />
-                                        <button
-                                            type="button"
-                                            onClick={calculateShipping}
-                                            disabled={isCalculatingShipping}
-                                            className="px-6 bg-[#0B1221] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#1a2436] transition-all disabled:opacity-50"
-                                        >
-                                            {isCalculatingShipping ? <Loader2 className="w-4 h-4 animate-spin" /> : 'CALCULAR'}
-                                        </button>
                                     </div>
-                                </div>
-                                <div className="space-y-2 md:col-span-2">
-                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Endereço Completo</label>
-                                    <input
-                                        type="text"
-                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
-                                        placeholder="Rua, Número, Bairro, Cidade - UF"
-                                        value={customerInfo.address}
-                                        onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
-                                    />
-                                </div>
-
-                                {shippingOptions.length > 0 && (
-                                    <div className="md:col-span-2 space-y-4 pt-4 border-t border-slate-50">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Selecione a Entrega</label>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {shippingOptions.map((opt, idx) => (
-                                                <button
-                                                    key={idx}
-                                                    type="button"
-                                                    onClick={() => setSelectedShipping(opt)}
-                                                    className={`p-4 rounded-2xl border-2 text-left transition-all flex justify-between items-center ${selectedShipping === opt ? 'border-[#FBC02D] bg-amber-50/30' : 'border-slate-100 hover:border-slate-200'}`}
-                                                >
-                                                    <div>
-                                                        <p className="text-xs font-black uppercase tracking-widest text-[#0B1221]">{opt.name}</p>
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{opt.company.name} • {opt.delivery_time} dias</p>
-                                                    </div>
-                                                    <p className="font-black text-sm text-[#0B1221]">R$ {parseFloat(opt.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                                </button>
-                                            ))}
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">E-mail</label>
+                                        <input
+                                            type="email"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                            placeholder="seu@email.com"
+                                            value={customerInfo.email}
+                                            onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Telefone / WhatsApp</label>
+                                        <input
+                                            type="tel"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                            placeholder="(00) 00000-0000"
+                                            value={customerInfo.phone}
+                                            onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CPF</label>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                            placeholder="000.000.000-00"
+                                            value={customerInfo.cpf}
+                                            onChange={(e) => setCustomerInfo({ ...customerInfo, cpf: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CEP</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                                placeholder="00000-000"
+                                                value={customerInfo.cep}
+                                                onChange={(e) => setCustomerInfo({ ...customerInfo, cep: e.target.value })}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={calculateShipping}
+                                                disabled={isCalculatingShipping}
+                                                className="px-6 bg-[#0B1221] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#1a2436] transition-all disabled:opacity-50"
+                                            >
+                                                {isCalculatingShipping ? <Loader2 className="w-4 h-4 animate-spin" /> : 'CALCULAR'}
+                                            </button>
                                         </div>
                                     </div>
-                                )}
-                            </div>
+                                    <div className="space-y-2 md:col-span-2">
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Endereço Completo</label>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                            placeholder="Rua, Número, Bairro, Cidade - UF"
+                                            value={customerInfo.address}
+                                            onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {shippingOptions.length > 0 && (
+                                <div className="mt-8 pt-8 border-t border-slate-100 space-y-4">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Selecione a Entrega</label>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {shippingOptions.map((opt, idx) => (
+                                            <button
+                                                key={idx}
+                                                type="button"
+                                                onClick={() => setSelectedShipping(opt)}
+                                                className={`p-4 rounded-2xl border-2 text-left transition-all flex justify-between items-center ${selectedShipping === opt ? 'border-[#FBC02D] bg-amber-50/30' : 'border-slate-100 hover:border-slate-200'}`}
+                                            >
+                                                <div>
+                                                    <p className="text-xs font-black uppercase tracking-widest text-[#0B1221]">{opt.name}</p>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{opt.company.name} • {opt.delivery_time} dias</p>
+                                                </div>
+                                                <p className="font-black text-sm text-[#0B1221]">R$ {parseFloat(opt.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Payment Selection */}
