@@ -27,7 +27,12 @@ const AffiliateSettings: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
     
-    // Profile Data
+    const [profileData, setProfileData] = useState({
+        full_name: '',
+        email: '',
+        whatsapp: '',
+        cpf: '',
+        cep: '',
         address: '',
         street: '',
         number: '',
