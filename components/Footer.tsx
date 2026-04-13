@@ -62,6 +62,26 @@ const Footer: React.FC = () => {
                 Luiz Barreto Murat 1754 Curitiba
               </li>
             </ul>
+            
+            {/* WhatsApp Support Card */}
+            <div className="mt-8 bg-gradient-to-br from-[#FBC02D] to-[#FFA000] p-6 rounded-[2rem] shadow-xl shadow-amber-200/50 relative overflow-hidden group">
+              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full transition-transform group-hover:scale-150 duration-700"></div>
+              
+              <div className="relative z-10">
+                <h5 className="text-[#0B1221] font-black text-lg mb-2">Central de Ajuda</h5>
+                <p className="text-[#0B1221]/80 text-xs font-medium leading-relaxed mb-6">
+                  Dúvidas sobre o sistema? Nossa equipe está pronta para te ajudar via WhatsApp.
+                </p>
+                <a 
+                  href="https://api.whatsapp.com/send/?phone=554199670714&text=Ol%C3%A1%2C+preciso+de+suporte%2C+pode+me+ajudar%3F&type=phone_number&app_absent=0"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full bg-white text-[#0B1221] text-center py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#0B1221] hover:text-white transition-all shadow-sm"
+                >
+                  Falar no WhatsApp
+                </a>
+              </div>
+            </div>
           </div>
         </div>
 

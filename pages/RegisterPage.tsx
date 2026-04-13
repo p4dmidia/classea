@@ -39,6 +39,7 @@ const RegisterPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [sponsorCode, setSponsorCode] = useState<string | null>(null);
+    const [sponsorName, setSponsorName] = useState<string | null>(null);
     const [showPassword, setShowPassword] = useState(false);
 
     React.useEffect(() => {
@@ -47,8 +48,25 @@ const RegisterPage: React.FC = () => {
         if (ref) {
             console.log('Sponsor detected from cookie:', ref);
             setSponsorCode(ref);
+            fetchSponsorName(ref);
         }
     }, []);
+
+    const fetchSponsorName = async (code: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('affiliates')
+                .select('full_name')
+                .eq('referral_code', code)
+                .maybeSingle();
+            
+            if (data && data.full_name) {
+                setSponsorName(data.full_name);
+            }
+        } catch (err) {
+            console.error('Error fetching sponsor name:', err);
+        }
+    };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value, type, checked } = e.target;
@@ -152,6 +170,16 @@ const RegisterPage: React.FC = () => {
             <section className="py-20 -mt-16 relative z-20 pb-32">
                 <div className="container mx-auto px-4">
                     <div className="max-w-4xl mx-auto">
+                        {sponsorName && (
+                            <div className="bg-[#FBC02D]/10 border border-[#FBC02D]/20 rounded-2xl p-4 mb-6 flex items-center justify-center gap-3 animate-bounce-subtle">
+                                <div className="w-8 h-8 bg-[#FBC02D] rounded-full flex items-center justify-center text-[#0B1221]">
+                                    <User className="w-4 h-4" />
+                                </div>
+                                <p className="text-[#0B1221] font-black text-xs uppercase tracking-widest">
+                                    Você está sendo indicada por <span className="text-[#FBC02D] bg-[#0B1221] px-2 py-0.5 rounded ml-1">{sponsorName}</span>
+                                </p>
+                            </div>
+                        )}
                         <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-slate-100">
                             <form onSubmit={handleSubmit}>
                                 <div className="flex flex-col lg:flex-row">
