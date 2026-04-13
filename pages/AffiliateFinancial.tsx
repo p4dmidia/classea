@@ -34,9 +34,7 @@ const AffiliateFinancial: React.FC = () => {
     const { user, profile } = useAuth();
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-    const [showWithdrawModal, setShowWithdrawModal] = useState(false);
     const [showPixModal, setShowPixModal] = useState(false);
-    const [withdrawAmount, setWithdrawAmount] = useState('');
     const [newPixKey, setNewPixKey] = useState('');
 
     // Financial Data States
@@ -108,53 +106,6 @@ const AffiliateFinancial: React.FC = () => {
         }
     };
 
-    const handleWithdrawRequest = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const amount = Number(withdrawAmount);
-
-        if (isNaN(amount) || amount < 100) {
-            toast.error('O valor mínimo para saque é R$ 100,00');
-            return;
-        }
-
-        if (amount > balance.available) {
-            toast.error('Saldo insuficiente para o saque solicitado.');
-            return;
-        }
-
-        if (!pixKey || pixKey === 'Não cadastrada') {
-            toast.error('Por favor, cadastre uma chave PIX antes de solicitar o saque.');
-            return;
-        }
-
-        try {
-            setSubmitting(true);
-
-            const { error: insertError } = await supabase
-                .from('withdrawals')
-                .insert([{
-                    user_id: user?.id,
-                    organization_id: ORGANIZATION_ID,
-                    amount_requested: amount,
-                    net_amount: amount,
-                    pix_key: pixKey,
-                    status: 'pending'
-                }]);
-
-            if (insertError) throw insertError;
-
-            toast.success('Solicitação de saque enviada com sucesso!');
-            setShowWithdrawModal(false);
-            setWithdrawAmount('');
-            fetchFinancialData();
-
-        } catch (error: any) {
-            console.error('Erro ao solicitar saque:', error);
-            toast.error('Erro ao processar solicitação de saque.');
-        } finally {
-            setSubmitting(false);
-        }
-    };
 
     const handleUpdatePix = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -200,7 +151,7 @@ const AffiliateFinancial: React.FC = () => {
 
     const stats = [
         { label: 'Saldo Total', value: formatCurrency(balance.total), icon: DollarSign, color: 'text-[#0B1221]', bg: 'bg-slate-100' },
-        { label: 'Disponível para Saque', value: formatCurrency(balance.available), icon: Wallet, color: 'text-[#FBC02D]', bg: 'bg-amber-50' },
+        { label: 'Saldo p/ Próximo Pagamento', value: formatCurrency(balance.available), icon: Wallet, color: 'text-[#FBC02D]', bg: 'bg-amber-50' },
         { label: 'Aguardando Liberação', value: formatCurrency(balance.frozen), icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50' },
         { label: 'Total Sacado', value: formatCurrency(balance.withdrawn), icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
     ];
@@ -216,16 +167,9 @@ const AffiliateFinancial: React.FC = () => {
                 <div className="flex gap-3 w-full md:w-auto">
                     <button
                         onClick={fetchFinancialData}
-                        className="p-4 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-[#FBC02D] transition-all"
+                        className="p-4 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-[#FBC02D] transition-all w-full md:w-auto flex items-center justify-center"
                     >
                         <RefreshCcw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-                    </button>
-                    <button
-                        onClick={() => setShowWithdrawModal(true)}
-                        className="flex-grow md:flex-none bg-[#0B1221] hover:bg-[#1a2436] text-white px-8 py-4 rounded-2xl flex items-center justify-center gap-2 font-black transition-all shadow-lg shadow-[#0B1221]/20"
-                    >
-                        <PlusCircle className="w-5 h-5 text-[#FBC02D]" />
-                        SOLICITAR SAQUE
                     </button>
                 </div>
             </header>
@@ -345,9 +289,9 @@ const AffiliateFinancial: React.FC = () => {
                             <div>
                                 <h4 className="font-black text-[#0B1221] text-sm mb-1">Regras de Saque</h4>
                                 <ul className="text-xs text-slate-500 font-medium space-y-2">
-                                    <li>• Valor mínimo para saque: <strong>R$ 100,00</strong></li>
-                                    <li>• Prazo de pagamento: <strong>Até 3 dias úteis</strong></li>
-                                    <li>• Chave PIX deve ser do titular da conta</li>
+                                    <li className="flex gap-2"><span>■</span> <span>Valor mínimo para saque ( não tem )</span></li>
+                                    <li className="flex gap-2"><span>■</span> <span>Dia de pagamento todo dia 15 de cada mês</span></li>
+                                    <li className="flex gap-2"><span>■</span> <span>Chave pix deve ser do titular da conta</span></li>
                                 </ul>
                             </div>
                         </div>
@@ -355,56 +299,6 @@ const AffiliateFinancial: React.FC = () => {
                 </div>
             </div>
 
-            {/* Withdrawal Modal */}
-            {showWithdrawModal && (
-                <div className="fixed inset-0 bg-[#0B1221]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[2.5rem] w-full max-w-md p-10 shadow-2xl animate-in fade-in zoom-in duration-300">
-                        <h3 className="text-2xl font-black text-[#0B1221] mb-2">Solicitar Saque</h3>
-                        <p className="text-slate-500 text-sm mb-8 font-medium">O valor será enviado para sua chave PIX cadastrada.</p>
-
-                        <form onSubmit={handleWithdrawRequest} className="space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">Valor do Saque</label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">R$</span>
-                                    <input
-                                        type="number"
-                                        placeholder="0,00"
-                                        required
-                                        min="100"
-                                        step="0.01"
-                                        value={withdrawAmount}
-                                        onChange={(e) => setWithdrawAmount(e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 pl-12 outline-none focus:border-[#FBC02D] transition-all font-bold text-lg"
-                                    />
-                                </div>
-                                <p className="text-[10px] text-slate-400 font-bold ml-1 uppercase tracking-wider">
-                                    Disponível: {formatCurrency(balance.available)}
-                                </p>
-                            </div>
-
-                            <div className="flex gap-4">
-                                <button
-                                    type="button"
-                                    disabled={submitting}
-                                    onClick={() => setShowWithdrawModal(false)}
-                                    className="flex-1 bg-slate-50 hover:bg-slate-100 py-4 rounded-2xl font-black text-slate-500 transition-all disabled:opacity-50"
-                                >
-                                    CANCELAR
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className="flex-1 bg-[#FBC02D] hover:bg-[#ffc947] py-4 rounded-2xl font-black text-[#0B1221] transition-all shadow-lg shadow-amber-200 flex items-center justify-center gap-2 disabled:opacity-50"
-                                >
-                                    {submitting && <Clock className="w-4 h-4 animate-spin" />}
-                                    {submitting ? 'PROCESSANDO...' : 'CONFIRMAR'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
 
             {/* PIX Modal */}
             {showPixModal && (
