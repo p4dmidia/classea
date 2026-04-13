@@ -22,15 +22,16 @@ import { useAuth } from '../components/AuthContext';
 import toast from 'react-hot-toast';
 
 interface PurchaseDetail {
-    id: number;
+    id: string;
     purchase_date: string;
-    purchase_time: string;
-    purchase_value: number;
-    cashback_generated: number;
-    customer_coupon: string;
-    // We'll join or mock these for now if missing
-    from_name?: string;
-    generation?: string;
+    amount: number;
+    level: number;
+    description: string;
+    order?: {
+        id: string;
+        total_amount: number;
+        referral_code: string;
+    };
 }
 
 const AffiliateReports: React.FC = () => {
@@ -118,42 +119,40 @@ const AffiliateReports: React.FC = () => {
 
             if (settingsError) throw settingsError;
 
-            // 3. Fetch Coupons for this Affiliate
-            const { data: coupons, error: couponsError } = await supabase
-                .from('customer_coupons')
-                .select('id, coupon_code')
-                .eq('affiliate_id', affiliate.id);
-
-            if (couponsError) throw couponsError;
-
-            const couponIds = (coupons || []).map(c => c.id);
-
-            // 4. Fetch Detailed Purchases for these coupons
-            let purchasesQuery = supabase
-                .from('company_purchases')
-                .select('*')
-                .in('customer_coupon_id', couponIds)
-                .order('purchase_date', { ascending: false })
-                .order('purchase_time', { ascending: false });
+            // 3. Fetch Commissions for this User
+            let commissionsQuery = supabase
+                .from('commissions')
+                .select(`
+                    id,
+                    amount,
+                    level,
+                    description,
+                    created_at,
+                    order:orders (
+                        id,
+                        total_amount,
+                        referral_code
+                    )
+                `)
+                .eq('user_id', user?.id)
+                .order('created_at', { ascending: false });
 
             // Apply date filter
             if (selectedPeriod > 0) {
                 const dateLimit = new Date();
                 dateLimit.setDate(dateLimit.getDate() - selectedPeriod);
-                purchasesQuery = purchasesQuery.gte('purchase_date', dateLimit.toISOString().split('T')[0]);
+                commissionsQuery = commissionsQuery.gte('created_at', dateLimit.toISOString());
             }
 
-            const { data: purchaseData, error: purchaseError } = await purchasesQuery;
+            const { data: commissionData, error: commissionError } = await commissionsQuery;
 
-            if (purchaseError) throw purchaseError;
+            if (commissionError) throw commissionError;
 
-            // 5. Calculate Stats
+            // 4. Calculate Stats
             const totalRevenue = settings.total_earnings || 0;
-            const totalConversions = purchaseData?.length || 0;
+            const totalConversions = commissionData?.length || 0;
 
             // Note: Since 'clicks' isn't in the schema, we'll use a local state or 0 for now
-            // until the user confirms where clicks are stored. 
-            // Mocking clicks as conversions * 1.5 to show some rate > 0 if there are sales.
             const estimatedClicks = totalConversions > 0 ? Math.ceil(totalConversions * 4.2) : 0;
 
             setStats({
@@ -163,21 +162,31 @@ const AffiliateReports: React.FC = () => {
                 revenue: totalRevenue
             });
 
-            // 6. Generation Gains Calculation
-            // For now, since we only have direct purchases via affiliate coupons, 
-            // 100% of these are 1st Gen. 
-            // In the future, we'd query downline purchases.
-            setGenerationGains([
-                { gen: '1ª', amount: totalRevenue, percentage: totalRevenue > 0 ? 100 : 0 },
-                { gen: '2ª', amount: 0, percentage: 0 },
-                { gen: '3ª', amount: 0, percentage: 0 },
-                { gen: '4ª', amount: 0, percentage: 0 },
-                { gen: '5ª', amount: 0, percentage: 0 },
-                { gen: '6ª', amount: 0, percentage: 0 },
-                { gen: '7ª', amount: 0, percentage: 0 },
-            ]);
+            // 5. Generation Gains Calculation
+            const levelSums = [1, 2, 3, 4, 5, 6, 7].map(lvl => {
+                const sum = (commissionData || [])
+                    .filter(c => c.level === lvl)
+                    .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+                return {
+                    gen: `${lvl}ª`,
+                    amount: sum,
+                    percentage: totalRevenue > 0 ? (sum / totalRevenue) * 100 : 0
+                };
+            });
 
-            setPurchases(purchaseData || []);
+            setGenerationGains(levelSums);
+
+            // 6. Map to table data
+            const mappedPurchases = (commissionData || []).map(c => ({
+                id: c.id,
+                purchase_date: c.created_at,
+                amount: c.amount,
+                level: c.level,
+                description: c.description,
+                order: c.order
+            }));
+
+            setPurchases(mappedPurchases);
 
         } catch (error: any) {
             console.error('Erro ao buscar relatórios:', error);
@@ -193,9 +202,9 @@ const AffiliateReports: React.FC = () => {
             return;
         }
 
-        const headers = "Data;Hora;Cupom;Valor;Cashback\n";
+        const headers = "Data;Cupom;Valor Venda;Comissão;Geração\n";
         const rows = purchases.map(p =>
-            `${p.purchase_date};${p.purchase_time};${p.customer_coupon};${p.purchase_value};${p.cashback_generated}`
+            `${new Date(p.purchase_date).toLocaleDateString()};${p.order?.referral_code || 'N/A'};${p.order?.total_amount || 0};${p.amount};${p.level}ª`
         ).join("\n");
 
         const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
@@ -292,19 +301,21 @@ const AffiliateReports: React.FC = () => {
                         <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-center">
                             <p className="text-slate-400 text-xs font-black uppercase tracking-widest leading-none mb-1">Total Gasto</p>
                             <h3 className="text-3xl font-black text-[#0B1221]">
-                                {formatCurrency(personalOrders.reduce((acc, curr) => acc + (curr.total_amount || 0), 0))}
+                                {formatCurrency(personalOrders.filter(o => o.status === 'Pago').reduce((acc, curr) => acc + (curr.total_amount || 0), 0))}
                             </h3>
                         </div>
                         <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col justify-center">
                             <p className="text-slate-400 text-xs font-black uppercase tracking-widest leading-none mb-1">Pedidos Realizados</p>
                             <h3 className="text-3xl font-black text-[#0B1221]">
-                                {personalOrders.length}
+                                {personalOrders.filter(o => o.status === 'Pago').length}
                             </h3>
                         </div>
                         <div className="bg-[#0B1221] p-8 rounded-[2rem] shadow-lg text-white flex flex-col justify-center">
                             <p className="text-slate-400 text-xs font-black uppercase tracking-widest leading-none mb-1">Última Compra</p>
                             <h3 className="text-xl font-black text-[#FBC02D]">
-                                {personalOrders.length > 0 ? new Date(personalOrders[0].created_at).toLocaleDateString() : 'Nenhuma'}
+                                {personalOrders.some(o => o.status === 'Pago') 
+                                    ? new Date(personalOrders.find(o => o.status === 'Pago')?.created_at).toLocaleDateString() 
+                                    : 'Nenhuma'}
                             </h3>
                         </div>
                     </div>
@@ -363,13 +374,13 @@ const AffiliateReports: React.FC = () => {
                                 <div className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-4">
                                     <h3 className="text-xl font-black text-[#0B1221]">Extrato de Vendas</h3>
                                     <div className="flex gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                                        {['all', '1ª'].map(f => (
+                                        {['all', '1ª', '2ª', '3ª'].map(f => (
                                             <button
                                                 key={f}
                                                 onClick={() => setSelectedGen(f)}
                                                 className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedGen === f ? 'bg-white shadow-sm text-[#0B1221]' : 'text-slate-400'}`}
                                             >
-                                                {f === 'all' ? 'Tudo' : f}
+                                                {f === 'all' ? 'Tudo' : f === '1ª' ? 'Diretos' : f}
                                             </button>
                                         ))}
                                     </div>
@@ -379,7 +390,8 @@ const AffiliateReports: React.FC = () => {
                                     <table className="w-full">
                                         <thead>
                                             <tr className="border-b border-slate-50">
-                                                <th className="text-left py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cupom</th>
+                                                <th className="text-left py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Origem</th>
+                                                <th className="text-left py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Geração</th>
                                                 <th className="text-left py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor Venda</th>
                                                 <th className="text-left py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Comissão</th>
                                                 <th className="text-right py-4 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</th>
@@ -393,16 +405,28 @@ const AffiliateReports: React.FC = () => {
                                                     </td>
                                                 </tr>
                                             ) : purchases.length > 0 ? (
-                                                purchases.map((p) => (
+                                                purchases
+                                                    .filter(p => selectedGen === 'all' || `${p.level}ª` === selectedGen)
+                                                    .map((p) => (
                                                     <tr key={p.id} className="group hover:bg-slate-50 transition-all">
-                                                        <td className="py-5 px-4 font-bold text-[#0B1221] uppercase">{p.customer_coupon}</td>
-                                                        <td className="py-5 px-4 font-medium text-slate-500">{formatCurrency(p.purchase_value)}</td>
                                                         <td className="py-5 px-4">
-                                                            <p className="font-black text-emerald-600">+{formatCurrency(p.cashback_generated)}</p>
+                                                            <div className="flex flex-col">
+                                                                <span className="font-bold text-[#0B1221] uppercase text-[10px]">{p.order?.referral_code || 'Direto'}</span>
+                                                                <span className="text-[9px] text-slate-400 font-medium">Ref: {p.id.slice(0,8)}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-5 px-4">
+                                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-black uppercase">
+                                                                {p.level}ª Geração
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-5 px-4 font-medium text-slate-500">{formatCurrency(p.order?.total_amount || 0)}</td>
+                                                        <td className="py-5 px-4">
+                                                            <p className="font-black text-emerald-600">+{formatCurrency(p.amount)}</p>
                                                         </td>
                                                         <td className="py-5 px-4 text-right">
                                                             <p className="text-slate-400 font-bold">{new Date(p.purchase_date).toLocaleDateString()}</p>
-                                                            <p className="text-[10px] text-slate-300 font-bold uppercase">{p.purchase_time}</p>
+                                                            <p className="text-[10px] text-slate-300 font-bold uppercase">{new Date(p.purchase_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                                         </td>
                                                     </tr>
                                                 ))

@@ -23,14 +23,15 @@ serve(async (req) => {
         const { data: order, error: orderError } = await supabase
             .from("orders")
             .select("*, order_items(*)")
-            .or(`id.eq.${orderId},id.eq.#${orderId.replace(/^#/, '')}`)
+            .or(`id.eq.${orderId},id.eq.#${orderId.replace(/^#/, "")}`)
             .single();
 
         if (orderError || !order) {
-            throw new Error("Pedido não encontrado");
+            console.error("Order search error:", orderError);
+            throw new Error(`Pedido ${orderId} não encontrado no banco de dados.`);
         }
 
-        // 2. Get organization credentials (Dual Mode Support)
+        // 2. Get organization credentials
         const { data: org, error: orgError } = await supabase
             .from("organizations")
             .select("*")
@@ -41,26 +42,31 @@ serve(async (req) => {
 
         if (orgError || !accessToken) {
             console.error(`MP Credentials missing for org ${order.organization_id}:`, orgError);
-            throw new Error("Configuração do Mercado Pago não encontrada para esta organização. Por favor, contate o administrador.");
+            throw new Error("Configuração do Mercado Pago não encontrada. Verifique o Access Token da organização.");
         }
 
         if (paymentMethod === "pix") {
             // Create PIX payment directly
             const customerFirstName = order.customer_name?.split(" ")[0] || "Cliente";
             const customerLastName = order.customer_name?.split(" ").slice(1).join(" ") || "Classe A";
+            const cleanCpf = (customerCpf || order.customer_cpf || "").replace(/\D/g, "");
+
+            if (!cleanCpf || cleanCpf.length !== 11) {
+                throw new Error("CPF inválido ou incompleto. O Mercado Pago exige um CPF válido para pagamentos PIX.");
+            }
 
             const paymentData = {
                 transaction_amount: Number(order.total_amount),
-                description: `Pedido ${order.id} - Classe A`,
+                description: `Pedido ${order.id} - ${org?.name || "Classe A"}`,
                 payment_method_id: "pix",
                 installments: 1,
                 payer: {
-                    email: order.customer_email || "cliente@classea.com",
+                    email: order.customer_email || "cliente@mercado.com",
                     first_name: customerFirstName,
                     last_name: customerLastName,
                     identification: {
                         type: "CPF",
-                        number: customerCpf ? customerCpf.replace(/\D/g, "") : (order.customer_cpf ? order.customer_cpf.replace(/\D/g, "") : "")
+                        number: cleanCpf
                     }
                 },
                 external_reference: order.id,
@@ -81,28 +87,40 @@ serve(async (req) => {
 
             if (!response.ok || result.error) {
                 console.error("Full MP Error Response:", JSON.stringify(result, null, 2));
-                const mpErrorMessage = result.message || (result.cause?.[0]?.description) || "Erro desconhecido";
+                const mpErrorMessage = result.message || (result.cause?.[0]?.description) || "Erro desconhecido no Mercado Pago";
                 throw new Error(`Mercado Pago: ${mpErrorMessage}`);
             }
 
+            // Safety check for response structure
+            const transactionData = result.point_of_interaction?.transaction_data;
+            if (!transactionData) {
+                console.error("MP Result missing point_of_interaction:", result);
+                throw new Error("Estrutura de resposta do PIX inválida vinda do Mercado Pago.");
+            }
+
             // Update order with payment ID and PIX details
-            await supabase
+            const { error: updateError } = await supabase
                 .from("orders")
                 .update({ 
                     payment_id: result.id.toString(),
-                    pix_qr_code: result.point_of_interaction.transaction_data.qr_code,
-                    pix_qr_code_base64: result.point_of_interaction.transaction_data.qr_code_base64,
-                    pix_copy_paste: result.point_of_interaction.transaction_data.qr_code
+                    pix_qr_code: transactionData.qr_code,
+                    pix_qr_code_base64: transactionData.qr_code_base64,
+                    pix_copy_paste: transactionData.qr_code,
+                    status: 'Pendente' // Garantir que está como pendente
                 })
-                .eq("id", orderId);
+                .eq("id", order.id);
+
+            if (updateError) {
+                console.error("Error updating order with PIX data:", updateError);
+            }
 
             return new Response(
                 JSON.stringify({
-                    qr_code: result.point_of_interaction.transaction_data.qr_code,
-                    qr_code_base64: result.point_of_interaction.transaction_data.qr_code_base64,
-                    copy_paste: result.point_of_interaction.transaction_data.qr_code,
+                    qr_code: transactionData.qr_code,
+                    qr_code_base64: transactionData.qr_code_base64,
+                    copy_paste: transactionData.qr_code,
                     payment_id: result.id,
-                    ticket_url: result.point_of_interaction.transaction_data.ticket_url // Adicionado para redirecionamento nativo
+                    ticket_url: transactionData.ticket_url
                 }),
                 { headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
@@ -117,13 +135,13 @@ serve(async (req) => {
                     currency_id: "BRL",
                 })),
                 payer: {
-                    email: order.customer_email || "cliente@classea.com",
+                    email: order.customer_email || "cliente@mercado.com",
                 },
                 external_reference: order.id,
                 back_urls: {
-                    success: "https://classea.vercel.app/dashboard",
-                    failure: "https://classea.vercel.app/checkout",
-                    pending: "https://classea.vercel.app/dashboard",
+                    success: `${req.headers.get("origin") || "https://classea.vercel.app"}/checkout/success`,
+                    failure: `${req.headers.get("origin") || "https://classea.vercel.app"}/checkout`,
+                    pending: `${req.headers.get("origin") || "https://classea.vercel.app"}/checkout`,
                 },
                 auto_return: "approved",
                 notification_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/mercadopago-webhook?org_id=${order.organization_id}`,
@@ -149,15 +167,15 @@ serve(async (req) => {
             await supabase
                 .from("orders")
                 .update({ payment_preference_id: result.id })
-                .eq("id", orderId);
+                .eq("id", order.id);
 
             return new Response(
                 JSON.stringify({ id: result.id, init_point: result.init_point }),
                 { headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
-
     } catch (error) {
+        console.error("Edge Function Main Catch:", error.message);
         return new Response(JSON.stringify({ error: error.message }), {
             status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },

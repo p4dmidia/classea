@@ -21,7 +21,8 @@ import toast from 'react-hot-toast';
 
 const AffiliateConsorcio: React.FC = () => {
     const { user } = useAuth();
-    const [participation, setParticipation] = useState<any>(null);
+    const [participations, setParticipations] = useState<any[]>([]);
+    const [selectedParticipationIndex, setSelectedParticipationIndex] = useState(0);
     const [draws, setDraws] = useState<any[]>([]);
     const [cStatus, setCStatus] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -43,35 +44,14 @@ const AffiliateConsorcio: React.FC = () => {
                     consortium_groups (*)
                 `)
                 .eq('user_id', user?.id)
-                .single();
+                .order('joined_at', { ascending: false });
 
-            if (partError && partError.code !== 'PGRST116') throw partError;
-            setParticipation(partData);
+            if (partError) throw partError;
+            setParticipations(partData || []);
 
-            if (partData) {
-                // Fetch draws for this group
-                const { data: drawData, error: drawError } = await supabase
-                    .from('consortium_draws')
-                    .select(`
-                        *,
-                        winner:consortium_participants (
-                            lucky_number,
-                            user:user_profiles (email)
-                        )
-                    `)
-                    .eq('group_id', partData.group_id)
-                    .order('created_at', { ascending: false });
-
-                if (drawError) throw drawError;
-                setDraws(drawData || []);
-
-                // Fetch regularity status
-                const { data: statusData, error: statusError } = await supabase
-                    .rpc('check_consortium_regularity', { p_user_id: user?.id });
-                
-                if (!statusError && statusData && statusData.length > 0) {
-                    setCStatus(statusData[0]);
-                }
+            if (partData && partData.length > 0) {
+                const currentPart = partData[selectedParticipationIndex];
+                await fetchGroupDetails(currentPart);
             }
 
         } catch (error) {
@@ -82,6 +62,48 @@ const AffiliateConsorcio: React.FC = () => {
         }
     };
 
+    const fetchGroupDetails = async (part: any) => {
+        if (!part) return;
+        
+        try {
+            // Fetch draws for this group
+            const { data: drawData, error: drawError } = await supabase
+                .from('consortium_draws')
+                .select(`
+                    id,
+                    draw_date,
+                    lottery_number,
+                    video_url,
+                    official_result_url,
+                    winner:consortium_participants (
+                        lucky_number,
+                        user:user_profiles (email)
+                    )
+                `)
+                .eq('group_id', part.group_id)
+                .order('created_at', { ascending: false });
+
+            if (drawError) throw drawError;
+            setDraws(drawData || []);
+
+            // Fetch regularity status
+            const { data: statusData, error: statusError } = await supabase
+                .rpc('check_consortium_regularity', { p_user_id: user?.id });
+            
+            if (!statusError && statusData && statusData.length > 0) {
+                setCStatus(statusData[0]);
+            }
+        } catch (error) {
+            console.error('Error fetching group details:', error);
+        }
+    };
+
+    useEffect(() => {
+        if (participations.length > 0) {
+            fetchGroupDetails(participations[selectedParticipationIndex]);
+        }
+    }, [selectedParticipationIndex]);
+
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -91,7 +113,7 @@ const AffiliateConsorcio: React.FC = () => {
         );
     }
 
-    if (!participation) {
+    if (participations.length === 0) {
         return (
             <div className="bg-white rounded-[2rem] p-12 text-center border border-slate-100 shadow-sm">
                 <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-6 text-slate-400">
@@ -111,13 +133,37 @@ const AffiliateConsorcio: React.FC = () => {
         );
     }
 
+    const participation = participations[selectedParticipationIndex];
     const { consortium_groups: group } = participation;
 
     return (
         <div className="space-y-8 pb-12">
-            <div>
-                <h1 className="text-3xl font-black text-[#0B1221]">Meu Consórcio</h1>
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">Gestão de cotas e sorteios ativos</p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                    <h1 className="text-3xl font-black text-[#0B1221]">Meu Consórcio</h1>
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] mt-1">Gestão de cotas e sorteios ativos</p>
+                </div>
+
+                {participations.length > 1 && (
+                    <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-3">Escolher Cota:</span>
+                        <div className="flex gap-2">
+                            {participations.map((p, idx) => (
+                                <button
+                                    key={p.id}
+                                    onClick={() => setSelectedParticipationIndex(idx)}
+                                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
+                                        selectedParticipationIndex === idx 
+                                            ? 'bg-[#FBC02D] text-[#0B1221]' 
+                                            : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                                    }`}
+                                >
+                                    Cota {idx + 1}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="grid lg:grid-cols-3 gap-8">
@@ -129,6 +175,12 @@ const AffiliateConsorcio: React.FC = () => {
                         </div>
                         <div className="relative z-10">
                             <div className="flex items-center gap-3 mb-6">
+                                {participation.status === 'contemplated' && (
+                                    <span className="px-3 py-1 bg-emerald-500 text-white rounded-full text-[10px] font-black tracking-widest flex items-center gap-1">
+                                        <Trophy className="w-3 h-3" />
+                                        CONTEMPLADO
+                                    </span>
+                                )}
                                 <span className="px-3 py-1 bg-white/10 rounded-full text-[10px] font-black tracking-widest">
                                     {group.type === 'colchao' ? 'MODALIDADE COLCHÃO' : 'MODALIDADE LIVRE ESCOLHA'}
                                 </span>
