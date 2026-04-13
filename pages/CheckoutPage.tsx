@@ -162,7 +162,7 @@ const CheckoutPage: React.FC = () => {
 
         try {
             // 1. Create order in Supabase
-            const orderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
+            const orderId = `ORD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
             const referralCode = Cookies.get('classea_ref');
             
                 const fullAddressString = isShippingRequired 
@@ -232,6 +232,7 @@ const CheckoutPage: React.FC = () => {
 
             if (paymentError) {
                 console.error('Edge Function Error Details:', paymentError);
+                console.error('Order ID:', orderId);
                 throw new Error(paymentError.message || 'Erro ao processar pagamento via Mercado Pago. Verifique o console.');
             }
 
