@@ -29,13 +29,14 @@ const CheckoutPage: React.FC = () => {
     const [paymentMethod, setPaymentMethod] = useState<'credit' | 'pix'>('credit');
     const [isLoading, setIsLoading] = useState(false);
     const [pixData, setPixData] = useState<any>(null);
-    const [customerInfo, setCustomerInfo] = useState({
-        name: '',
-        email: '',
-        phone: '',
-        cpf: '',
         address: '',
-        cep: ''
+        cep: '',
+        street: '',
+        number: '',
+        complement: '',
+        neighborhood: '',
+        city: '',
+        state: ''
     });
 
     const [shippingOptions, setShippingOptions] = useState<any[]>([]);
@@ -49,7 +50,7 @@ const CheckoutPage: React.FC = () => {
                 try {
                     const { data, error } = await supabase
                         .from('affiliates')
-                        .select('full_name, email, whatsapp, cpf, address, cep')
+                        .select('full_name, email, whatsapp, cpf, address, cep, street, number, complement, neighborhood, city, state')
                         .eq('user_id', user.id)
                         .single();
 
@@ -60,7 +61,13 @@ const CheckoutPage: React.FC = () => {
                             phone: data.whatsapp || '',
                             cpf: data.cpf || '',
                             address: data.address || '',
-                            cep: data.cep || ''
+                            cep: data.cep || '',
+                            street: data.street || '',
+                            number: data.number || '',
+                            complement: data.complement || '',
+                            neighborhood: data.neighborhood || '',
+                            city: data.city || '',
+                            state: data.state || ''
                         });
                         // If we have at least name and email, consider it identified
                         if (data.full_name || data.email) {
@@ -76,12 +83,14 @@ const CheckoutPage: React.FC = () => {
     }, [user]);
 
     const isConsorcioInCart = cart.some(item => item.category === 'Consórcio' || item.name.includes('CONSÓRCIO'));
+    const isConsorcioOnly = cart.every(item => item.category === 'Consórcio' || item.name.includes('CONSÓRCIO'));
+    const isShippingRequired = !isConsorcioOnly;
     const subtotal = cartTotal;
-    const shipping = isConsorcioInCart ? 0 : (selectedShipping ? parseFloat(selectedShipping.price) : 0);
+    const shipping = isConsorcioOnly ? 0 : (selectedShipping ? parseFloat(selectedShipping.price) : 0);
     const total = subtotal + shipping;
 
     const calculateShipping = async () => {
-        if (isConsorcioInCart) {
+        if (!isShippingRequired) {
             toast.success('Produtos digitais possuem frete isento!');
             return;
         }
@@ -120,11 +129,25 @@ const CheckoutPage: React.FC = () => {
     const handleConfirmOrder = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!customerInfo.name || !customerInfo.email || !customerInfo.phone || !customerInfo.address || !customerInfo.cpf) {
-            toast.error('Por favor, preencha todos os dados de envio e o CPF.');
+        // Basic validation
+        if (!customerInfo.name || !customerInfo.email || !customerInfo.phone || !customerInfo.cpf) {
+            toast.error('Por favor, preencha seus dados básicos e o CPF.');
             return;
         }
 
+        // Full address validation for non-consortium products
+        if (isShippingRequired) {
+            if (!customerInfo.cep || !customerInfo.street || !customerInfo.number || !customerInfo.neighborhood || !customerInfo.city || !customerInfo.state) {
+                toast.error('Por favor, preencha o endereço completo para entrega.');
+                return;
+            }
+            if (!selectedShipping) {
+                toast.error('Por favor, selecione uma opção de frete.');
+                return;
+            }
+        }
+
+        const isConsorcioInCart = cart.some(item => item.category === 'Consórcio' || item.name.includes('CONSÓRCIO'));
         if (isConsorcioInCart && !acceptedConsorcio) {
             toast.error('Para prosseguir com a compra de Consórcio, você deve aceitar os termos de adesão.');
             return;
@@ -137,26 +160,50 @@ const CheckoutPage: React.FC = () => {
             const orderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
             const referralCode = Cookies.get('classea_ref');
             
-            const { error: orderError } = await supabase
-                .from('orders')
-                .insert([{
-                    id: orderId,
-                    organization_id: ORGANIZATION_ID,
-                    user_id: user?.id,
-                    referral_code: referralCode,
-                    customer_name: customerInfo.name,
-                    customer_email: customerInfo.email,
-                    customer_phone: customerInfo.phone,
-                    customer_cpf: customerInfo.cpf,
-                    shipping_address: `${customerInfo.address} - CEP: ${customerInfo.cep}`,
-                    total_amount: total,
-                    shipping_cost: shipping,
-                    shipping_method: selectedShipping?.name || 'Não informado',
-                    status: 'Pendente',
-                    payment_method: paymentMethod === 'credit' ? 'Cartão de Crédito' : 'Pix'
-                }]);
+                const fullAddressString = isShippingRequired 
+                    ? `${customerInfo.street}, ${customerInfo.number} ${customerInfo.complement ? `(${customerInfo.complement})` : ''} - ${customerInfo.neighborhood}, ${customerInfo.city} - ${customerInfo.state} (CEP: ${customerInfo.cep})`
+                    : 'Consórcio - Digital';
 
-            if (orderError) throw orderError;
+                const { error: orderError } = await supabase
+                    .from('orders')
+                    .insert([{
+                        id: orderId,
+                        organization_id: ORGANIZATION_ID,
+                        user_id: user?.id,
+                        referral_code: referralCode,
+                        customer_name: customerInfo.name,
+                        customer_email: customerInfo.email,
+                        customer_phone: customerInfo.phone,
+                        customer_cpf: customerInfo.cpf,
+                        shipping_address: fullAddressString,
+                        total_amount: total,
+                        shipping_cost: shipping,
+                        shipping_method: selectedShipping?.name || (isConsorcioOnly ? 'Isento - Digital' : 'Não informado'),
+                        status: 'Pendente',
+                        payment_method: paymentMethod === 'credit' ? 'Cartão de Crédito' : 'Pix'
+                    }]);
+
+                if (orderError) throw orderError;
+
+                // 1.5 Update user profile if logged in
+                if (user) {
+                    await supabase
+                        .from('user_profiles')
+                        .update({
+                            full_name: customerInfo.name,
+                            whatsapp: customerInfo.phone,
+                            cpf: customerInfo.cpf,
+                            cep: customerInfo.cep,
+                            street: customerInfo.street,
+                            number: customerInfo.number,
+                            complement: customerInfo.complement,
+                            neighborhood: customerInfo.neighborhood,
+                            city: customerInfo.city,
+                            state: customerInfo.state,
+                            address: isShippingRequired ? `${customerInfo.street}, ${customerInfo.number}` : ''
+                        })
+                        .eq('id', user.id);
+                }
 
             // 2. Add items
             const { error: itemsError } = await supabase
@@ -342,16 +389,24 @@ const CheckoutPage: React.FC = () => {
                                         </div>
                                         <div className="bg-white p-4 rounded-2xl border border-slate-100/50 md:col-span-2">
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Endereço de Entrega</p>
-                                            <p className="text-sm font-bold text-[#0B1221]">{customerInfo.address || 'Endereço não cadastrado'} - {customerInfo.cep}</p>
+                                            {isShippingRequired ? (
+                                                <p className="text-sm font-bold text-[#0B1221]">
+                                                    {customerInfo.street}, {customerInfo.number} {customerInfo.complement && `(${customerInfo.complement})`} <br/>
+                                                    {customerInfo.neighborhood} - {customerInfo.city}/{customerInfo.state} <br/>
+                                                    CEP: {customerInfo.cep}
+                                                </p>
+                                            ) : (
+                                                <p className="text-sm font-bold text-[#0B1221]">Consórcio (Digital - Frete Isento)</p>
+                                            )}
                                         </div>
                                     </div>
-                                    {!customerInfo.cep && (
+                                    {isShippingRequired && !customerInfo.cep && (
                                         <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest">
                                             <AlertCircle className="w-4 h-4" />
                                             Complete seu CEP para calcular o frete
                                         </div>
                                     )}
-                                    {customerInfo.cep && !selectedShipping && (
+                                    {isShippingRequired && customerInfo.cep && !selectedShipping && (
                                         <div className="pt-2">
                                             <button
                                                 type="button"
@@ -406,36 +461,96 @@ const CheckoutPage: React.FC = () => {
                                             onChange={(e) => setCustomerInfo({ ...customerInfo, cpf: e.target.value })}
                                         />
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CEP</label>
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
-                                                placeholder="00000-000"
-                                                value={customerInfo.cep}
-                                                onChange={(e) => setCustomerInfo({ ...customerInfo, cep: e.target.value })}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={calculateShipping}
-                                                disabled={isCalculatingShipping}
-                                                className="px-6 bg-[#0B1221] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#1a2436] transition-all disabled:opacity-50"
-                                            >
-                                                {isCalculatingShipping ? <Loader2 className="w-4 h-4 animate-spin" /> : 'CALCULAR'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2 md:col-span-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Endereço Completo</label>
-                                        <input
-                                            type="text"
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
-                                            placeholder="Rua, Número, Bairro, Cidade - UF"
-                                            value={customerInfo.address}
-                                            onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
-                                        />
-                                    </div>
+                                    {isShippingRequired && (
+                                        <>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CEP</label>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                                        placeholder="00000-000"
+                                                        value={customerInfo.cep}
+                                                        onChange={(e) => setCustomerInfo({ ...customerInfo, cep: e.target.value })}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={calculateShipping}
+                                                        disabled={isCalculatingShipping}
+                                                        className="px-6 bg-[#0B1221] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#1a2436] transition-all disabled:opacity-50"
+                                                    >
+                                                        {isCalculatingShipping ? <Loader2 className="w-4 h-4 animate-spin" /> : 'CALCULAR'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2 md:col-span-2 pt-2 border-t border-slate-50 mt-2">
+                                                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-4">Endereço de Entrega</p>
+                                            </div>
+                                            <div className="space-y-2 md:col-span-2">
+                                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Rua / Logradouro</label>
+                                                <input
+                                                    type="text"
+                                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                                    placeholder="Nome da rua"
+                                                    value={customerInfo.street}
+                                                    onChange={(e) => setCustomerInfo({ ...customerInfo, street: e.target.value })}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Número</label>
+                                                <input
+                                                    type="text"
+                                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                                    placeholder="123"
+                                                    value={customerInfo.number}
+                                                    onChange={(e) => setCustomerInfo({ ...customerInfo, number: e.target.value })}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Complemento</label>
+                                                <input
+                                                    type="text"
+                                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                                    placeholder="Apto, Bloco, etc."
+                                                    value={customerInfo.complement}
+                                                    onChange={(e) => setCustomerInfo({ ...customerInfo, complement: e.target.value })}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Bairro</label>
+                                                <input
+                                                    type="text"
+                                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                                    placeholder="Seu bairro"
+                                                    value={customerInfo.neighborhood}
+                                                    onChange={(e) => setCustomerInfo({ ...customerInfo, neighborhood: e.target.value })}
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Cidade</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                                        placeholder="Cidade"
+                                                        value={customerInfo.city}
+                                                        onChange={(e) => setCustomerInfo({ ...customerInfo, city: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">UF</label>
+                                                    <input
+                                                        type="text"
+                                                        maxLength={2}
+                                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D] uppercase"
+                                                        placeholder="SP"
+                                                        value={customerInfo.state}
+                                                        onChange={(e) => setCustomerInfo({ ...customerInfo, state: e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             )}
 

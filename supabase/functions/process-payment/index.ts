@@ -147,6 +147,16 @@ serve(async (req) => {
                 notification_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/mercadopago-webhook?org_id=${order.organization_id}`,
             };
 
+            // Add shipping cost if present
+            if (Number(order.shipping_cost) > 0) {
+                preferenceData.items.push({
+                    title: "Custo de Envio (Frete)",
+                    quantity: 1,
+                    unit_price: Number(order.shipping_cost),
+                    currency_id: "BRL",
+                });
+            }
+
             const response = await fetch("https://api.mercadopago.com/checkout/preferences", {
                 method: "POST",
                 headers: {
