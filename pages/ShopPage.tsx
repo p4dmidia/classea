@@ -230,6 +230,21 @@ const ShopPage: React.FC = () => {
 
     const handleAddToCart = (e: React.MouseEvent, product: any) => {
         e.stopPropagation();
+
+        // Check if product has variations that need selection
+        const variations = product.variations || {};
+        const hasRequiredVariations = Object.keys(variations).some(key => 
+            Array.isArray(variations[key]) && variations[key].length > 0
+        );
+
+        if (hasRequiredVariations) {
+            toast('Por favor, selecione as opções do produto (tamanho, cor, etc.)', {
+                icon: '👟',
+            });
+            navigate(`/p/${product.id}`);
+            return;
+        }
+
         addToCart(product);
         toast.success(`${product.name} adicionado ao carrinho!`);
     };
