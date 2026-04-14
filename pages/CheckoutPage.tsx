@@ -231,7 +231,18 @@ const CheckoutPage: React.FC = () => {
             if (paymentError) {
                 console.error('Edge Function Error Details:', paymentError);
                 console.error('Order ID:', orderId);
-                throw new Error(paymentError.message || 'Erro ao processar pagamento via Mercado Pago. Verifique o console.');
+                
+                // Tentar extrair erro detalhado da resposta
+                let detailedMessage = paymentError.message;
+                try {
+                    // Algumas versões do client colocam o corpo como texto no message ou no context
+                    const errorDetails = (paymentError as any).context?.data || (paymentError as any).details;
+                    if (errorDetails && typeof errorDetails === 'object' && errorDetails.error) {
+                        detailedMessage = errorDetails.error;
+                    }
+                } catch (e) {}
+                
+                throw new Error(detailedMessage || 'Erro ao processar pagamento via Mercado Pago.');
             }
 
             if (paymentMethod === 'pix') {
