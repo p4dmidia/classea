@@ -19,6 +19,8 @@ serve(async (req) => {
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
         );
 
+        console.log(`[ProcessPayment] Starting for Order ID: ${orderId}`);
+
         // 1. Get order details
         const { data: order, error: orderError } = await supabase
             .from("orders")
@@ -27,9 +29,12 @@ serve(async (req) => {
             .single();
 
         if (orderError || !order) {
-            console.error("Order search error:", orderError);
-            throw new Error(`Pedido ${orderId} não encontrado no banco de dados.`);
+            console.error(`[ProcessPayment] Order search error for ${orderId}:`, orderError);
+            throw new Error(`Pedido ${orderId} não encontrado no banco de dados. Verifique se o ID está correto.`);
         }
+
+        console.log(`[ProcessPayment] Order found: ${order.id}, total: ${order.total_amount}`);
+        console.log(`[ProcessPayment] Order items count: ${order.order_items?.length || 0}`);
 
         // 2. Get organization credentials
         const { data: org, error: orgError } = await supabase
@@ -41,9 +46,11 @@ serve(async (req) => {
         const accessToken = org?.mercadopago_access_token || (org?.mercadopago_config as any)?.access_token;
 
         if (orgError || !accessToken) {
-            console.error(`MP Credentials missing for org ${order.organization_id}:`, orgError);
-            throw new Error("Configuração do Mercado Pago não encontrada. Verifique o Access Token da organização.");
+            console.error(`[ProcessPayment] MP Credentials missing for org ${order.organization_id}:`, orgError);
+            throw new Error(`Configuração do Mercado Pago não encontrada para a organização ${org?.name || order.organization_id}. Verifique o Access Token.`);
         }
+
+        console.log(`[ProcessPayment] Payment Method: ${paymentMethod}`);
 
         if (paymentMethod === "pix") {
             // Create PIX payment directly
@@ -86,9 +93,9 @@ serve(async (req) => {
             const result = await response.json();
 
             if (!response.ok || result.error) {
-                console.error("Full MP Error Response:", JSON.stringify(result, null, 2));
+                console.error("[ProcessPayment] Mercado Pago PIX Error:", JSON.stringify(result, null, 2));
                 const mpErrorMessage = result.message || (result.cause?.[0]?.description) || "Erro desconhecido no Mercado Pago";
-                throw new Error(`Mercado Pago: ${mpErrorMessage}`);
+                throw new Error(`Mercado Pago (PIX): ${mpErrorMessage}`);
             }
 
             // Safety check for response structure
@@ -169,8 +176,9 @@ serve(async (req) => {
             const result = await response.json();
 
             if (!result.id || !result.init_point) {
-                console.error("MP Preference Error:", result);
-                throw new Error(result.message || "Erro ao criar preferência de pagamento");
+                console.error("[ProcessPayment] Mercado Pago Preference Error:", result);
+                const mpErrorMessage = result.message || (result.cause?.[0]?.description) || "Erro ao criar preferência de pagamento no Mercado Pago";
+                throw new Error(mpErrorMessage);
             }
 
             // Update order with preference ID
@@ -185,8 +193,11 @@ serve(async (req) => {
             );
         }
     } catch (error) {
-        console.error("Edge Function Main Catch:", error.message);
-        return new Response(JSON.stringify({ error: error.message }), {
+        console.error("[ProcessPayment] BIG EXCEPTION:", error.message);
+        return new Response(JSON.stringify({ 
+            error: error.message,
+            details: "Erro interno na Edge Function. Verifique se todos os dados do pedido estão corretos."
+        }), {
             status: 400,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });

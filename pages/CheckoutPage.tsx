@@ -90,6 +90,7 @@ const CheckoutPage: React.FC = () => {
     const isConsorcioInCart = cart.some(item => item.category === 'Consórcio' || item.name.includes('CONSÓRCIO'));
     const isConsorcioOnly = cart.every(item => item.category === 'Consórcio' || item.name.includes('CONSÓRCIO'));
     const isShippingRequired = !isConsorcioOnly;
+    const isAddressRequired = true; // Sempre pedir endereço para fins de cadastro
     const subtotal = cartTotal;
     const shipping = isConsorcioOnly ? 0 : (selectedShipping ? parseFloat(selectedShipping.price) : 0);
     const total = subtotal + shipping;
@@ -140,16 +141,15 @@ const CheckoutPage: React.FC = () => {
             return;
         }
 
-        // Full address validation for non-consortium products
-        if (isShippingRequired) {
-            if (!customerInfo.cep || !customerInfo.street || !customerInfo.number || !customerInfo.neighborhood || !customerInfo.city || !customerInfo.state) {
-                toast.error('Por favor, preencha o endereço completo para entrega.');
-                return;
-            }
-            if (!selectedShipping) {
-                toast.error('Por favor, selecione uma opção de frete.');
-                return;
-            }
+        // Full address validation
+        if (!customerInfo.cep || !customerInfo.street || !customerInfo.number || !customerInfo.neighborhood || !customerInfo.city || !customerInfo.state) {
+            toast.error('Por favor, preencha o endereço completo.');
+            return;
+        }
+
+        if (isShippingRequired && !selectedShipping) {
+            toast.error('Por favor, selecione uma opção de frete.');
+            return;
         }
 
         const isConsorcioInCart = cart.some(item => item.category === 'Consórcio' || item.name.includes('CONSÓRCIO'));
@@ -165,9 +165,7 @@ const CheckoutPage: React.FC = () => {
             const orderId = `ORD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
             const referralCode = Cookies.get('classea_ref');
             
-                const fullAddressString = isShippingRequired 
-                    ? `${customerInfo.street}, ${customerInfo.number} ${customerInfo.complement ? `(${customerInfo.complement})` : ''} - ${customerInfo.neighborhood}, ${customerInfo.city} - ${customerInfo.state} (CEP: ${customerInfo.cep})`
-                    : 'Consórcio - Digital';
+                const fullAddressString = `${customerInfo.street}, ${customerInfo.number} ${customerInfo.complement ? `(${customerInfo.complement})` : ''} - ${customerInfo.neighborhood}, ${customerInfo.city} - ${customerInfo.state} (CEP: ${customerInfo.cep})`;
 
                 const { error: orderError } = await supabase
                     .from('orders')
@@ -205,7 +203,7 @@ const CheckoutPage: React.FC = () => {
                             neighborhood: customerInfo.neighborhood,
                             city: customerInfo.city,
                             state: customerInfo.state,
-                            address: isShippingRequired ? `${customerInfo.street}, ${customerInfo.number}` : ''
+                            address: `${customerInfo.street}, ${customerInfo.number}`
                         })
                         .eq('id', user.id);
                 }
@@ -395,18 +393,12 @@ const CheckoutPage: React.FC = () => {
                                         </div>
                                         <div className="bg-white p-4 rounded-2xl border border-slate-100/50 md:col-span-2">
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Endereço de Entrega</p>
-                                            {isShippingRequired ? (
-                                                <p className="text-sm font-bold text-[#0B1221]">
                                                     {customerInfo.street}, {customerInfo.number} {customerInfo.complement && `(${customerInfo.complement})`} <br/>
                                                     {customerInfo.neighborhood} - {customerInfo.city}/{customerInfo.state} <br/>
                                                     CEP: {customerInfo.cep}
-                                                </p>
-                                            ) : (
-                                                <p className="text-sm font-bold text-[#0B1221]">Consórcio (Digital - Frete Isento)</p>
-                                            )}
                                         </div>
                                     </div>
-                                    {isShippingRequired && !customerInfo.cep && (
+                                    {!customerInfo.cep && (
                                         <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-4 rounded-2xl text-[10px] font-bold uppercase tracking-widest">
                                             <AlertCircle className="w-4 h-4" />
                                             Complete seu CEP para calcular o frete
@@ -467,7 +459,8 @@ const CheckoutPage: React.FC = () => {
                                             onChange={(e) => setCustomerInfo({ ...customerInfo, cpf: e.target.value })}
                                         />
                                     </div>
-                                    {isShippingRequired && (
+                                    {/* Sempre mostrar endereço, mas frete só se necessário */}
+                                    {true && (
                                         <>
                                             <div className="space-y-2">
                                                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CEP</label>
