@@ -55,7 +55,7 @@ const CheckoutPage: React.FC = () => {
                 try {
                     const { data, error } = await supabase
                         .from('affiliates')
-                        .select('full_name, email, whatsapp, cpf, address, cep, street, number, complement, neighborhood, city, state')
+                        .select('full_name, email, whatsapp, cpf, cnpj, address, cep, street, number, complement, neighborhood, city, state')
                         .eq('user_id', user.id)
                         .single();
 
@@ -64,7 +64,7 @@ const CheckoutPage: React.FC = () => {
                             name: data.full_name || user.user_metadata?.full_name || user.user_metadata?.nome || '',
                             email: data.email || user.email || '',
                             phone: data.whatsapp || '',
-                            cpf: data.cpf || '',
+                            cpf: data.cpf || data.cnpj || '',
                             address: data.address || '',
                             cep: data.cep || '',
                             street: data.street || '',
@@ -395,7 +395,7 @@ const CheckoutPage: React.FC = () => {
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                                         <div className="bg-white p-4 rounded-2xl border border-slate-100/50">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">CPF</p>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">CPF / CNPJ</p>
                                             <p className="text-sm font-bold text-[#0B1221]">{customerInfo.cpf || 'Não informado'}</p>
                                         </div>
                                         <div className="bg-white p-4 rounded-2xl border border-slate-100/50">
@@ -461,11 +461,11 @@ const CheckoutPage: React.FC = () => {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CPF</label>
+                                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">CPF / CNPJ</label>
                                         <input
                                             type="text"
                                             className="w-full bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
-                                            placeholder="000.000.000-00"
+                                            placeholder="000.000.000-00 ou 00.000.000/0000-00"
                                             value={customerInfo.cpf}
                                             onChange={(e) => setCustomerInfo({ ...customerInfo, cpf: e.target.value })}
                                         />

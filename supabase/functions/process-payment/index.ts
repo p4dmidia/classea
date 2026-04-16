@@ -56,10 +56,11 @@ serve(async (req) => {
             // Create PIX payment directly
             const customerFirstName = order.customer_name?.split(" ")[0] || "Cliente";
             const customerLastName = order.customer_name?.split(" ").slice(1).join(" ") || "Classe A";
-            const cleanCpf = (customerCpf || order.customer_cpf || "").replace(/\D/g, "");
+            const cleanDoc = (customerCpf || order.customer_cpf || "").replace(/\D/g, "");
+            const docType = cleanDoc.length === 11 ? "CPF" : cleanDoc.length === 14 ? "CNPJ" : null;
 
-            if (!cleanCpf || cleanCpf.length !== 11) {
-                throw new Error("CPF inválido ou incompleto. O Mercado Pago exige um CPF válido para pagamentos PIX.");
+            if (!docType) {
+                throw new Error("Documento (CPF ou CNPJ) inválido ou incompleto. O Mercado Pago exige um documento válido para pagamentos PIX.");
             }
 
             const paymentData = {
@@ -72,8 +73,8 @@ serve(async (req) => {
                     first_name: customerFirstName,
                     last_name: customerLastName,
                     identification: {
-                        type: "CPF",
-                        number: cleanCpf
+                        type: docType,
+                        number: cleanDoc
                     }
                 },
                 external_reference: order.id,
