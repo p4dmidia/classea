@@ -334,16 +334,16 @@ const AffiliateConsorcio: React.FC = () => {
                             <h4 className="text-lg font-black text-[#0B1221] mb-6">Regras do Grupo</h4>
                             <ul className="space-y-4">
                                 <li className="flex gap-3">
-                                    <AlertCircle className="w-5 h-5 text-[#FBC02D] flex-shrink-0 mt-0.5" />
-                                    <p className="text-sm text-slate-500 font-medium">As parcelas vencem todo dia <strong>10</strong> de cada mês.</p>
+                                    <span className="text-[#FBC02D] font-black text-lg leading-none">□</span>
+                                    <p className="text-sm text-slate-500 font-medium">as parcelas vencem todo dia 05 mas você tem até o dia 10 de cada mês para ficar em dia</p>
                                 </li>
                                 <li className="flex gap-3">
-                                    <AlertCircle className="w-5 h-5 text-[#FBC02D] flex-shrink-0 mt-0.5" />
-                                    <p className="text-sm text-slate-500 font-medium">Você precisa estar em dia para participar do sorteio.</p>
+                                    <span className="text-[#FBC02D] font-black text-lg leading-none">□</span>
+                                    <p className="text-sm text-slate-500 font-medium">você precisa estar em dia para participar do sorteio</p>
                                 </li>
                                 <li className="flex gap-3">
-                                    <AlertCircle className="w-5 h-5 text-[#FBC02D] flex-shrink-0 mt-0.5" />
-                                    <p className="text-sm text-slate-500 font-medium">O sorteio ocorre 24h após o resultado da Loteria Federal.</p>
+                                    <span className="text-[#FBC02D] font-black text-lg leading-none">□</span>
+                                    <p className="text-sm text-slate-500 font-medium">o sorteio e realizado usando sempre o último resultado da loteria federal sempre o resultado do 1°prêmio</p>
                                 </li>
                             </ul>
                             <div className="mt-8 pt-8 border-t border-slate-50">
