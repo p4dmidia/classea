@@ -59,7 +59,10 @@ serve(async (req) => {
             const cleanDoc = (customerCpf || order.customer_cpf || "").replace(/\D/g, "");
             const docType = cleanDoc.length === 11 ? "CPF" : cleanDoc.length === 14 ? "CNPJ" : null;
 
+            console.log(`[ProcessPayment] Document cleaning: original="${customerCpf || order.customer_cpf}", cleaned="${cleanDoc}", type=${docType}`);
+
             if (!docType) {
+                console.error(`[ProcessPayment] Invalid document: "${cleanDoc}" (length: ${cleanDoc.length})`);
                 throw new Error("Documento (CPF ou CNPJ) inválido ou incompleto. O Mercado Pago exige um documento válido para pagamentos PIX.");
             }
 
@@ -94,9 +97,14 @@ serve(async (req) => {
             const result = await response.json();
 
             if (!response.ok || result.error) {
-                console.error("[ProcessPayment] Mercado Pago PIX Error:", JSON.stringify(result, null, 2));
-                const mpErrorMessage = result.message || (result.cause?.[0]?.description) || "Erro desconhecido no Mercado Pago";
-                throw new Error(`Mercado Pago (PIX): ${mpErrorMessage}`);
+                console.error("[ProcessPayment] Mercado Pago PIX Full Error:", JSON.stringify(result, null, 2));
+                
+                const mpErrorMessage = result.message || 
+                                     (result.cause?.[0]?.description) || 
+                                     (result.message_detail) ||
+                                     "Erro desconhecido no Mercado Pago";
+                                     
+                throw new Error(`Mercado Pago (PIX): ${mpErrorMessage} (${response.status})`);
             }
 
             // Safety check for response structure

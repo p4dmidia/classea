@@ -232,15 +232,17 @@ const CheckoutPage: React.FC = () => {
                 console.error('Edge Function Error Details:', paymentError);
                 console.error('Order ID:', orderId);
                 
-                // Tentar extrair erro detalhado da resposta
-                let detailedMessage = paymentError.message;
-                try {
-                    // Algumas versões do client colocam o corpo como texto no message ou no context
-                    const errorDetails = (paymentError as any).context?.data || (paymentError as any).details;
-                    if (errorDetails && typeof errorDetails === 'object' && errorDetails.error) {
-                        detailedMessage = errorDetails.error;
-                    }
-                } catch (e) {}
+                let detailedMessage = '';
+                
+                // Tenta extrair a mensagem do corpo da resposta (data)
+                if ((paymentError as any).context?.data) {
+                    const errorData = (paymentError as any).context.data;
+                    detailedMessage = errorData.error || errorData.message || (typeof errorData === 'string' ? errorData : '');
+                }
+                
+                if (!detailedMessage && paymentError.message) {
+                    detailedMessage = paymentError.message;
+                }
                 
                 throw new Error(detailedMessage || 'Erro ao processar pagamento via Mercado Pago.');
             }
