@@ -247,6 +247,11 @@ const CheckoutPage: React.FC = () => {
                 throw new Error(detailedMessage || 'Erro ao processar pagamento via Mercado Pago.');
             }
 
+            // Tratamento para nova estratégia de retorno 200 com erro no corpo
+            if (paymentResult && paymentResult.error) {
+                throw new Error(paymentResult.message || 'Erro ao processar pagamento.');
+            }
+
             if (paymentMethod === 'pix') {
                 if (!paymentResult.ticket_url) {
                     throw new Error('Erro ao gerar link do PIX. Tente novamente.');

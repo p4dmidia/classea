@@ -202,12 +202,13 @@ serve(async (req) => {
             );
         }
     } catch (error) {
-        console.error("[ProcessPayment] BIG EXCEPTION:", error.message);
+        console.error("[ProcessPayment] EXCEPTION:", error.message);
         return new Response(JSON.stringify({ 
-            error: error.message,
-            details: "Erro interno na Edge Function. Verifique se todos os dados do pedido estão corretos."
+            error: true,
+            message: error.message,
+            details: "Verifique se todos os dados do pedido e o documento (CPF/CNPJ) estão corretos."
         }), {
-            status: 400,
+            status: 200, // Retornamos 200 para que o client possa ler o corpo do erro sem disparar exceção
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
     }
