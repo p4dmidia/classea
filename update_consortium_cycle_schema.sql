@@ -1,9 +1,12 @@
--- 1. Updates for consortium_groups to track cycles
+-- 1. Updates for consortium_groups to track cycles and multitenancy
 ALTER TABLE public.consortium_groups 
 ADD COLUMN IF NOT EXISTS current_month integer DEFAULT 0;
 
 ALTER TABLE public.consortium_groups 
 ADD COLUMN IF NOT EXISTS next_draw_date timestamp with time zone;
+
+ALTER TABLE public.consortium_groups 
+ADD COLUMN IF NOT EXISTS organization_id uuid REFERENCES public.organizations(id);
 
 -- 2. Updates for consortium_draws to track metadata and months
 ALTER TABLE public.consortium_draws 

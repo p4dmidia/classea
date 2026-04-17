@@ -19,6 +19,7 @@ import {
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import AdminLayout from '../components/AdminLayout';
+import { ORGANIZATION_ID } from '../lib/config';
 
 const AdminConsorcio: React.FC = () => {
     const [groups, setGroups] = useState<any[]>([]);
@@ -45,7 +46,8 @@ const AdminConsorcio: React.FC = () => {
     const [newGroup, setNewGroup] = useState({
         name: '',
         type: 'livre_escolha',
-        max_participants: 12
+        max_participants: 12,
+        organization_id: ORGANIZATION_ID
     });
 
     useEffect(() => {
@@ -58,21 +60,24 @@ const AdminConsorcio: React.FC = () => {
             const { data, error } = await supabase
                 .from('consortium_groups')
                 .select('*')
+                .eq('organization_id', ORGANIZATION_ID)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
             setGroups(data || []);
 
-            // Fetch Total Draws
+            // Fetch Total Draws (filtered by groups in this org)
             const { count: drawCount } = await supabase
                 .from('consortium_draws')
-                .select('*', { count: 'exact', head: true });
+                .select('*, consortium_groups!inner(*)', { count: 'exact', head: true })
+                .eq('consortium_groups.organization_id', ORGANIZATION_ID);
             setTotalDraws(drawCount || 0);
 
-            // Fetch Total Participants
+            // Fetch Total Participants (filtered by groups in this org)
             const { count: participantCount } = await supabase
                 .from('consortium_participants')
-                .select('*', { count: 'exact', head: true });
+                .select('*, consortium_groups!inner(*)', { count: 'exact', head: true })
+                .eq('consortium_groups.organization_id', ORGANIZATION_ID);
             setTotalParticipants(participantCount || 0);
 
             await fetchIrregularMembers();
@@ -95,9 +100,10 @@ const AdminConsorcio: React.FC = () => {
                     id, 
                     user_id,
                     lucky_number,
-                    consortium_groups (name),
+                    consortium_groups!inner (name, organization_id),
                     user:user_profiles (email)
-                `);
+                `)
+                .eq('consortium_groups.organization_id', ORGANIZATION_ID);
 
             if (pError) throw pError;
 
@@ -127,11 +133,13 @@ const AdminConsorcio: React.FC = () => {
                 .from('consortium_draws')
                 .select(`
                     *,
+                    consortium_groups!inner(organization_id),
                     winner:consortium_participants(
                         lucky_number,
                         user:user_profiles(email)
                     )
                 `)
+                .eq('consortium_groups.organization_id', ORGANIZATION_ID)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
@@ -204,24 +212,15 @@ const AdminConsorcio: React.FC = () => {
         }
     };
 
-    const handleOpenEditDraw = async (group: any) => {
+    const handleOpenEditDraw = async (draw: any, group: any) => {
         setSelectedGroup(group);
         setIsEditDrawMode(true);
-        
-        // Find existing draw for this group
-        const draw = drawHistory.find(d => d.group_id === group.id);
-        if (draw) {
-            setCurrentDrawId(draw.id);
-            setLotteryNumber(draw.lottery_number);
-            setVideoUrl(draw.video_url || '');
-            setOfficialResultUrl(draw.official_result_url || '');
-            setDrawWinner(draw.winner); // Set the winner to display in the modal
-            setIsDrawModalOpen(true);
-        } else {
-            // This shouldn't happen if UI logic is correct
-            setIsEditDrawMode(false);
-            setIsDrawModalOpen(true);
-        }
+        setCurrentDrawId(draw.id);
+        setLotteryNumber(draw.lottery_number);
+        setVideoUrl(draw.video_url || '');
+        setOfficialResultUrl(draw.official_result_url || '');
+        setDrawWinner(draw.winner || draw.participant);
+        setIsDrawModalOpen(true);
     };
 
 
@@ -544,31 +543,28 @@ const AdminConsorcio: React.FC = () => {
                                             </div>
                                             <h3 className="text-xl font-black text-[#0B1221] break-words">{group.name}</h3>
                                                                         <div className="flex items-center gap-2 w-full sm:w-auto">
-                                            {drawHistory.some(d => d.group_id === group.id) ? (
-                                                <button
-                                                    onClick={() => handleOpenEditDraw(group)}
-                                                    className="flex-1 sm:flex-none justify-center bg-blue-500 text-white p-3 rounded-xl hover:bg-blue-600 transition-all shadow-lg shadow-blue-200"
-                                                    title="Editar Sorteio"
-                                                >
-                                                    <Edit3 className="w-5 h-5" />
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    onClick={() => { 
-                                                        setSelectedGroup(group); 
-                                                        setIsDrawModalOpen(true); 
-                                                        setIsEditDrawMode(false);
-                                                        setLotteryNumber('');
-                                                        setVideoUrl('');
-                                                        setOfficialResultUrl('');
-                                                        setDrawWinner(null);
-                                                    }}
-                                                    className="flex-1 sm:flex-none justify-center bg-[#FBC02D] text-[#0B1221] p-3 rounded-xl hover:bg-[#0B1221] hover:text-white transition-all shadow-lg shadow-[#FBC02D]/10"
-                                                    title="Realizar Sorteio"
-                                                >
-                                                    <Trophy className="w-5 h-5" />
-                                                </button>
-                                            )}
+                                                {group.status === 'finished' ? (
+                                                    <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-black text-[10px] uppercase">
+                                                        <CheckCircle2 className="w-4 h-4" />
+                                                        Ciclo Finalizado
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => { 
+                                                            setSelectedGroup(group); 
+                                                            setIsDrawModalOpen(true); 
+                                                            setIsEditDrawMode(false);
+                                                            setLotteryNumber('');
+                                                            setVideoUrl('');
+                                                            setOfficialResultUrl('');
+                                                            setDrawWinner(null);
+                                                        }}
+                                                        className="flex-1 sm:flex-none flex items-center gap-2 bg-[#FBC02D] text-[#0B1221] px-4 py-3 rounded-xl hover:bg-[#0B1221] hover:text-white transition-all shadow-lg shadow-[#FBC02D]/10 font-black text-xs uppercase tracking-tight"
+                                                    >
+                                                        <Trophy className="w-4 h-4" />
+                                                        Realizar Mês {group.current_month + 1}
+                                                    </button>
+                                                )}
                                             
                                             <div className="relative flex items-center gap-2">
                                                 <button 
@@ -604,6 +600,42 @@ const AdminConsorcio: React.FC = () => {
                                                     className="h-full bg-[#FBC02D] transition-all duration-1000"
                                                     style={{ width: `${(group.current_participants / group.max_participants) * 100}%` }}
                                                 />
+                                            </div>
+                                        </div>
+
+                                        {/* Recent Draws in this group */}
+                                        <div className="space-y-3 mb-6">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sorteios Realizados</p>
+                                            <div className="space-y-2">
+                                                {drawHistory.filter(d => d.group_id === group.id).map(draw => (
+                                                    <div key={draw.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center font-black text-[10px] text-[#0B1221] border border-slate-100 shadow-sm">
+                                                                {draw.month_number}º
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[10px] font-black text-[#0B1221]">Mês {draw.month_number}</p>
+                                                                <p className="text-[10px] font-bold text-slate-400 uppercase">{new Date(draw.draw_date || draw.created_at).toLocaleDateString('pt-BR')}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="text-right">
+                                                                <p className="text-[10px] font-black text-emerald-600 tracking-tight">Venceu: {draw.winner?.lucky_number || draw.participant?.lucky_number}</p>
+                                                            </div>
+                                                            <button 
+                                                                onClick={() => handleOpenEditDraw(draw, group)}
+                                                                className="p-2 bg-white rounded-xl text-slate-400 hover:text-blue-500 transition-all border border-slate-100 shadow-sm"
+                                                            >
+                                                                <Edit3 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {drawHistory.filter(d => d.group_id === group.id).length === 0 && (
+                                                    <div className="py-4 text-center border-2 border-dashed border-slate-100 rounded-2xl">
+                                                        <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest italic">Nenhum sorteio ainda</p>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
