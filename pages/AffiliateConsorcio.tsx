@@ -217,8 +217,10 @@ const AffiliateConsorcio: React.FC = () => {
                                     <div className="space-y-1">
                                         <p className="text-slate-400 text-[10px] font-black uppercase tracking-wider">Próximo Sorteio</p>
                                         <div className="flex items-center gap-2 text-white">
-                                            <Calendar className="w-4 h-4" />
-                                            <span className="font-bold">15/03/2026</span>
+                                            <Calendar className="w-4 h-4 text-[#FBC02D]" />
+                                            <span className="font-bold">
+                                                {group.next_draw_date ? new Date(group.next_draw_date).toLocaleDateString('pt-BR') : 'Agendando...'}
+                                            </span>
                                         </div>
                                     </div>
                                     <div className="space-y-1">
@@ -263,6 +265,7 @@ const AffiliateConsorcio: React.FC = () => {
                                     <table className="w-full text-left">
                                         <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                             <tr>
+                                                <th className="px-8 py-4">Mês</th>
                                                 <th className="px-8 py-4">Data</th>
                                                 <th className="px-8 py-4">Semente Federal</th>
                                                 <th className="px-8 py-4">Vencedor (Nº)</th>
@@ -272,7 +275,10 @@ const AffiliateConsorcio: React.FC = () => {
                                         <tbody className="divide-y divide-slate-50">
                                             {draws.map((draw) => (
                                                 <tr key={draw.id} className="hover:bg-slate-50/50 transition-colors">
-                                                    <td className="px-8 py-6 font-bold text-[#0B1221]">
+                                                    <td className="px-8 py-6 font-black text-[#0B1221]">
+                                                        {draw.month_number ? `${draw.month_number}º` : '-'}
+                                                    </td>
+                                                    <td className="px-8 py-6 font-bold text-slate-500">
                                                         {new Date(draw.draw_date).toLocaleDateString('pt-BR')}
                                                     </td>
                                                     <td className="px-8 py-6 font-mono text-slate-500">
@@ -362,12 +368,14 @@ const AffiliateConsorcio: React.FC = () => {
                                     <span className="text-[#0B1221] font-black">{group.max_participants}</span>
                                 </div>
                                 <div className="flex justify-between items-center py-2 border-t border-[#FBC02D]/10">
-                                    <span className="text-slate-500 text-sm font-bold">Duração</span>
-                                    <span className="text-[#0B1221] font-black">{group.max_participants} Meses</span>
+                                    <span className="text-slate-500 text-sm font-bold">Progresso</span>
+                                    <span className="text-[#0B1221] font-black">Mês {group.current_month || 0} de {group.max_participants}</span>
                                 </div>
                                 <div className="flex justify-between items-center py-2 border-t border-[#FBC02D]/10">
                                     <span className="text-slate-500 text-sm font-bold">Status Grupo</span>
-                                    <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-full text-[10px] font-black">EM PROGRESSO</span>
+                                    <span className={`px-3 py-1 ${group.status === 'finished' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'} rounded-full text-[10px] font-black`}>
+                                        {group.status === 'finished' ? 'FINALIZADO' : 'EM PROGRESSO'}
+                                    </span>
                                 </div>
                             </div>
                         </div>

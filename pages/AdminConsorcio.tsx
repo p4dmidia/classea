@@ -280,17 +280,40 @@ const AdminConsorcio: React.FC = () => {
 
             if (partError) throw partError;
             if (!participants || participants.length === 0) {
-                toast.error('Nenhum participante ativo neste grupo.');
+                toast.error('Nenhum participante ativo disponível neste grupo.');
                 return;
             }
 
-            // 2. Transparence Logic: (FederalLottery % GroupSize) + 1
-            const lotterySeed = parseInt(lotteryNumber.replace(/\D/g, ''));
-            const luckyWinnerNumber = (lotterySeed % selectedGroup.max_participants) + 1;
+            // 2. Filter by regularity (Paid this month)
+            // Note: In a larger system, this would be a single query.
+            // For 12-18 participants, we can check in parallel.
+            const regularParticipants = (await Promise.all(participants.map(async (p) => {
+                const { data: reg } = await supabase.rpc('check_consortium_regularity', { p_user_id: p.user_id });
+                if (reg && reg[0]?.is_regular) return p;
+                return null;
+            }))).filter(p => p !== null);
 
-            // 3. Find the participant with that lucky number
-            // Important: We fallback to the closest active participant if the exact one is inactive or missing
-            const winner = participants.find(p => p.lucky_number === luckyWinnerNumber) || participants[0];
+            if (regularParticipants.length === 0) {
+                toast.error('Nenhum participante está EM DIA (Pago) para participar do sorteio.');
+                return;
+            }
+
+            // 3. Selection Logic (Circular Fallback)
+            const lotterySeed = parseInt(lotteryNumber.replace(/\D/g, ''));
+            const targetLuckyNumber = (lotterySeed % selectedGroup.max_participants) + 1;
+            
+            // Circular selection: start from target and find the first available regular participant
+            let winner = null;
+            for (let i = 0; i < selectedGroup.max_participants; i++) {
+                const currentSlot = ((targetLuckyNumber - 1 + i) % selectedGroup.max_participants) + 1;
+                winner = regularParticipants.find(p => p.lucky_number === currentSlot);
+                if (winner) break;
+            }
+
+            if (!winner) {
+                // Should not happen if regularParticipants.length > 0
+                winner = regularParticipants[0];
+            }
 
             // ROLETTA EFFECT
             setIsSpinning(true);
@@ -298,6 +321,8 @@ const AdminConsorcio: React.FC = () => {
             
             setTimeout(async () => {
                 try {
+                    const nextMonth = selectedGroup.current_month + 1;
+                    
                     // 4. Record Draw
                     const { error: drawError } = await supabase
                         .from('consortium_draws')
@@ -307,7 +332,8 @@ const AdminConsorcio: React.FC = () => {
                             lottery_number: lotteryNumber,
                             video_url: videoUrl,
                             official_result_url: officialResultUrl,
-                            details: `Sorteio realizado com base na Loteria Federal nº ${lotteryNumber}. Vencedor: Número ${luckyWinnerNumber}.`
+                            month_number: nextMonth,
+                            details: `Mês ${nextMonth} - Sorteio Federal nº ${lotteryNumber}. Vencedor original: Nº ${targetLuckyNumber}. Ganhador contemplado: Nº ${winner.lucky_number}.`
                         }]);
 
                     if (drawError) throw drawError;
@@ -318,15 +344,28 @@ const AdminConsorcio: React.FC = () => {
                         .update({ status: 'contemplated' })
                         .eq('id', winner.id);
                     
-                    // 6. Update group status if full or manually handle it
-                    // For now, we manually mark the group or keep it as is.
+                    // 6. Update group progress and next draw date (Always day 11 of next month)
+                    const nextDrawDate = new Date();
+                    nextDrawDate.setMonth(nextDrawDate.getMonth() + 1);
+                    nextDrawDate.setDate(11);
+                    nextDrawDate.setHours(10, 0, 0, 0);
+
+                    await supabase
+                        .from('consortium_groups')
+                        .update({ 
+                            current_month: nextMonth,
+                            next_draw_date: nextDrawDate.toISOString(),
+                            status: nextMonth >= selectedGroup.max_participants ? 'finished' : selectedGroup.status
+                        })
+                        .eq('id', selectedGroup.id);
 
                     setDrawWinner(winner);
                     setIsSpinning(false);
-                    toast.success(`Sorteio realizado! Vendedor: Nº ${winner.lucky_number}`);
+                    toast.success(`Sorteio Mês ${nextMonth} Finalizado!`);
                     fetchGroups();
                     fetchDrawHistory();
                 } catch (err) {
+                    console.error(err);
                     setIsSpinning(false);
                     toast.error('Erro ao finalizar sorteio.');
                 }
@@ -571,17 +610,19 @@ const AdminConsorcio: React.FC = () => {
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                                 <div className="flex items-center gap-2 text-slate-400 mb-1">
-                                                    <Clock className="w-3 h-3" />
-                                                    <span className="text-[9px] md:text-[10px] font-black uppercase tracking-tighter">Status</span>
+                                                    <Clock className="w-3 h-3 text-emerald-500" />
+                                                    <span className="text-[9px] md:text-[10px] font-black uppercase tracking-tighter">Ciclo Atual</span>
                                                 </div>
-                                                <p className="text-xs md:text-sm font-bold text-[#0B1221] uppercase">{group.status}</p>
+                                                <p className="text-xs md:text-sm font-black text-[#0B1221] uppercase">Mês {group.current_month || 0} de {group.max_participants}</p>
                                             </div>
                                             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                                 <div className="flex items-center gap-2 text-slate-400 mb-1">
-                                                    <Calendar className="w-3 h-3" />
-                                                    <span className="text-[9px] md:text-[10px] font-black uppercase tracking-tighter">Criado</span>
+                                                    <Calendar className="w-3 h-3 text-[#FBC02D]" />
+                                                    <span className="text-[9px] md:text-[10px] font-black uppercase tracking-tighter">Próximo Sorteio</span>
                                                 </div>
-                                                <p className="text-xs md:text-sm font-bold text-[#0B1221]">{new Date(group.created_at).toLocaleDateString('pt-BR')}</p>
+                                                <p className="text-xs md:text-sm font-bold text-[#0B1221]">
+                                                    {group.next_draw_date ? new Date(group.next_draw_date).toLocaleDateString('pt-BR') : 'Agendando...'}
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
@@ -675,7 +716,8 @@ const AdminConsorcio: React.FC = () => {
                                     {isEditDrawMode ? 'Editar Links do Sorteio' : 'Realizar Sorteio'}
                                 </h2>
                                 <p className="text-slate-400 text-center text-xs md:text-sm font-medium mb-6 md:mb-8 shrink-0">
-                                    Grupo: <span className="text-[#0B1221] font-black">{selectedGroup?.name}</span>
+                                    Grupo: <span className="text-[#0B1221] font-black">{selectedGroup?.name}</span> • 
+                                    <span className="text-emerald-600 font-bold ml-1">Mês {selectedGroup?.current_month + 1} de {selectedGroup?.max_participants}</span>
                                 </p>
 
                                 <form onSubmit={handleDraw} className="flex-1 flex flex-col min-h-0">

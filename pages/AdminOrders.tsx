@@ -172,7 +172,7 @@ const AdminOrders: React.FC = () => {
 
                 {/* Filters & Table */}
                 <div className="bg-white rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden">
-                    <div className="p-6 md:p-10 border-b border-slate-50">
+                    <div className="p-6 md:p-8 border-b border-slate-50">
                         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
                             <h3 className="text-lg md:text-xl font-black text-[#05080F]">Fila de Pedidos</h3>
 
@@ -203,21 +203,21 @@ const AdminOrders: React.FC = () => {
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full">
+                        <table className="w-full min-w-[1000px]">
                             <thead>
                                 <tr className="bg-slate-50/50 border-b border-slate-50">
-                                    <th className="text-left py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">ID / Cliente</th>
+                                    <th className="text-left py-6 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">ID / Cliente</th>
                                     <th className="text-left py-6 px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Data</th>
                                     <th className="text-left py-6 px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Pagamento</th>
                                     <th className="text-left py-6 px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Valor Total</th>
                                     <th className="text-left py-6 px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Status</th>
-                                    <th className="text-right py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Ações</th>
+                                    <th className="text-right py-6 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Ações</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {paginatedOrders.length > 0 ? paginatedOrders.map((order) => (
                                     <tr key={order.id} className="group hover:bg-slate-50/30 transition-all">
-                                        <td className="py-6 px-10">
+                                        <td className="py-6 px-6">
                                             <div>
                                                 <p className="font-black text-[#05080F] text-sm">{order.customer_name || 'Cliente'}</p>
                                                 <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tight">#{order.id.replace(/^#/, '').slice(0, 8)}</p>
@@ -256,7 +256,7 @@ const AdminOrders: React.FC = () => {
                                                  order.status === 'completed' || order.status === 'Pago' || order.status === 'Entregue' ? 'Concluído' : 'Cancelado'}
                                             </span>
                                         </td>
-                                        <td className="py-6 px-10 text-right">
+                                        <td className="py-6 px-6 text-right">
                                             <div className="flex flex-col gap-2">
                                                 {(order.status === 'Pendente' || order.status === 'pending') && (
                                                     <>
@@ -310,7 +310,7 @@ const AdminOrders: React.FC = () => {
 
                     {/* Pagination Control */}
                     {totalPages > 1 && (
-                        <div className="p-6 md:p-10 bg-slate-50/30 border-t border-slate-50 flex flex-col sm:flex-row justify-between items-center gap-6">
+                        <div className="p-6 md:p-8 bg-slate-50/30 border-t border-slate-50 flex flex-col sm:flex-row justify-between items-center gap-6">
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                 Página {currentPage} de {totalPages} — {filteredOrders.length} Pedidos
                             </p>
