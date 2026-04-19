@@ -62,6 +62,10 @@ BEGIN
             SELECT * INTO v_affiliate FROM public.affiliates 
             WHERE LOWER(referral_code) = LOWER(NEW.referral_code) 
             AND organization_id = NEW.organization_id
+            AND (
+                NEW.organization_id != '5111af72-27a5-41fd-8ed9-8c51b78b4fdd' -- Outros sistemas funcionam normal
+                OR user_id != NEW.user_id                                    -- Classe A: ignora se for o próprio comprador
+            )
             LIMIT 1;
         END IF;
 
@@ -72,6 +76,10 @@ BEGIN
             JOIN public.user_profiles p ON p.sponsor_id = a.user_id
             WHERE p.id = NEW.user_id 
             AND a.organization_id = NEW.organization_id
+            AND (
+                NEW.organization_id != '5111af72-27a5-41fd-8ed9-8c51b78b4fdd' -- Outros sistemas funcionam normal
+                OR a.user_id != NEW.user_id                                  -- Classe A: evita auto-patrocínio
+            )
             LIMIT 1;
         END IF;
 
