@@ -11,10 +11,10 @@ import {
     FileVideo,
     Share2,
     Library,
-    ChevronRight,
     RefreshCcw,
     File as FileIcon
 } from 'lucide-react';
+import { ORGANIZATION_ID } from '../lib/config';
 import AffiliateLayout from '../components/AffiliateLayout';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
@@ -28,32 +28,6 @@ interface Material {
     file_url?: string;
     content?: string; // For scripts
 }
-
-const FALLBACK_MATERIALS: Material[] = [
-    {
-        id: 'cl-1',
-        title: 'Catálogo Premium Classe A 2026',
-        description: 'Apresentação completa da linha Bio-Mag, benefícios para a coluna e tecnologia infravermelho.',
-        type: 'pdf',
-        thumbnail_url: 'https://images.unsplash.com/photo-1505691938895-1758d7eaa511?q=80&w=400&auto=format&fit=crop',
-        file_url: 'https://p4dmidia.com.br/classea/catalogo_2026.pdf'
-    },
-    {
-        id: 'cl-2',
-        title: 'Pack Stories: Qualidade de Vida',
-        description: 'Conjunto de artes para WhatsApp focadas em depoimentos e antes/depois de clientes Classe A.',
-        type: 'banner',
-        thumbnail_url: 'https://images.unsplash.com/photo-1631672871465-33ec246392a0?q=80&w=400&auto=format&fit=crop',
-        file_url: 'https://p4dmidia.com.br/classea/pack_stories_saude.zip'
-    },
-    {
-        id: 'cl-3',
-        title: 'Script: Abordagem Consultiva',
-        description: 'Como iniciar uma conversa focada em saúde sem parecer um vendedor chato.',
-        type: 'script',
-        content: 'Olá [Nome], tudo bem? Notei que você comentou sobre [dor nas costas/insônia] outro dia. Eu comecei a representar a Classe A aqui na região e eles têm uma tecnologia magnética de alinhamento de coluna que é incrível. Posso te enviar um vídeo curtinho de como funciona?'
-    },
-];
 
 const AffiliateMaterials: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'all' | 'video' | 'banner' | 'script' | 'pdf'>('all');
@@ -72,19 +46,20 @@ const AffiliateMaterials: React.FC = () => {
             const { data, error } = await supabase
                 .from('marketing_materials')
                 .select('*')
+                .eq('organization_id', ORGANIZATION_ID)
                 .order('created_at', { ascending: false });
 
             if (error) {
-                // If table doesn't exist yet, we use fallbacks silently
-                console.log('Using fallback materials (table might not exist yet)');
-                setMaterials(FALLBACK_MATERIALS);
+                console.error('Error fetching materials:', error);
+                setMaterials([]);
             } else if (data && data.length > 0) {
                 setMaterials(data as any);
             } else {
-                setMaterials(FALLBACK_MATERIALS);
+                setMaterials([]);
             }
         } catch (err) {
-            setMaterials(FALLBACK_MATERIALS);
+            console.error('Fetch error:', err);
+            setMaterials([]);
         } finally {
             setLoading(false);
         }
