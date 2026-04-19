@@ -15,6 +15,7 @@ import {
     Wallet,
     Trophy,
     Layers,
+    Library,
     Menu,
     X
 } from 'lucide-react';
