@@ -31,6 +31,7 @@ import AdminConsorcio from './pages/AdminConsorcio';
 import AdminCategories from './pages/AdminCategories';
 import CheckoutPage from './pages/CheckoutPage';
 import AdminFinancial from './pages/AdminFinancial';
+import AdminMaterials from './pages/AdminMaterials';
 import ProductDetails from './pages/ProductDetails';
 import ConsorcioTerms from './pages/ConsorcioTerms';
 import CheckoutSuccess from './pages/CheckoutSuccess';
@@ -81,6 +82,7 @@ const AppContent: React.FC = () => {
           <Route path="/admin/commissions" element={<AdminCommissions />} />
           <Route path="/admin/consorcio" element={<AdminConsorcio />} />
           <Route path="/admin/categories" element={<AdminCategories />} />
+          <Route path="/admin/materials" element={<AdminMaterials />} />
         </Routes>
       </main>
       {!isDashboard && <Footer />}

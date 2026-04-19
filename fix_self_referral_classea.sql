@@ -38,14 +38,18 @@ BEGIN
 
         _cfg_key := CASE WHEN _is_mattress THEN 'mattress' ELSE 'geral' END;
 
-        -- B. Buscar Configurações
-        SELECT * FROM public.commission_configs WHERE key = _cfg_key LIMIT 1 INTO _conf_row;
+        -- B. Buscar Configurações (Filtrado por Organização)
+        SELECT * FROM public.commission_configs 
+        WHERE key = _cfg_key AND organization_id = NEW.organization_id 
+        LIMIT 1 INTO _conf_row;
         
-        IF _conf_row.id IS NULL THEN
-            SELECT * FROM public.commission_configs WHERE key = 'geral' LIMIT 1 INTO _conf_row;
+        IF _conf_row.key IS NULL THEN
+            SELECT * FROM public.commission_configs 
+            WHERE key = 'geral' AND organization_id = NEW.organization_id 
+            LIMIT 1 INTO _conf_row;
         END IF;
 
-        IF _conf_row.id IS NULL THEN
+        IF _conf_row.key IS NULL THEN
             RETURN NEW;
         END IF;
 

@@ -10,11 +10,11 @@ headers = {
     "Content-Type": "application/json"
 }
 
-def check_orgs():
-    resp = requests.get(f"{url}organizations", headers=headers)
+def check_configs():
+    resp = requests.get(f"{url}commission_configs", headers=headers)
     if resp.status_code == 200:
         print(json.dumps(resp.json(), indent=2))
     else:
         print(f"Error: {resp.status_code} - {resp.text}")
 
-check_orgs()
+check_configs()
