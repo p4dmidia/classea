@@ -11,6 +11,7 @@ import {
     FileVideo,
     Share2,
     Library,
+    ChevronRight,
     RefreshCcw,
     File as FileIcon
 } from 'lucide-react';
