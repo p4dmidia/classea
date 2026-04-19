@@ -12,7 +12,8 @@ import {
     Share2,
     Library,
     ChevronRight,
-    RefreshCcw
+    RefreshCcw,
+    File as FileIcon
 } from 'lucide-react';
 import AffiliateLayout from '../components/AffiliateLayout';
 import { supabase } from '../lib/supabase';
@@ -22,7 +23,7 @@ interface Material {
     id: string;
     title: string;
     description: string;
-    type: 'all' | 'video' | 'banner' | 'script';
+    type: 'all' | 'video' | 'banner' | 'script' | 'pdf';
     thumbnail_url?: string;
     file_url?: string;
     content?: string; // For scripts
@@ -33,7 +34,7 @@ const FALLBACK_MATERIALS: Material[] = [
         id: 'cl-1',
         title: 'Catálogo Premium Classe A 2026',
         description: 'Apresentação completa da linha Bio-Mag, benefícios para a coluna e tecnologia infravermelho.',
-        type: 'banner',
+        type: 'pdf',
         thumbnail_url: 'https://images.unsplash.com/photo-1505691938895-1758d7eaa511?q=80&w=400&auto=format&fit=crop',
         file_url: 'https://p4dmidia.com.br/classea/catalogo_2026.pdf'
     },
@@ -55,7 +56,7 @@ const FALLBACK_MATERIALS: Material[] = [
 ];
 
 const AffiliateMaterials: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'all' | 'video' | 'banner' | 'script'>('all');
+    const [activeTab, setActiveTab] = useState<'all' | 'video' | 'banner' | 'script' | 'pdf'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [materials, setMaterials] = useState<Material[]>([]);
     const [loading, setLoading] = useState(true);
@@ -139,6 +140,7 @@ const AffiliateMaterials: React.FC = () => {
                         { id: 'all', label: 'Todos', icon: Library },
                         { id: 'video', label: 'Vídeos', icon: Video },
                         { id: 'banner', label: 'Imagens', icon: ImageIcon },
+                        { id: 'pdf', label: 'PDFs', icon: FileIcon },
                         { id: 'script', label: 'Scripts', icon: FileText }
                     ].map(tab => (
                         <button
@@ -180,11 +182,20 @@ const AffiliateMaterials: React.FC = () => {
                                             <div className="absolute inset-0 bg-[#0B1221]/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                 {item.type === 'video' ? (
                                                     <PlayCircle className="w-16 h-16 text-white" />
+                                                ) : item.type === 'pdf' ? (
+                                                    <FileIcon className="w-16 h-16 text-white" />
                                                 ) : (
                                                     <ImageIcon className="w-16 h-16 text-white" />
                                                 )}
                                             </div>
                                         </>
+                                    ) : item.type === 'pdf' && !item.thumbnail_url ? (
+                                        <div className="w-full h-full flex items-center justify-center p-8 bg-slate-100 group-hover:bg-slate-200 transition-colors">
+                                            <FileIcon className="w-16 h-16 text-slate-300" />
+                                            <div className="absolute inset-0 p-8 flex flex-col justify-center overflow-hidden">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Documento PDF</p>
+                                            </div>
+                                        </div>
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center p-8 bg-[#FFFBEB] group-hover:bg-[#FFF8E1] transition-colors">
                                             <FileText className="w-16 h-16 text-[#FBC02D] opacity-10" />
@@ -197,7 +208,7 @@ const AffiliateMaterials: React.FC = () => {
 
                                     <div className="absolute top-4 left-4">
                                         <span className="px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-lg text-[8px] font-black uppercase tracking-widest text-[#0B1221] shadow-sm">
-                                            {item.type === 'script' ? 'Script' : item.type === 'banner' ? 'Imagem' : 'Vídeo'}
+                                            {item.type === 'script' ? 'Script' : item.type === 'banner' ? 'Imagem' : item.type === 'pdf' ? 'PDF' : 'Vídeo'}
                                         </span>
                                     </div>
                                 </div>

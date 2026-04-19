@@ -11,10 +11,10 @@ import {
     FileText,
     Search,
     ExternalLink,
-    AlertCircle,
-    CheckCircle,
     Download,
-    Save
+    Save,
+    Upload,
+    File as FileIcon
 } from 'lucide-react';
 import { ORGANIZATION_ID } from '../lib/config';
 import AdminLayout from '../components/AdminLayout';
@@ -25,7 +25,7 @@ interface Material {
     id: string;
     title: string;
     description: string;
-    type: 'video' | 'banner' | 'script';
+    type: 'video' | 'banner' | 'script' | 'pdf';
     thumbnail_url?: string;
     file_url?: string;
     content?: string;
@@ -42,12 +42,15 @@ const AdminMaterials: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
+    const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+    const [contentFile, setContentFile] = useState<File | null>(null);
+    const [uploadProgress, setUploadProgress] = useState<{ thumb?: number; content?: number }>({});
 
     // Form States
     const [formData, setFormData] = useState({
         title: '',
         description: '',
-        type: 'banner' as 'video' | 'banner' | 'script',
+        type: 'banner' as 'video' | 'banner' | 'script' | 'pdf',
         thumbnail_url: '',
         file_url: '',
         content: ''
@@ -77,6 +80,9 @@ const AdminMaterials: React.FC = () => {
     };
 
     const handleOpenModal = (material?: Material) => {
+        setThumbnailFile(null);
+        setContentFile(null);
+        setUploadProgress({});
         if (material) {
             setEditingMaterial(material);
             setFormData({
@@ -101,13 +107,50 @@ const AdminMaterials: React.FC = () => {
         setIsModalOpen(true);
     };
 
+    const uploadFile = async (file: File, bucket: string, path: string) => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+        const filePath = `${ORGANIZATION_ID}/${path}/${fileName}`;
+
+        const { data, error } = await supabase.storage
+            .from(bucket)
+            .upload(filePath, file);
+
+        if (error) throw error;
+
+        const { data: { publicUrl } } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(filePath);
+
+        return publicUrl;
+    };
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
 
         try {
+            let finalThumbnailUrl = formData.thumbnail_url;
+            let finalFileUrl = formData.file_url;
+
+            // 1. Upload Thumbnail if exists
+            if (thumbnailFile) {
+                toast.loading('Enviando miniatura...', { id: 'upload-thumb' });
+                finalThumbnailUrl = await uploadFile(thumbnailFile, 'marketing-materials', 'thumbnails');
+                toast.success('Miniatura enviada!', { id: 'upload-thumb' });
+            }
+
+            // 2. Upload Content File if exists
+            if (contentFile) {
+                toast.loading('Enviando arquivo...', { id: 'upload-content' });
+                finalFileUrl = await uploadFile(contentFile, 'marketing-materials', 'assets');
+                toast.success('Arquivo enviado!', { id: 'upload-content' });
+            }
+
             const payload = {
                 ...formData,
+                thumbnail_url: finalThumbnailUrl,
+                file_url: finalFileUrl,
                 organization_id: ORGANIZATION_ID,
                 updated_at: new Date().toISOString()
             };
@@ -189,6 +232,7 @@ const AdminMaterials: React.FC = () => {
                             { id: 'all', label: 'Todos', icon: Library },
                             { id: 'video', label: 'Vídeos', icon: Video },
                             { id: 'banner', label: 'Imagens', icon: ImageIcon },
+                            { id: 'pdf', label: 'PDFs', icon: FileIcon },
                             { id: 'script', label: 'Scripts', icon: FileText }
                         ].map(tab => (
                             <button
@@ -243,7 +287,7 @@ const AdminMaterials: React.FC = () => {
                                     )}
                                     <div className="absolute top-4 left-4">
                                         <span className="px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-lg text-[8px] font-black uppercase tracking-widest text-[#05080F]">
-                                            {item.type === 'script' ? 'Roteiro' : item.type === 'banner' ? 'Imagem' : 'Vídeo'}
+                                            {item.type === 'script' ? 'Roteiro' : item.type === 'banner' ? 'Imagem' : item.type === 'pdf' ? 'PDF' : 'Vídeo'}
                                         </span>
                                     </div>
                                 </div>
@@ -305,6 +349,7 @@ const AdminMaterials: React.FC = () => {
                                     {[
                                         { id: 'banner', label: 'Imagem', icon: ImageIcon },
                                         { id: 'video', label: 'Vídeo', icon: Video },
+                                        { id: 'pdf', label: 'PDF', icon: FileIcon },
                                         { id: 'script', label: 'Script', icon: FileText }
                                     ].map(t => (
                                         <button
@@ -361,25 +406,82 @@ const AdminMaterials: React.FC = () => {
                                     ) : (
                                         <>
                                             <div className="space-y-2">
-                                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">URL da Miniatura (Thumbnail)</label>
-                                                <input
-                                                    type="url"
-                                                    value={formData.thumbnail_url}
-                                                    onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
-                                                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] transition-all"
-                                                    placeholder="https://exemplo.com/imagem.png"
-                                                />
+                                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Miniatura (Thumbnail)</label>
+                                                <div className="flex flex-col gap-3">
+                                                    {formData.thumbnail_url && !thumbnailFile && (
+                                                        <img src={formData.thumbnail_url} alt="Preview" className="w-20 h-20 object-cover rounded-xl border border-slate-100" />
+                                                    )}
+                                                    <div className="relative group">
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
+                                                            className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                                        />
+                                                        <div className="w-full bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl py-4 flex flex-col items-center justify-center gap-2 group-hover:border-[#FBC02D] transition-all">
+                                                            <Upload className="w-5 h-5 text-slate-400" />
+                                                            <span className="text-[10px] font-bold text-slate-500">
+                                                                {thumbnailFile ? thumbnailFile.name : 'Selecionar Imagem do Computador'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="h-px bg-slate-100 flex-grow"></div>
+                                                        <span className="text-[8px] font-black text-slate-300 uppercase">ou use link externo</span>
+                                                        <div className="h-px bg-slate-100 flex-grow"></div>
+                                                    </div>
+                                                    <input
+                                                        type="url"
+                                                        value={formData.thumbnail_url}
+                                                        onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
+                                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3 px-6 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] transition-all text-xs"
+                                                        placeholder="https://exemplo.com/imagem.png"
+                                                    />
+                                                </div>
                                             </div>
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">URL do Arquivo/Vídeo para Download</label>
-                                                <input
-                                                    type="url"
-                                                    required
-                                                    value={formData.file_url}
-                                                    onChange={(e) => setFormData({ ...formData, file_url: e.target.value })}
-                                                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] transition-all"
-                                                    placeholder="Link para o PDF, Imagem HQ ou YouTube/Vimeo"
-                                                />
+
+                                            <div className="space-y-2 pt-4">
+                                                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">
+                                                    Arquivo do Material ({formData.type === 'banner' ? 'Imagem' : formData.type === 'video' ? 'Vídeo' : 'PDF'})
+                                                </label>
+                                                <div className="flex flex-col gap-3">
+                                                    <div className="relative group">
+                                                        <input
+                                                            type="file"
+                                                            accept={
+                                                                formData.type === 'banner' ? 'image/*' : 
+                                                                formData.type === 'video' ? 'video/*' : 
+                                                                'application/pdf'
+                                                            }
+                                                            required={!formData.file_url}
+                                                            onChange={(e) => setContentFile(e.target.files?.[0] || null)}
+                                                            className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                                        />
+                                                        <div className="w-full bg-[#FFFBEB] border-2 border-dashed border-[#FBC02D]/30 rounded-2xl py-8 flex flex-col items-center justify-center gap-3 group-hover:border-[#FBC02D] transition-all">
+                                                            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                                                                {formData.type === 'banner' ? <ImageIcon className="w-6 h-6 text-[#FBC02D]" /> : 
+                                                                 formData.type === 'video' ? <Video className="w-6 h-6 text-[#FBC02D]" /> : 
+                                                                 <FileIcon className="w-6 h-6 text-[#FBC02D]" />}
+                                                            </div>
+                                                            <span className="text-xs font-black text-[#05080F]">
+                                                                {contentFile ? contentFile.name : `Prcurar ${formData.type === 'banner' ? 'Imagem' : formData.type === 'video' ? 'Vídeo' : 'PDF'} no seu Computador`}
+                                                            </span>
+                                                            <p className="text-[8px] font-bold text-slate-400">Clique para selecionar o arquivo</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="h-px bg-slate-100 flex-grow"></div>
+                                                        <span className="text-[8px] font-black text-slate-300 uppercase">ou use link externo</span>
+                                                        <div className="h-px bg-slate-100 flex-grow"></div>
+                                                    </div>
+                                                    <input
+                                                        type="url"
+                                                        value={formData.file_url}
+                                                        onChange={(e) => setFormData({ ...formData, file_url: e.target.value })}
+                                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3 px-6 font-bold text-[#05080F] outline-none focus:border-[#FBC02D] transition-all text-xs"
+                                                        placeholder="Link para o arquivo ou YouTube/Vimeo"
+                                                    />
+                                                </div>
                                             </div>
                                         </>
                                     )}
