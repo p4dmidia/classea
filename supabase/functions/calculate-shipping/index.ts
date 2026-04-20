@@ -25,7 +25,8 @@ serve(async (req) => {
         }
 
         const body = await req.json().catch(() => ({}));
-        const { zip, items } = body;
+        const { zip, items, organization_id } = body;
+
 
         if (!zip || !items || !items.length) {
             return new Response(
@@ -36,34 +37,77 @@ serve(async (req) => {
 
         const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!)
 
-        // 1. Buscar detalhes dos produtos
+        // 1. Buscar detalhes dos produtos com categorias
         const productIds = items.map((item: any) => item.id)
         const { data: products, error: productsError } = await supabase
             .from('products')
-            .select('id, name, weight, length, width, height, origin_zip, price')
+            .select('id, name, weight, length, width, height, origin_zip, price, product_categories(name)')
             .in('id', productIds)
+
 
         if (productsError || !products) {
             throw new Error('Erro ao buscar produtos: ' + productsError?.message)
         }
 
-        // 2. Agrupar produtos por CEP de origem
+        // 2. Separar itens com frete fixo e agrupar os demais por CEP de origem
+        let fixedShippingTotal = 0
         const groups: { [key: string]: any[] } = {}
+        
         products.forEach(p => {
             const cartItem = items.find((i: any) => i.id === p.id)
-            const groupKey = p.origin_zip || '82820-160' // Default fallback
-            if (!groups[groupKey]) groups[groupKey] = []
+            const categoryName = (p.product_categories as any)?.name || ''
+            const productName = p.name || ''
+            const quantity = cartItem.quantity
 
-            groups[groupKey].push({
-                id: p.id,
-                width: p.width || 11,
-                height: p.height || 2,
-                length: p.length || 16,
-                weight: p.weight || 0.5,
-                insurance_value: p.price,
-                quantity: cartItem.quantity
-            })
+            // Verificação de Frete Fixo (ISOLADO PARA CLASSE A)
+            let fixedRate = 0
+            const isClasseA = organization_id === '5111af72-27a5-41fd-8ed9-8c51b78b4fdd'
+            const isConsorcio = categoryName.toLowerCase().includes('consórcio') || productName.toUpperCase().includes('CONSÓRCIO')
+
+            if (isClasseA && !isConsorcio) {
+                const normalizedCat = categoryName.toLowerCase()
+                if (normalizedCat === 'colchões') fixedRate = 450
+                else if (normalizedCat === 'box') fixedRate = 300
+                else if (normalizedCat === 'cabeceiras') fixedRate = 250
+            }
+
+
+            if (fixedRate > 0) {
+                fixedShippingTotal += (fixedRate * quantity)
+            } else {
+                const groupKey = p.origin_zip || '82820-160' // Default fallback
+                if (!groups[groupKey]) groups[groupKey] = []
+
+                groups[groupKey].push({
+                    id: p.id,
+                    width: p.width || 11,
+                    height: p.height || 2,
+                    length: p.length || 16,
+                    weight: p.weight || 0.5,
+                    insurance_value: p.price,
+                    quantity: quantity
+                })
+            }
         })
+
+
+        // 3.5 Se houver APENAS itens com frete fixo
+        if (Object.keys(groups).length === 0) {
+            return new Response(
+                JSON.stringify([{
+                    id: 'fixed-delivery',
+                    name: 'Transportadora Parceira',
+                    price: fixedShippingTotal.toFixed(2),
+                    delivery_time: 15,
+                    company: { 
+                        name: 'Classe A Logística', 
+                        picture: 'https://clnuievcdnbwqbyqhwys.supabase.co/storage/v1/object/public/logos/classea-icon.png' 
+                    },
+                    custom_delivery_time: 15
+                }]),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
 
         // 3. Calcular frete para cada grupo (origem)
         const shippingPromises = Object.keys(groups).map(async (originZip) => {
@@ -95,14 +139,19 @@ serve(async (req) => {
         const flatResults = await Promise.all(allResults)
 
         // 4. Consolidar resultados
-        // Se houver apenas uma origem, retornamos os resultados diretamente
+        // Se houver apenas uma origem, somamos o frete fixo aos resultados
         if (Object.keys(groups).length === 1) {
-            const validResults = flatResults[0].filter((s: any) => !s.error)
+            const validResults = (flatResults[0] || []).filter((s: any) => !s.error).map((s: any) => ({
+                ...s,
+                price: (parseFloat(s.price) + fixedShippingTotal).toFixed(2)
+            }))
+            
             return new Response(
                 JSON.stringify(validResults),
                 { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
         }
+
 
         // Se houver múltiplas origens, precisamos somar os fretes por modalidade (ou simplificar)
         // Para simplificar esta primeira versão, vamos agrupar por nome de serviço e empresa
@@ -130,12 +179,16 @@ serve(async (req) => {
             })
         })
 
-        // Converter objeto de volta para array e filtrar apenas serviços que atendem TODAS as origens
-        const finalResults = Object.values(consolidated).filter(s => {
+        // 5. Adicionar frete fixo aos resultados consolidados e formatar preço final
+        const finalResults = Object.values(consolidated).map(s => ({
+            ...s,
+            price: (s.price + fixedShippingTotal).toFixed(2)
+        })).filter(s => {
             // Opcional: verificar se este serviço está presente em todos os flatResults
             // Por agora, vamos retornar o que foi somado
             return true
         })
+
 
         return new Response(
             JSON.stringify(finalResults),

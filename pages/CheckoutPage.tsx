@@ -113,7 +113,9 @@ const CheckoutPage: React.FC = () => {
             const { data, error } = await supabase.functions.invoke('calculate-shipping', {
                 body: {
                     zip: customerInfo.cep,
-                    items: cart.map(item => ({ id: item.id, quantity: item.quantity }))
+                    items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+                    organization_id: ORGANIZATION_ID
+
                 }
             });
 
