@@ -368,13 +368,15 @@ const ShopPage: React.FC = () => {
                                                         e.target.src = 'https://placehold.co/400x400?text=Classe+A';
                                                     }}
                                                 />
-                                                <div className="absolute top-4 right-4 flex flex-col gap-2">
-                                                    <div
-                                                        onClick={(e) => handleAddToCart(e, product)}
-                                                        className="bg-white/90 backdrop-blur-sm rounded-full p-2 text-[#0B1221] shadow-md -translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all cursor-pointer hover:bg-white"
-                                                    >
-                                                        <ShoppingCart className="w-4 h-4" />
-                                                    </div>
+                                                 <div className="absolute top-4 right-4 flex flex-col gap-2">
+                                                    {(product.stock_quantity ?? 0) > 0 && (
+                                                        <div
+                                                            onClick={(e) => handleAddToCart(e, product)}
+                                                            className="bg-white/90 backdrop-blur-sm rounded-full p-2 text-[#0B1221] shadow-md -translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all cursor-pointer hover:bg-white"
+                                                        >
+                                                            <ShoppingCart className="w-4 h-4" />
+                                                        </div>
+                                                    )}
                                                     <div
                                                         onClick={(e) => handleCopyAffiliateLink(e, product.id)}
                                                         className={`bg-white shadow-md rounded-full p-2 -translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all delay-75 cursor-pointer relative ${copiedId === product.id ? 'text-emerald-500' : 'text-[#0B1221] hover:text-[#FBC02D]'}`}
@@ -382,6 +384,14 @@ const ShopPage: React.FC = () => {
                                                         {copiedId === product.id ? <Check className="w-4 h-4" /> : <Link className="w-4 h-4" />}
                                                     </div>
                                                 </div>
+                                                {(product.stock_quantity ?? 0) <= 0 && (
+                                                    <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+                                                        <span className="bg-red-500 text-white text-[10px] font-black px-4 py-2 rounded-full shadow-lg transform -rotate-12 uppercase tracking-widest">
+                                                            Sem Estoque
+                                                        </span>
+                                                    </div>
+                                                )}
+
                                             </div>
                                             <div className="p-6 flex flex-col flex-grow space-y-3">
                                                 <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">{product.category}</span>
@@ -402,11 +412,17 @@ const ShopPage: React.FC = () => {
 
                                                     <button
                                                         onClick={(e) => handleAddToCart(e, product)}
-                                                        className="w-full bg-slate-50 border border-slate-100 py-3 rounded-xl text-[#0B1221] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 group-hover:bg-[#FBC02D] group-hover:border-[#FBC02D] transition-all"
+                                                        disabled={(product.stock_quantity ?? 0) <= 0}
+                                                        className={`w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
+                                                            (product.stock_quantity ?? 0) > 0 
+                                                            ? 'bg-slate-50 border border-slate-100 text-[#0B1221] group-hover:bg-[#FBC02D] group-hover:border-[#FBC02D]' 
+                                                            : 'bg-slate-100 border-slate-100 text-slate-400 cursor-not-allowed'
+                                                        }`}
                                                     >
                                                         <ShoppingCart className="w-3 h-3" />
-                                                        Adicionar ao Carrinho
+                                                        {(product.stock_quantity ?? 0) > 0 ? 'Adicionar ao Carrinho' : 'Indisponível'}
                                                     </button>
+
                                                 </div>
                                             </div>
                                         </div>

@@ -214,20 +214,32 @@ serve(async (req) => {
 
             } else {
                 // --- Lógica Checkout Pro (Cartão e outros) ---
+                const items = order.order_items?.length > 0 
+                    ? order.order_items.map((item: any) => ({
+                        title: item.product_name,
+                        quantity: item.quantity,
+                        unit_price: Number(item.unit_price),
+                        currency_id: "BRL",
+                      }))
+                    : [{
+                        title: `Pedido ${order.id}`,
+                        quantity: 1,
+                        unit_price: Number(order.total_amount),
+                        currency_id: "BRL",
+                      }];
+
+                // Adicionar Frete se houver
+                if (order.shipping_cost && Number(order.shipping_cost) > 0) {
+                    items.push({
+                        title: "Frete",
+                        quantity: 1,
+                        unit_price: Number(order.shipping_cost),
+                        currency_id: "BRL",
+                    });
+                }
+
                 const preferenceData = {
-                    items: order.order_items?.length > 0 
-                        ? order.order_items.map((item: any) => ({
-                            title: item.product_name,
-                            quantity: item.quantity,
-                            unit_price: Number(item.unit_price),
-                            currency_id: "BRL",
-                          }))
-                        : [{
-                            title: `Pedido ${order.id}`,
-                            quantity: 1,
-                            unit_price: Number(order.total_amount),
-                            currency_id: "BRL",
-                          }],
+                    items,
                     payer: { email: order.customer_email || "cliente@mercado.com" },
                     external_reference: order.id,
                     back_urls: {

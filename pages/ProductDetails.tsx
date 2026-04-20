@@ -231,10 +231,18 @@ const ProductDetails: React.FC = () => {
                                 <span className="px-3 py-1 bg-[#FBC02D]/10 text-[#0B1221] text-[10px] font-black uppercase tracking-widest rounded-full">
                                     {product.category}
                                 </span>
-                                <div className="flex text-emerald-500 gap-1 items-center font-bold text-xs">
-                                    <Check className="w-4 h-4" />
-                                    Em Estoque
-                                </div>
+                                {(product.stock_quantity ?? 0) > 0 ? (
+                                    <div className="flex text-emerald-500 gap-1 items-center font-bold text-xs">
+                                        <Check className="w-4 h-4" />
+                                        Em Estoque
+                                    </div>
+                                ) : (
+                                    <div className="flex text-red-500 gap-1 items-center font-bold text-xs">
+                                        <Package className="w-4 h-4" />
+                                        Indisponível
+                                    </div>
+                                )}
+
                             </div>
                             <h1 className="text-4xl lg:text-5xl font-black text-[#0B1221] leading-tight">
                                 {product.name}
@@ -302,18 +310,26 @@ const ProductDetails: React.FC = () => {
                                 <span className="w-12 text-center font-black text-[#0B1221]">{quantity}</span>
                                 <button
                                     onClick={() => setQuantity(q => q + 1)}
-                                    className="w-12 h-12 flex items-center justify-center font-bold text-lg hover:text-[#FBC02D] transition-colors"
+                                    disabled={quantity >= (product.stock_quantity ?? 0)}
+                                    className="w-12 h-12 flex items-center justify-center font-bold text-lg hover:text-[#FBC02D] transition-colors disabled:opacity-30"
                                 >
                                     +
                                 </button>
+
                             </div>
-                            <button
+                             <button
                                 onClick={handleAddToCart}
-                                className="flex-grow bg-[#FBC02D] hover:bg-[#f9b100] text-[#0B1221] font-black py-4 px-10 rounded-2xl shadow-xl shadow-[#FBC02D]/10 transition-all flex items-center justify-center gap-3"
+                                disabled={(product.stock_quantity ?? 0) <= 0}
+                                className={`flex-grow font-black py-4 px-10 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 ${
+                                    (product.stock_quantity ?? 0) > 0 
+                                    ? 'bg-[#FBC02D] hover:bg-[#f9b100] text-[#0B1221] shadow-[#FBC02D]/10' 
+                                    : 'bg-slate-100 text-slate-400 shadow-none cursor-not-allowed'
+                                }`}
                             >
                                 <ShoppingCart className="w-5 h-5" />
-                                ADICIONAR AO CARRINHO
+                                {(product.stock_quantity ?? 0) > 0 ? 'ADICIONAR AO CARRINHO' : 'ESGOTADO'}
                             </button>
+
                         </div>
 
                         {/* Features */}

@@ -104,10 +104,16 @@ const FeaturedProducts: React.FC = () => {
                     <div className="flex gap-2 mt-4">
                       <button
                         onClick={(e) => handleAddToCart(e, product)}
-                        className="flex-grow bg-[#0B1221] hover:bg-slate-800 text-white font-bold py-2.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+                        disabled={(product.stock_quantity ?? 0) <= 0}
+                        className={`flex-grow font-bold py-2.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 ${
+                          (product.stock_quantity ?? 0) > 0 
+                          ? 'bg-[#0B1221] hover:bg-slate-800 text-white' 
+                          : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        }`}
                       >
-                        Comprar
+                        {(product.stock_quantity ?? 0) > 0 ? 'Comprar' : 'Esgotado'}
                       </button>
+
                       <button className="bg-slate-100 hover:bg-[#FBC02D]/10 text-slate-500 hover:text-[#FBC02D] p-2.5 rounded-lg transition-all">
                         <Bookmark className="w-5 h-5" />
                       </button>
