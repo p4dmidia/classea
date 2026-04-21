@@ -55,21 +55,39 @@ serve(async (req) => {
         
         products.forEach(p => {
             const cartItem = items.find((i: any) => i.id === p.id)
-            const categoryName = (p.product_categories as any)?.name || ''
-            const productName = p.name || ''
-            const quantity = cartItem.quantity
+            if (!cartItem) return
 
+            const quantity = cartItem.quantity
+            const productName = p.name || ''
+            
+            // Garantir que pegamos o nome da categoria, seja objeto ou array
+            let categoryName = ''
+            const catData = p.product_categories
+            if (catData) {
+                categoryName = Array.isArray(catData) ? (catData[0]?.name || '') : ((catData as any).name || '')
+            }
+            
             // Verificação de Frete Fixo (ISOLADO PARA CLASSE A)
             let fixedRate = 0
             const isClasseA = organization_id === '5111af72-27a5-41fd-8ed9-8c51b78b4fdd'
-            const isConsorcio = categoryName.toLowerCase().includes('consórcio') || productName.toUpperCase().includes('CONSÓRCIO')
+            
+            const normalizedCat = categoryName.toLowerCase()
+            const normalizedName = productName.toLowerCase()
+            
+            const isConsorcio = normalizedCat.includes('consórcio') || normalizedName.includes('consórcio')
 
             if (isClasseA && !isConsorcio) {
-                const normalizedCat = categoryName.toLowerCase()
-                if (normalizedCat === 'colchões') fixedRate = 450
-                else if (normalizedCat === 'box') fixedRate = 300
-                else if (normalizedCat === 'cabeceiras') fixedRate = 250
+                // Busca por termos nas categorias ou no nome do produto
+                if (normalizedCat.includes('colch') || normalizedName.includes('colchão') || normalizedName.includes('colchao')) {
+                    fixedRate = 450
+                } else if (normalizedCat.includes('box') || normalizedName.includes('box')) {
+                    fixedRate = 300
+                } else if (normalizedCat.includes('cabeceira') || normalizedName.includes('cabeceira')) {
+                    fixedRate = 250
+                }
             }
+
+
 
 
             if (fixedRate > 0) {
