@@ -41,17 +41,19 @@ const AffiliateDashboard: React.FC = () => {
                 setLoading(true);
 
                 // 1. Buscar dados do Afiliado (tentando restringir por organization_id se possível)
-                const { data: aff, error: affErr } = await supabase
+                const { data: affData, error: affErr } = await supabase
                     .from('affiliates')
                     .select('*')
                     .eq('user_id', user.id)
                     .eq('organization_id', ORGANIZATION_ID)
-                    .maybeSingle();
+                    .limit(1);
 
                 if (affErr) {
                     console.error('DEBUG: Erro ao buscar dados do afiliado:', affErr);
                     throw affErr;
                 }
+                
+                const aff = affData?.[0] || null;
                 
                 if (!aff) {
                     // Se não encontrar o afiliado para esta organização, algo está errado
@@ -61,14 +63,14 @@ const AffiliateDashboard: React.FC = () => {
                     setAffiliateData(aff);
 
                     // 2. Buscar dados Financeiros
-                    const { data: wallet, error: walletErr } = await supabase
+                    const { data: walletDataList, error: walletErr } = await supabase
                         .from('user_settings')
                         .select('*')
                         .eq('user_id', user.id)
                         .eq('organization_id', ORGANIZATION_ID)
-                        .maybeSingle();
+                        .limit(1);
 
-                    if (!walletErr) setWalletData(wallet);
+                    if (!walletErr && walletDataList && walletDataList.length > 0) setWalletData(walletDataList[0]);
 
                     // 3. Buscar status do Consórcio
                     const { data: status, error: statusErr } = await supabase

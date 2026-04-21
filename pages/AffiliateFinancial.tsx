@@ -58,15 +58,17 @@ const AffiliateFinancial: React.FC = () => {
             setLoading(true);
 
             // 1. Fetch Balances (user_settings)
-            const { data: settings, error: settingsError } = await supabase
+            const { data: settingsData, error: settingsError } = await supabase
                 .from('user_settings')
                 .select('available_balance, frozen_balance, total_earnings, pix_key')
                 .eq('user_id', user?.id)
                 .eq('organization_id', ORGANIZATION_ID)
-                .maybeSingle();
+                .limit(1);
 
             if (settingsError) throw settingsError;
             
+            const settings = settingsData?.[0] || null;
+
             if (!settings) {
                 setLoading(false);
                 return;

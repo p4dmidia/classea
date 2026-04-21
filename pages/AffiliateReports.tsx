@@ -102,22 +102,28 @@ const AffiliateReports: React.FC = () => {
             setLoading(true);
 
             // 1. Get Affiliate ID for the current user
-            const { data: affiliate, error: affLookupError } = await supabase
+            const { data: affiliateData, error: affLookupError } = await supabase
                 .from('affiliates')
                 .select('id, referral_code')
                 .eq('user_id', user?.id)
-                .single();
+                .limit(1);
 
-            if (affLookupError) throw affLookupError;
+            if (affLookupError) {
+                console.error('Erro ao buscar cadastro de afiliado:', affLookupError);
+            }
+            const affiliate = affiliateData?.[0] || null;
 
             // 2. Fetch User Settings (Revenue/Earnings)
-            const { data: settings, error: settingsError } = await supabase
+            const { data: settingsData, error: settingsError } = await supabase
                 .from('user_settings')
                 .select('total_earnings')
                 .eq('user_id', user?.id)
-                .single();
+                .limit(1);
 
-            if (settingsError) throw settingsError;
+            if (settingsError) {
+                console.error('Erro ao buscar configurações do usuário:', settingsError);
+            }
+            const settings = settingsData?.[0] || null;
 
             // 3. Fetch Commissions for this User
             let commissionsQuery = supabase
@@ -149,7 +155,7 @@ const AffiliateReports: React.FC = () => {
             if (commissionError) throw commissionError;
 
             // 4. Calculate Stats
-            const totalRevenue = settings.total_earnings || 0;
+            const totalRevenue = settings?.total_earnings || 0;
             const totalConversions = commissionData?.length || 0;
 
             // Note: Since 'clicks' isn't in the schema, we'll use a local state or 0 for now

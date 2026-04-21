@@ -67,14 +67,16 @@ const AffiliateReferrals: React.FC = () => {
             setLoading(true);
 
             // 1. Pegar o ID de afiliado do usuário logado
-            const { data: affData, error: affError } = await supabase
+            const { data: affDataList, error: affError } = await supabase
                 .from('affiliates')
                 .select('id')
                 .eq('user_id', user?.id)
                 .eq('organization_id', ORGANIZATION_ID)
-                .maybeSingle();
+                .limit(1);
 
             if (affError) throw affError;
+            
+            const affData = affDataList?.[0] || null;
             
             if (!affData) {
                 setReferrals([]);

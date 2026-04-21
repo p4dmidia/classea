@@ -60,13 +60,15 @@ const AffiliateSettings: React.FC = () => {
             setLoading(true);
             
             // Fetch from affiliates table (synced with user_profiles)
-            const { data, error } = await supabase
+            const { data: affData, error } = await supabase
                 .from('affiliates')
                 .select('full_name, email, whatsapp, cpf, cep, address, street, number, complement, neighborhood, city, state, avatar_url')
                 .eq('user_id', user?.id)
-                .single();
+                .limit(1);
 
             if (error) throw error;
+
+            const data = affData?.[0] || null;
 
             if (data) {
                 setProfileData({
@@ -84,6 +86,13 @@ const AffiliateSettings: React.FC = () => {
                     state: data.state || '',
                     avatar_url: data.avatar_url || ''
                 });
+            } else {
+                // Caso não exista registro em affiliates ainda, pré-preenche com dados do auth
+                setProfileData(prev => ({
+                    ...prev,
+                    email: user?.email || '',
+                    full_name: profile?.full_name || ''
+                }));
             }
         } catch (error: any) {
             console.error('Error fetching profile:', error);
