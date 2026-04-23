@@ -80,13 +80,39 @@ const AffiliateMaterials: React.FC = () => {
         setTimeout(() => setCopiedId(null), 2000);
     };
 
-    const handleDownload = (url?: string) => {
+    const handleDownload = async (url?: string, fileName?: string) => {
         if (!url || url.startsWith('#')) {
             toast.error('Link de material temporariamente indisponível.');
             return;
         }
-        window.open(url, '_blank');
-        toast.success('Iniciando download...');
+
+        // Se for vídeo, apenas abre em nova aba para assistir
+        if (url.includes('.mp4') || url.includes('youtube.com') || url.includes('vimeo.com')) {
+            window.open(url, '_blank');
+            return;
+        }
+
+        try {
+            toast.loading('Iniciando download...', { id: 'download' });
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = fileName || 'material-classe-a';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+            
+            toast.success('Download concluído!', { id: 'download' });
+        } catch (err) {
+            console.error('Download error:', err);
+            // Fallback: abre em nova aba se o download forçado falhar (CORS etc)
+            window.open(url, '_blank');
+            toast.success('Abrindo material...', { id: 'download' });
+        }
     };
 
     return (
@@ -147,32 +173,18 @@ const AffiliateMaterials: React.FC = () => {
                         filteredMaterials.map(item => (
                             <div key={item.id} className="group bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-[#FBC02D]/10 transition-all duration-500 flex flex-col">
                                 {/* Material Preview */}
-                                <div className="aspect-video relative overflow-hidden bg-slate-50">
-                                    {item.type !== 'script' ? (
-                                        <>
-                                            <img
-                                                src={item.thumbnail_url}
-                                                alt={item.title}
-                                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                                            />
-                                            <div className="absolute inset-0 bg-[#0B1221]/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                {item.type === 'video' ? (
-                                                    <PlayCircle className="w-16 h-16 text-white" />
-                                                ) : item.type === 'pdf' ? (
-                                                    <FileIcon className="w-16 h-16 text-white" />
-                                                ) : (
-                                                    <ImageIcon className="w-16 h-16 text-white" />
-                                                )}
-                                            </div>
-                                        </>
-                                    ) : item.type === 'pdf' && !item.thumbnail_url ? (
-                                        <div className="w-full h-full flex items-center justify-center p-8 bg-slate-100 group-hover:bg-slate-200 transition-colors">
-                                            <FileIcon className="w-16 h-16 text-slate-300" />
-                                            <div className="absolute inset-0 p-8 flex flex-col justify-center overflow-hidden">
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Documento PDF</p>
-                                            </div>
-                                        </div>
-                                    ) : (
+                                <div className="aspect-video relative overflow-hidden bg-[#0B1221]">
+                                    {item.thumbnail_url ? (
+                                        <img
+                                            src={item.thumbnail_url}
+                                            alt={item.title}
+                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                            onError={(e) => {
+                                                (e.target as HTMLImageElement).style.display = 'none';
+                                                (e.target as HTMLImageElement).parentElement?.classList.add('bg-[#0B1221]');
+                                            }}
+                                        />
+                                    ) : item.type === 'script' ? (
                                         <div className="w-full h-full flex items-center justify-center p-8 bg-[#FFFBEB] group-hover:bg-[#FFF8E1] transition-colors">
                                             <FileText className="w-16 h-16 text-[#FBC02D] opacity-10" />
                                             <div className="absolute inset-0 p-8 flex flex-col justify-center overflow-hidden">
@@ -180,9 +192,32 @@ const AffiliateMaterials: React.FC = () => {
                                                 <p className="text-xs text-[#0B1221] font-bold leading-relaxed line-clamp-4 italic">"{item.content}"</p>
                                             </div>
                                         </div>
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                            {item.type === 'video' ? (
+                                                <Video className="w-16 h-16 text-[#FBC02D] opacity-20" />
+                                            ) : item.type === 'pdf' ? (
+                                                <FileIcon className="w-16 h-16 text-slate-200 opacity-20" />
+                                            ) : (
+                                                <ImageIcon className="w-16 h-16 text-slate-200 opacity-20" />
+                                            )}
+                                        </div>
                                     )}
 
-                                    <div className="absolute top-4 left-4">
+                                    {/* Hover Overlay - only for non-scripts or things with thumbnails */}
+                                    {(item.thumbnail_url || item.type !== 'script') && (
+                                        <div className="absolute inset-0 bg-[#0B1221]/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            {item.type === 'video' ? (
+                                                <PlayCircle className="w-16 h-16 text-white" />
+                                            ) : item.type === 'pdf' ? (
+                                                <FileIcon className="w-16 h-16 text-white" />
+                                            ) : (
+                                                <ImageIcon className="w-16 h-16 text-white" />
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <div className="absolute top-4 left-4 z-10">
                                         <span className="px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-lg text-[8px] font-black uppercase tracking-widest text-[#0B1221] shadow-sm">
                                             {item.type === 'script' ? 'Script' : item.type === 'banner' ? 'Imagem' : item.type === 'pdf' ? 'PDF' : 'Vídeo'}
                                         </span>
@@ -213,9 +248,16 @@ const AffiliateMaterials: React.FC = () => {
                                                 </>
                                             )}
                                         </button>
+                                    ) : item.type === 'video' ? (
+                                        <button
+                                            onClick={() => window.open(item.file_url, '_blank')}
+                                            className="w-full py-4 bg-[#FBC02D] text-[#0B1221] rounded-2xl flex items-center justify-center gap-2 font-black text-xs uppercase tracking-widest hover:bg-[#0B1221] hover:text-white transition-all shadow-lg shadow-[#FBC02D]/20"
+                                        >
+                                            <PlayCircle className="w-4 h-4" /> ASSISTIR AGORA
+                                        </button>
                                     ) : (
                                         <button
-                                            onClick={() => handleDownload(item.file_url)}
+                                            onClick={() => handleDownload(item.file_url, item.title)}
                                             className="w-full py-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center gap-2 font-black text-xs uppercase tracking-widest text-slate-500 hover:bg-[#0B1221] hover:text-white hover:border-[#0B1221] transition-all"
                                         >
                                             <Download className="w-4 h-4" /> BAIXAR AGORA

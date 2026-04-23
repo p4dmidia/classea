@@ -271,11 +271,25 @@ const AdminMaterials: React.FC = () => {
                                 {/* Preview */}
                                 <div className="aspect-video relative overflow-hidden bg-slate-50 border-b border-slate-50">
                                     {item.type !== 'script' ? (
-                                        <img
-                                            src={item.thumbnail_url || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=400&auto=format&fit=crop'}
-                                            alt={item.title}
-                                            className="w-full h-full object-cover"
-                                        />
+                                        item.thumbnail_url ? (
+                                            <img
+                                                src={item.thumbnail_url}
+                                                alt={item.title}
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                    (e.target as HTMLImageElement).parentElement?.classList.add('bg-[#05080F]');
+                                                }}
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full bg-[#05080F] flex items-center justify-center">
+                                                {item.type === 'video' ? (
+                                                    <Video className="w-12 h-12 text-[#FBC02D] opacity-20" />
+                                                ) : (
+                                                    <ImageIcon className="w-12 h-12 text-slate-200 opacity-20" />
+                                                )}
+                                            </div>
+                                        )
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center bg-[#FFFBEB] p-8">
                                             <FileText className="w-12 h-12 text-[#FBC02D] opacity-20" />

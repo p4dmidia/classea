@@ -153,7 +153,7 @@ const AdminOrders: React.FC = () => {
                 </div>
 
                 {/* KPI Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
                     {[
                         { label: 'Total Pedidos', value: stats.total, icon: ShoppingBag, color: 'text-blue-500', bg: 'bg-blue-50' },
                         { label: 'Pendentes', value: stats.pending, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50' },
@@ -203,7 +203,7 @@ const AdminOrders: React.FC = () => {
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[1000px]">
+                        <table className="w-full min-w-[800px]">
                             <thead>
                                 <tr className="bg-slate-50/50 border-b border-slate-50">
                                     <th className="text-left py-6 px-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">ID / Cliente</th>

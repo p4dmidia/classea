@@ -72,10 +72,10 @@ const AffiliateSettings: React.FC = () => {
 
             if (data) {
                 setProfileData({
-                    full_name: data.full_name || '',
+                    full_name: data.full_name || user?.user_metadata?.nome || '',
                     email: data.email || user?.email || '',
-                    whatsapp: data.whatsapp || '',
-                    cpf: data.cpf || '',
+                    whatsapp: data.whatsapp || user?.user_metadata?.whatsapp || '',
+                    cpf: data.cpf || user?.user_metadata?.cpf || '',
                     cep: data.cep || '',
                     address: data.address || '',
                     street: data.street || '',
@@ -91,7 +91,9 @@ const AffiliateSettings: React.FC = () => {
                 setProfileData(prev => ({
                     ...prev,
                     email: user?.email || '',
-                    full_name: profile?.full_name || ''
+                    full_name: user?.user_metadata?.nome ? `${user.user_metadata.nome} ${user.user_metadata.sobrenome || ''}` : '',
+                    whatsapp: user?.user_metadata?.whatsapp || '',
+                    cpf: user?.user_metadata?.cpf || ''
                 }));
             }
         } catch (error: any) {
@@ -109,11 +111,21 @@ const AffiliateSettings: React.FC = () => {
         try {
             setSaving(true);
 
+            // Update auth email if changed
+            if (profileData.email !== user.email) {
+                const { error: authErr } = await supabase.auth.updateUser({
+                    email: profileData.email
+                });
+                if (authErr) throw authErr;
+                toast.success('Confirme a mudança no seu novo e-mail!', { icon: '📧' });
+            }
+
             // Update user_profiles
             const { error: profileErr } = await supabase
                 .from('user_profiles')
                 .update({
                     full_name: profileData.full_name,
+                    email: profileData.email,
                     whatsapp: profileData.whatsapp,
                     cpf: profileData.cpf,
                     cep: profileData.cep,
@@ -134,6 +146,7 @@ const AffiliateSettings: React.FC = () => {
                 .from('affiliates')
                 .update({
                     full_name: profileData.full_name,
+                    email: profileData.email,
                     whatsapp: profileData.whatsapp,
                     cpf: profileData.cpf,
                     cep: profileData.cep,
@@ -366,8 +379,10 @@ const AffiliateSettings: React.FC = () => {
                                         <input
                                             type="email"
                                             value={profileData.email}
-                                            disabled
-                                            className="block w-full pl-12 pr-4 py-4 bg-slate-100 border border-transparent rounded-2xl text-slate-400 font-bold cursor-not-allowed"
+                                            onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                                            className="block w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-[#FBC02D] focus:border-transparent outline-none transition-all font-bold text-[#0B1221]"
+                                            placeholder="seu@email.com"
+                                            required
                                         />
                                     </div>
                                 </div>

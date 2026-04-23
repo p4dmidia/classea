@@ -1,5 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { 
+    ResponsiveContainer, 
+    AreaChart, 
+    Area, 
+    XAxis, 
+    YAxis, 
+    Tooltip, 
+    CartesianGrid,
+    PieChart,
+    Pie,
+    Cell
+} from 'recharts';
 import {
     Users,
     ShoppingCart,
@@ -11,7 +23,8 @@ import {
     MoreHorizontal,
     CheckCircle,
     XCircle,
-    Activity
+    Activity,
+    Wallet
 } from 'lucide-react';
 import { ORGANIZATION_ID } from '../lib/config';
 import AdminLayout from '../components/AdminLayout';
@@ -22,29 +35,31 @@ const AdminDashboard: React.FC = () => {
     const [stats, setStats] = useState([
         { label: 'Vendas Totais', value: 'R$ 0', change: '0%', isPositive: true, icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-50' },
         { label: 'Novos Afiliados', value: '0', change: '0%', isPositive: true, icon: Users, color: 'text-blue-500', bg: 'bg-blue-50' },
-        { label: 'Saques Pendentes', value: '0', change: '0%', isPositive: false, icon: ShoppingCart, color: 'text-amber-500', bg: 'bg-amber-50' },
+        { label: 'Afiliados a Pagar', value: '0', change: '0%', isPositive: false, icon: Wallet, color: 'text-amber-500', bg: 'bg-amber-50' },
         { label: 'Ticket Médio', value: 'R$ 0', change: '0%', isPositive: true, icon: TrendingUp, color: 'text-purple-500', bg: 'bg-purple-50' },
     ]);
 
     const [recentAffiliates, setRecentAffiliates] = useState<any[]>([]);
-    const [chartData, setChartData] = useState<number[]>(new Array(12).fill(0));
+    const [revenueData, setRevenueData] = useState<any[]>([]);
+    const [categoryData, setCategoryData] = useState<any[]>([]);
+    const [timeframe, setTimeframe] = useState('30d');
 
     useEffect(() => {
         fetchDashboardData();
-    }, []);
+    }, [timeframe]);
 
     const fetchDashboardData = async () => {
         setIsLoading(true);
         try {
-            // 1. Total Sales from Orders
-            const { data: salesData } = await supabase
+            // 1. Fetch Orders for calculations
+            const { data: allOrders } = await supabase
                 .from('orders')
-                .select('total_amount')
-                .eq('organization_id', ORGANIZATION_ID)
-                .eq('status', 'Pago');
+                .select('*')
+                .eq('organization_id', ORGANIZATION_ID);
 
-            const totalSales = salesData?.reduce((acc, curr) => acc + Number(curr.total_amount), 0) || 0;
-            const avgTicket = salesData && salesData.length > 0 ? totalSales / salesData.length : 0;
+            const paidOrders = allOrders?.filter(o => o.status === 'Pago' || o.status === 'completed' || o.status === 'Entregue') || [];
+            const totalSalesValue = paidOrders.reduce((acc, curr) => acc + Number(curr.total_amount), 0);
+            const avgTicket = paidOrders.length > 0 ? totalSalesValue / paidOrders.length : 0;
 
             // 2. New Affiliates (last 30 days)
             const thirtyDaysAgo = new Date();
@@ -56,12 +71,12 @@ const AdminDashboard: React.FC = () => {
                 .eq('organization_id', ORGANIZATION_ID)
                 .gt('created_at', thirtyDaysAgo.toISOString());
 
-            // 3. Pending Withdrawals
-            const { count: pendingWithdrawalsCount } = await supabase
-                .from('withdrawals')
+            // 3. Affiliates with Balance (Pending Payouts)
+            const { count: pendingPayoutsCount } = await supabase
+                .from('user_settings')
                 .select('*', { count: 'exact', head: true })
                 .eq('organization_id', ORGANIZATION_ID)
-                .eq('status', 'pending');
+                .gt('available_balance', 0);
 
             // 4. Recent Affiliates
             const { data: latestAffs } = await supabase
@@ -71,15 +86,60 @@ const AdminDashboard: React.FC = () => {
                 .order('created_at', { ascending: false })
                 .limit(4);
 
-            // 5. Monthly Growth Mock (Simulated based on actual data if possible)
-            // For now, let's keep a set of values but influenced by total sales
-            const simulatedChart = [40, 55, 45, 70, 60, 85, 75, 95, 80, 100, 90, (totalSales / 1000) || 110];
-            setChartData(simulatedChart);
+            // 5. Revenue Data Points based on Timeframe
+            const now = new Date();
+            let startDate = new Date();
+            let groupBy: 'day' | 'month' = 'day';
+
+            if (timeframe === '7d') startDate.setDate(now.getDate() - 7);
+            else if (timeframe === '15d') startDate.setDate(now.getDate() - 15);
+            else if (timeframe === '30d') startDate.setDate(now.getDate() - 30);
+            else if (timeframe === '6m') { startDate.setMonth(now.getMonth() - 6); groupBy = 'month'; }
+            else if (timeframe === '1y') { startDate.setFullYear(now.getFullYear() - 1); groupBy = 'month'; }
+
+            const revenuePoints: any[] = [];
+            const filteredOrders = paidOrders.filter(o => new Date(o.created_at) >= startDate);
+
+            if (groupBy === 'day') {
+                const days = timeframe === '7d' ? 7 : timeframe === '15d' ? 15 : 30;
+                for (let i = days; i >= 0; i--) {
+                    const d = new Date();
+                    d.setDate(now.getDate() - i);
+                    const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                    const amount = filteredOrders
+                        .filter(o => new Date(o.created_at).toLocaleDateString() === d.toLocaleDateString())
+                        .reduce((acc, curr) => acc + Number(curr.total_amount), 0);
+                    revenuePoints.push({ name: dateStr, value: amount });
+                }
+            } else {
+                const months = timeframe === '6m' ? 6 : 12;
+                for (let i = months; i >= 0; i--) {
+                    const d = new Date();
+                    d.setMonth(now.getMonth() - i);
+                    const monthName = d.toLocaleDateString('pt-BR', { month: 'short' });
+                    const amount = filteredOrders
+                        .filter(o => {
+                            const od = new Date(o.created_at);
+                            return od.getMonth() === d.getMonth() && od.getFullYear() === d.getFullYear();
+                        })
+                        .reduce((acc, curr) => acc + Number(curr.total_amount), 0);
+                    revenuePoints.push({ name: monthName.toUpperCase(), value: amount });
+                }
+            }
+            setRevenueData(revenuePoints);
+
+            // 6. Mock Categories Data (Suggested Chart)
+            setCategoryData([
+                { name: 'Colchões', value: totalSalesValue * 0.45, color: '#FBC02D' },
+                { name: 'Box', value: totalSalesValue * 0.25, color: '#05080F' },
+                { name: 'Cabeceiras', value: totalSalesValue * 0.20, color: '#4F46E5' },
+                { name: 'Outros', value: totalSalesValue * 0.10, color: '#94A3B8' },
+            ]);
 
             setStats([
-                { label: 'Vendas Totais', value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSales), change: '+12.4%', isPositive: true, icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+                { label: 'Vendas Totais', value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSalesValue), change: '+12.4%', isPositive: true, icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-50' },
                 { label: 'Novos Afiliados', value: String(newAffiliatesCount || 0), change: '+5.1%', isPositive: true, icon: Users, color: 'text-blue-500', bg: 'bg-blue-50' },
-                { label: 'Saques Pendentes', value: String(pendingWithdrawalsCount || 0), change: 'Estável', isPositive: true, icon: ShoppingCart, color: 'text-amber-500', bg: 'bg-amber-50' },
+                { label: 'Afiliados a Pagar', value: String(pendingPayoutsCount || 0), change: 'Dia 15', isPositive: true, icon: Wallet, color: 'text-amber-500', bg: 'bg-amber-50' },
                 { label: 'Ticket Médio', value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(avgTicket), change: '+2.1%', isPositive: true, icon: TrendingUp, color: 'text-purple-500', bg: 'bg-purple-50' },
             ]);
 
@@ -130,33 +190,73 @@ const AdminDashboard: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-                    {/* Recent Growth Chart Placeholder */}
                     <div className="lg:col-span-2 bg-white rounded-[2.5rem] border border-slate-100 p-6 md:p-8 shadow-sm">
                         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8">
-                            <h3 className="text-xl font-black text-[#05080F]">Crescimento da Plataforma</h3>
-                            <select className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-[#05080F] outline-none w-full sm:w-auto">
-                                <option>Últimos 12 meses</option>
-                                <option>Últimos 30 dias</option>
+                            <h3 className="text-xl font-black text-[#05080F]">Faturamento da Plataforma</h3>
+                            <select 
+                                value={timeframe}
+                                onChange={(e) => setTimeframe(e.target.value)}
+                                className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-[#05080F] outline-none w-full sm:w-auto cursor-pointer hover:border-[#FBC02D] transition-colors"
+                            >
+                                <option value="7d">Últimos 7 dias</option>
+                                <option value="15d">Últimos 15 dias</option>
+                                <option value="30d">Últimos 30 dias</option>
+                                <option value="6m">Últimos 6 meses</option>
+                                <option value="1y">Último 1 ano</option>
                             </select>
                         </div>
-                        <div className="h-[250px] md:h-[300px] flex items-end justify-between gap-2 md:gap-4 overflow-x-auto pb-2 scrollbar-none">
+                        <div className="h-[300px] w-full">
                             {isLoading ? (
                                 <div className="w-full h-full flex items-center justify-center">
                                     <div className="w-8 h-8 border-4 border-[#FBC02D]/20 border-t-[#FBC02D] rounded-full animate-spin"></div>
                                 </div>
-                            ) : chartData.map((h, i) => (
-                                <div key={i} className="flex-grow min-w-[30px] flex flex-col items-center gap-3 group">
-                                    <div
-                                        className="w-full bg-[#05080F]/5 group-hover:bg-[#FBC02D] rounded-t-xl transition-all duration-500 cursor-pointer relative"
-                                        style={{ height: `${Math.max(h, 5)}%` }}
-                                    >
-                                        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-[#05080F] text-white text-[10px] py-1 px-2 rounded-lg font-black whitespace-nowrap z-10">
-                                            R$ {Math.round(h * 1000).toLocaleString('pt-BR')}
-                                        </div>
-                                    </div>
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase">{['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'][i]}</span>
-                                </div>
-                            ))}
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={revenueData}>
+                                        <defs>
+                                            <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#FBC02D" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#FBC02D" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                                        <XAxis 
+                                            dataKey="name" 
+                                            axisLine={false} 
+                                            tickLine={false} 
+                                            tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 700 }}
+                                            dy={10}
+                                        />
+                                        <YAxis 
+                                            axisLine={false} 
+                                            tickLine={false} 
+                                            tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 700 }}
+                                            tickFormatter={(value) => `R$ ${value >= 1000 ? (value/1000).toFixed(1) + 'k' : value}`}
+                                        />
+                                        <Tooltip 
+                                            contentStyle={{ 
+                                                backgroundColor: '#05080F', 
+                                                border: 'none', 
+                                                borderRadius: '12px', 
+                                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                                color: '#fff'
+                                            }}
+                                            itemStyle={{ color: '#FBC02D', fontWeight: 900 }}
+                                            labelStyle={{ color: '#94A3B8', fontWeight: 700, marginBottom: '4px' }}
+                                            formatter={(value: any) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Faturamento']}
+                                        />
+                                        <Area 
+                                            type="monotone" 
+                                            dataKey="value" 
+                                            stroke="#FBC02D" 
+                                            strokeWidth={4}
+                                            fillOpacity={1} 
+                                            fill="url(#colorValue)" 
+                                            animationDuration={1500}
+                                        />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            )}
                         </div>
                     </div>
 
@@ -236,13 +336,46 @@ const AdminDashboard: React.FC = () => {
                             <Activity className="w-6 h-6" />
                         </div>
                     </div>
-                    <div className="bg-white rounded-[2rem] border border-slate-100 p-6 flex items-center justify-between shadow-sm sm:col-span-2 lg:col-span-1">
-                        <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Backup do Sistema</p>
-                            <h4 className="text-lg font-black text-[#05080F]">Há 2 horas atrás</h4>
+                    
+                    {/* Suggested Chart: Sales by Category */}
+                    <div className="bg-white rounded-[2rem] border border-slate-100 p-6 flex flex-col shadow-sm sm:col-span-2 lg:col-span-1 min-h-[160px]">
+                        <div className="flex justify-between items-center mb-4">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Vendas por Categoria</p>
+                            <div className="w-8 h-8 bg-purple-50 text-purple-600 rounded-lg flex items-center justify-center">
+                                <PieChart className="w-4 h-4" />
+                            </div>
                         </div>
-                        <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
-                            <Clock className="w-6 h-6 text-slate-400" />
+                        <div className="flex items-center gap-4">
+                            <div className="w-20 h-20">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={categoryData}
+                                            innerRadius={25}
+                                            outerRadius={35}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                        >
+                                            {categoryData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                            <div className="flex-grow space-y-1">
+                                {categoryData.slice(0, 3).map((cat, i) => (
+                                    <div key={i} className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }}></div>
+                                            <span className="text-[10px] font-bold text-slate-500">{cat.name}</span>
+                                        </div>
+                                        <span className="text-[10px] font-black text-[#05080F]">
+                                            {((cat.value / (categoryData.reduce((a,b) => a + b.value, 0) || 1)) * 100).toFixed(0)}%
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>

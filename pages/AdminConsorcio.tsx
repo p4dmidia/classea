@@ -227,9 +227,20 @@ const AdminConsorcio: React.FC = () => {
     const handleCreateGroup = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            // Calculate first draw date (Day 11)
+            const nextDrawDate = new Date();
+            if (nextDrawDate.getDate() >= 11) {
+                nextDrawDate.setMonth(nextDrawDate.getMonth() + 1);
+            }
+            nextDrawDate.setDate(11);
+            nextDrawDate.setHours(10, 0, 0, 0);
+
             const { error } = await supabase
                 .from('consortium_groups')
-                .insert([newGroup]);
+                .insert([{
+                    ...newGroup,
+                    next_draw_date: nextDrawDate.toISOString()
+                }]);
 
             if (error) throw error;
             toast.success('Grupo criado com sucesso!');
@@ -653,7 +664,15 @@ const AdminConsorcio: React.FC = () => {
                                                     <span className="text-[9px] md:text-[10px] font-black uppercase tracking-tighter">Próximo Sorteio</span>
                                                 </div>
                                                 <p className="text-xs md:text-sm font-bold text-[#0B1221]">
-                                                    {group.next_draw_date ? new Date(group.next_draw_date).toLocaleDateString('pt-BR') : 'Agendando...'}
+                                                    {group.next_draw_date ? (
+                                                        new Date(group.next_draw_date).toLocaleDateString('pt-BR')
+                                                    ) : (
+                                                        (() => {
+                                                            const d = new Date();
+                                                            if (d.getDate() >= 11) d.setMonth(d.getMonth() + 1);
+                                                            return `11/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+                                                        })()
+                                                    )}
                                                 </p>
                                             </div>
                                         </div>

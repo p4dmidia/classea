@@ -16,8 +16,10 @@ import {
     Loader2,
     TrendingUp,
     Download,
-    RefreshCw,
-    AlertCircle
+    AlertCircle,
+    FileText,
+    Upload,
+    ExternalLink
 } from 'lucide-react';
 import { ORGANIZATION_ID } from '../lib/config';
 import AdminLayout from '../components/AdminLayout';
@@ -33,17 +35,30 @@ interface WithdrawalRequest {
     pix_key: string;
     created_at: string;
     status: 'pending' | 'approved' | 'paid' | 'rejected';
+    proof_url?: string;
     affiliate?: {
         full_name: string;
     };
 }
 
+interface PendingPayout {
+    user_id: string;
+    full_name: string;
+    pix_key: string;
+    available_balance: number;
+}
+
 const AdminFinancial: React.FC = () => {
     const [requests, setRequests] = useState<WithdrawalRequest[]>([]);
+    const [pendingPayouts, setPendingPayouts] = useState<PendingPayout[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'paid' | 'rejected'>('all');
     const [searchTerm, setSearchTerm] = useState('');
-    const [processingLot, setProcessingLot] = useState(false);
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [selectedPayout, setSelectedPayout] = useState<PendingPayout | null>(null);
+    const [uploadingProof, setUploadingProof] = useState(false);
+    const [proofFile, setProofFile] = useState<File | null>(null);
+    const [processingPayment, setProcessingPayment] = useState(false);
 
     useEffect(() => {
         fetchRequests();
@@ -52,6 +67,7 @@ const AdminFinancial: React.FC = () => {
     const fetchRequests = async () => {
         setIsLoading(true);
         try {
+            // 1. Fetch Withdrawal/Payment History
             const { data, error } = await supabase
                 .from('withdrawals')
                 .select(`
@@ -63,9 +79,33 @@ const AdminFinancial: React.FC = () => {
 
             if (error) throw error;
             setRequests(data || []);
+
+            // 2. Fetch Affiliates with Balance (Pending Payouts)
+            const { data: balanceData, error: balanceError } = await supabase
+                .from('user_settings')
+                .select(`
+                    user_id,
+                    available_balance,
+                    pix_key,
+                    affiliates!inner(full_name)
+                `)
+                .eq('organization_id', ORGANIZATION_ID)
+                .gt('available_balance', 0);
+
+            if (balanceError) throw balanceError;
+
+            const formattedPayouts = balanceData?.map((b: any) => ({
+                user_id: b.user_id,
+                full_name: b.affiliates?.full_name || 'Usuário',
+                pix_key: b.pix_key || 'Não cadastrada',
+                available_balance: b.available_balance
+            })) || [];
+
+            setPendingPayouts(formattedPayouts);
+
         } catch (error) {
-            console.error('Error fetching requests:', error);
-            toast.error('Erro ao carregar pedidos de saque.');
+            console.error('Error fetching data:', error);
+            toast.error('Erro ao carregar dados financeiros.');
         } finally {
             setIsLoading(false);
         }
@@ -96,36 +136,68 @@ const AdminFinancial: React.FC = () => {
         }
     };
 
-    const handleProcessBatch = async () => {
-        const approvedCount = requests.filter(r => r.status === 'approved').length;
-
-        if (approvedCount === 0) {
-            toast.error('Não há saques aprovados para processar.');
+    const handleConfirmPayment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedPayout || !proofFile) {
+            toast.error('Selecione o comprovante.');
             return;
         }
 
-        if (!confirm(`Deseja marcar ${approvedCount} saques aprovados como pagos?`)) return;
-
-        setProcessingLot(true);
+        setProcessingPayment(true);
         try {
-            const { error } = await supabase
+            // 1. Upload Proof
+            const fileExt = proofFile.name.split('.').pop();
+            const fileName = `${selectedPayout.user_id}_${Date.now()}.${fileExt}`;
+            const filePath = `payouts/${fileName}`;
+
+            const { error: uploadError, data: uploadData } = await supabase.storage
+                .from('payment-proofs')
+                .upload(filePath, proofFile);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('payment-proofs')
+                .getPublicUrl(filePath);
+
+            // 2. Create Withdrawal Record (Status: Paid)
+            const { error: drawError } = await supabase
                 .from('withdrawals')
-                .update({
+                .insert([{
+                    user_id: selectedPayout.user_id,
+                    amount_requested: selectedPayout.available_balance,
+                    net_amount: selectedPayout.available_balance,
+                    pix_key: selectedPayout.pix_key,
                     status: 'paid',
-                    processed_at: new Date().toISOString()
+                    processed_at: new Date().toISOString(),
+                    proof_url: publicUrl,
+                    organization_id: ORGANIZATION_ID
+                }]);
+
+            if (drawError) throw drawError;
+
+            // 3. Deduct from Balance
+            const { error: balanceError } = await supabase
+                .from('user_settings')
+                .update({ 
+                    available_balance: 0,
+                    updated_at: new Date().toISOString()
                 })
-                .eq('status', 'approved')
+                .eq('user_id', selectedPayout.user_id)
                 .eq('organization_id', ORGANIZATION_ID);
 
-            if (error) throw error;
+            if (balanceError) throw balanceError;
 
-            toast.success(`${approvedCount} saques marcados como pagos com sucesso!`);
+            toast.success('Pagamento registrado com sucesso!');
+            setIsPaymentModalOpen(false);
+            setProofFile(null);
             fetchRequests();
-        } catch (error) {
-            console.error('Error processing batch:', error);
-            toast.error('Erro ao processar lote.');
+
+        } catch (error: any) {
+            console.error('Error processing payment:', error);
+            toast.error(error.message || 'Erro ao processar pagamento.');
         } finally {
-            setProcessingLot(false);
+            setProcessingPayment(false);
         }
     };
 
@@ -191,15 +263,75 @@ const AdminFinancial: React.FC = () => {
                     </div>
 
                     <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 border border-slate-100 shadow-sm flex flex-col justify-center sm:col-span-2 lg:col-span-1">
-                        <p className="text-[10px] md:text-xs font-medium text-slate-500 mb-4 md:mb-6 leading-relaxed">Conforme as novas diretrizes, os pagamentos devem ser processados em até 3 dias úteis após a aprovação.</p>
-                        <button
-                            disabled={processingLot}
-                            onClick={handleProcessBatch}
-                            className={`w-full py-4 rounded-2xl font-black text-[10px] md:text-xs uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${processingLot ? 'bg-slate-100 text-slate-400' : 'bg-[#FBC02D] text-[#0B1221] hover:bg-[#ffc947] shadow-xl shadow-amber-200/50'}`}
-                        >
-                            {processingLot ? <Loader2 className="w-4 h-4 animate-spin" /> : <Banknote className="w-4 h-4" />}
-                            {processingLot ? 'PROCESSANDO...' : 'EFETUAR PAGAMENTOS'}
-                        </button>
+                        <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest leading-none mb-4">Próximo Fechamento</p>
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600">
+                                <Calendar className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h4 className="text-lg font-black text-[#05080F]">Dia 15</h4>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Pagamento Agendado</p>
+                            </div>
+                        </div>
+                        <p className="text-[10px] font-medium text-slate-500 leading-relaxed mb-1">
+                            O sistema agora processa os pagamentos de forma manual via PIX todo dia 15.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Pending Payouts (Dashboard) */}
+                <div className="bg-white rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="p-6 md:p-10 border-b border-slate-50">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-lg md:text-xl font-black text-[#05080F]">Pagamentos Pendentes (Dashboard Dia 15)</h3>
+                            <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+                                {pendingPayouts.length} Afiliados a Pagar
+                            </span>
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="bg-slate-50/50 border-b border-slate-50">
+                                    <th className="text-left py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Afiliado / Chave PIX</th>
+                                    <th className="text-left py-6 px-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Saldo Acumulado</th>
+                                    <th className="text-right py-6 px-10 text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {pendingPayouts.length > 0 ? pendingPayouts.map((p) => (
+                                    <tr key={p.user_id} className="hover:bg-slate-50/30 transition-all">
+                                        <td className="py-6 px-10">
+                                            <div>
+                                                <p className="font-black text-[#05080F] text-sm">{p.full_name}</p>
+                                                <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1 mt-1">
+                                                    <Send className="w-3 h-3 text-[#FBC02D]" /> {p.pix_key}
+                                                </p>
+                                            </div>
+                                        </td>
+                                        <td className="py-6 px-4">
+                                            <p className="text-lg font-black text-emerald-600">
+                                                R$ {p.available_balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                            </p>
+                                        </td>
+                                        <td className="py-6 px-10 text-right">
+                                            <button 
+                                                onClick={() => { setSelectedPayout(p); setIsPaymentModalOpen(true); }}
+                                                className="bg-[#05080F] text-white text-[10px] font-black px-6 py-3 rounded-xl hover:bg-[#FBC02D] hover:text-[#05080F] transition-all shadow-lg"
+                                            >
+                                                REGISTRAR PAGAMENTO
+                                            </button>
+                                        </td>
+                                    </tr>
+                                )) : (
+                                    <tr>
+                                        <td colSpan={3} className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">
+                                            Nenhum saldo pendente de pagamento.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -207,7 +339,7 @@ const AdminFinancial: React.FC = () => {
                 <div className="bg-white rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden">
                     <div className="p-6 md:p-10 border-b border-slate-50">
                         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
-                            <h3 className="text-lg md:text-xl font-black text-[#05080F]">Pedidos de Saque</h3>
+                            <h3 className="text-lg md:text-xl font-black text-[#05080F]">Histórico de Pagamentos Efetuados</h3>
 
                             <div className="flex flex-col sm:flex-row w-full xl:w-auto gap-4">
                                 <div className="relative flex-1 sm:min-w-[280px]">
@@ -342,28 +474,16 @@ const AdminFinancial: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="py-6 px-10 text-right">
-                                            {req.status === 'pending' && (
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => handleAction(req.id, 'rejected')}
-                                                        className="p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:bg-red-50 hover:text-red-500 transition-all"
-                                                        title="Recusar"
-                                                    >
-                                                        <XCircle className="w-5 h-5" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleAction(req.id, 'approved')}
-                                                        className="p-2.5 bg-[#05080F] text-white rounded-xl hover:bg-[#FBC02D] hover:text-[#05080F] transition-all"
-                                                        title="Aprovar Saque"
-                                                    >
-                                                        <CheckCircle2 className="w-5 h-5" />
-                                                    </button>
-                                                </div>
-                                            )}
-                                            {(req.status === 'approved' || req.status === 'paid' || req.status === 'rejected') && (
-                                                <button className="p-2.5 text-slate-300 cursor-not-allowed">
-                                                    <ShieldCheck className="w-5 h-5" />
-                                                </button>
+                                            {req.proof_url && (
+                                                <a 
+                                                    href={req.proof_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-2 p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-all"
+                                                    title="Ver Comprovante"
+                                                >
+                                                    <FileText className="w-5 h-5" />
+                                                </a>
                                             )}
                                         </td>
                                     </tr>
@@ -382,19 +502,80 @@ const AdminFinancial: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Footer Info */}
-                <div className="bg-[#FBC02D]/10 border border-[#FBC02D]/20 p-6 md:p-8 rounded-[2rem] flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#FBC02D] shadow-sm flex-shrink-0">
-                        <Calendar className="w-6 h-6" />
+                {/* Payment Registration Modal */}
+                {isPaymentModalOpen && selectedPayout && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#05080F]/80 backdrop-blur-sm animate-in fade-in duration-300">
+                        <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl relative z-10 overflow-hidden animate-in zoom-in-95 duration-300 p-8 md:p-10">
+                            <h2 className="text-2xl font-black text-[#05080F] mb-2">Registrar Pagamento</h2>
+                            <p className="text-slate-500 text-sm mb-8 font-medium">
+                                Confirme o envio do PIX para <span className="text-[#05080F] font-bold">{selectedPayout.full_name}</span>.
+                            </p>
+
+                            <div className="bg-slate-50 rounded-2xl p-6 mb-8 space-y-4">
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Chave PIX</p>
+                                    <p className="font-bold text-[#05080F]">{selectedPayout.pix_key}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Valor do Pagamento</p>
+                                    <p className="text-2xl font-black text-emerald-600">
+                                        R$ {selectedPayout.available_balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <form onSubmit={handleConfirmPayment} className="space-y-6">
+                                <div>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Anexar Comprovante (IMG/PDF)</label>
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            required
+                                            accept="image/*,.pdf"
+                                            onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                                            className="hidden"
+                                            id="proof-upload"
+                                        />
+                                        <label
+                                            htmlFor="proof-upload"
+                                            className="w-full h-32 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-[#FBC02D] hover:bg-amber-50/30 transition-all group"
+                                        >
+                                            {proofFile ? (
+                                                <>
+                                                    <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                                                    <span className="text-xs font-bold text-slate-600">{proofFile.name}</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload className="w-8 h-8 text-slate-300 group-hover:text-[#FBC02D] transition-colors" />
+                                                    <span className="text-xs font-bold text-slate-400">Clique para selecionar arquivo</span>
+                                                </>
+                                            )}
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setIsPaymentModalOpen(false); setProofFile(null); }}
+                                        className="flex-1 bg-slate-50 text-slate-400 font-black py-4 rounded-2xl hover:bg-slate-100 transition-all text-xs"
+                                    >
+                                        CANCELAR
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={processingPayment}
+                                        className="flex-1 bg-[#05080F] text-white font-black py-4 rounded-2xl hover:bg-[#FBC02D] hover:text-[#05080F] transition-all text-xs shadow-lg flex items-center justify-center gap-2"
+                                    >
+                                        {processingPayment ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                                        {processingPayment ? 'PROCESSANDO...' : 'CONFIRMAR PAGAMENTO'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                    <div>
-                        <h4 className="font-black text-[#05080F] text-xs md:text-sm uppercase tracking-widest leading-none mb-2 text-center sm:text-left">Processamento de Pagamentos</h4>
-                        <p className="text-[10px] md:text-xs font-bold text-slate-500 leading-relaxed text-center sm:text-left">
-                            O processamento em lote move todos os pedidos <span className="text-[#05080F]">Aprovados</span> para o status <span className="text-[#05080F]">Pago</span>. 
-                            Certifique-se de realizar esta ação para cumprir o prazo de 3 dias úteis.
-                        </p>
-                    </div>
-                </div>
+                )}
             </div>
         </AdminLayout>
     );

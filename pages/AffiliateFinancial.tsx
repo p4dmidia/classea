@@ -27,6 +27,7 @@ interface Withdrawal {
     net_amount: number;
     status: string;
     pix_key: string;
+    proof_url?: string;
     created_at: string;
 }
 
@@ -164,7 +165,7 @@ const AffiliateFinancial: React.FC = () => {
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
                 <div>
                     <h1 className="text-3xl font-black text-[#0B1221]">Financeiro</h1>
-                    <p className="text-slate-500 font-medium">Gerencie seus ganhos e solicite pagamentos.</p>
+                    <p className="text-slate-500 font-medium">Acompanhe seus ganhos e pagamentos agendados.</p>
                 </div>
                 <div className="flex gap-3 w-full md:w-auto">
                     <button
@@ -198,7 +199,7 @@ const AffiliateFinancial: React.FC = () => {
                 {/* Transactions Table */}
                 <div className="lg:col-span-2 bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
                     <div className="p-8 md:p-10 border-b border-slate-50 flex justify-between items-center">
-                        <h3 className="text-xl font-black text-[#0B1221]">Histórico de Saques</h3>
+                        <h3 className="text-xl font-black text-[#0B1221]">Histórico de Pagamentos</h3>
                     </div>
 
                     <div className="overflow-x-auto">
@@ -223,10 +224,22 @@ const AffiliateFinancial: React.FC = () => {
                                         <tr key={item.id} className="group hover:bg-slate-50/30 transition-colors">
                                             <td className="py-6 px-8">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-amber-50 text-amber-600">
+                                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-50 text-emerald-600">
                                                         <ArrowDownLeft className="w-5 h-5" />
                                                     </div>
-                                                    <span className="font-bold text-[#0B1221]">Saque solicitado via PIX</span>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-[#0B1221]">Pagamento Mensal (Dia 15)</span>
+                                                        {item.proof_url && (
+                                                            <a 
+                                                                href={item.proof_url} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer"
+                                                                className="text-[10px] font-black text-blue-500 uppercase tracking-widest hover:underline flex items-center gap-1 mt-1"
+                                                            >
+                                                                <CreditCard className="w-3 h-3" /> Ver Comprovante
+                                                            </a>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="py-6 px-4">
@@ -253,7 +266,7 @@ const AffiliateFinancial: React.FC = () => {
                                 ) : (
                                     <tr>
                                         <td colSpan={4} className="py-20 text-center text-slate-400 font-bold">
-                                            Nenhum saque solicitado até o momento.
+                                            Nenhum pagamento recebido até o momento.
                                         </td>
                                     </tr>
                                 )}
@@ -289,11 +302,11 @@ const AffiliateFinancial: React.FC = () => {
                         <div className="flex items-start gap-3 mb-4">
                             <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                             <div>
-                                <h4 className="font-black text-[#0B1221] text-sm mb-1">Regras de Saque</h4>
+                                <h4 className="font-black text-[#0B1221] text-sm mb-1">Pagamentos Agendados</h4>
                                 <ul className="text-xs text-slate-500 font-medium space-y-2">
-                                    <li className="flex gap-2"><span>■</span> <span>Valor mínimo para saque ( não tem )</span></li>
-                                    <li className="flex gap-2"><span>■</span> <span>Dia de pagamento todo dia 15 de cada mês</span></li>
-                                    <li className="flex gap-2"><span>■</span> <span>Chave pix deve ser do titular da conta</span></li>
+                                    <li className="flex gap-2"><span>■</span> <span>O pagamento é automático todo dia 15</span></li>
+                                    <li className="flex gap-2"><span>■</span> <span>Saldo acumulado do mês anterior é pago via PIX</span></li>
+                                    <li className="flex gap-2"><span>■</span> <span>Mantenha sua chave PIX sempre atualizada</span></li>
                                 </ul>
                             </div>
                         </div>

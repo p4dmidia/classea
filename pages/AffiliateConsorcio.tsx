@@ -219,7 +219,15 @@ const AffiliateConsorcio: React.FC = () => {
                                         <div className="flex items-center gap-2 text-white">
                                             <Calendar className="w-4 h-4 text-[#FBC02D]" />
                                             <span className="font-bold">
-                                                {group.next_draw_date ? new Date(group.next_draw_date).toLocaleDateString('pt-BR') : 'Agendando...'}
+                                                {group.next_draw_date ? (
+                                                    new Date(group.next_draw_date).toLocaleDateString('pt-BR')
+                                                ) : (
+                                                    (() => {
+                                                        const d = new Date();
+                                                        if (d.getDate() >= 11) d.setMonth(d.getMonth() + 1);
+                                                        return `11/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+                                                    })()
+                                                )}
                                             </span>
                                         </div>
                                     </div>

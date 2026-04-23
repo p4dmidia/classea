@@ -48,6 +48,7 @@ const AdminAffiliates: React.FC = () => {
     const [deletingAffiliate, setDeletingAffiliate] = useState<any | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [newPassword, setNewPassword] = useState('');
+    const [originalEmail, setOriginalEmail] = useState('');
 
     const itemsPerPage = 8;
 
@@ -166,9 +167,12 @@ const AdminAffiliates: React.FC = () => {
                 .from('affiliates')
                 .update({
                     full_name: editingAffiliate.name,
+                    email: editingAffiliate.email,
                     whatsapp: editingAffiliate.phone,
                     is_active: editingAffiliate.raw_status,
                     is_verified: editingAffiliate.raw_verified,
+                    cpf: editingAffiliate.cpf,
+                    cnpj: editingAffiliate.cnpj,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', editingAffiliate.id)
@@ -176,12 +180,42 @@ const AdminAffiliates: React.FC = () => {
 
             if (affError) throw affError;
 
-            if (newPassword.trim() && editingAffiliate.user_id) {
-                const { error: passError } = await supabase.auth.admin.updateUserById(
+            // 2. Update user_profiles to stay in sync
+            if (editingAffiliate.user_id) {
+                const { error: profileError } = await supabase
+                    .from('user_profiles')
+                    .update({
+                        full_name: editingAffiliate.name,
+                        email: editingAffiliate.email,
+                        whatsapp: editingAffiliate.phone,
+                        registration_type: editingAffiliate.registration_type,
+                        cpf: editingAffiliate.cpf,
+                        cnpj: editingAffiliate.cnpj,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', editingAffiliate.user_id);
+                
+                if (profileError) {
+                    console.warn('Error updating user_profiles:', profileError);
+                }
+            }
+
+            // 3. Update Auth User if email or password changed
+            const updateAuthData: any = {};
+            if (newPassword.trim()) updateAuthData.password = newPassword.trim();
+            if (editingAffiliate.email !== originalEmail) updateAuthData.email = editingAffiliate.email;
+
+            if (Object.keys(updateAuthData).length > 0 && editingAffiliate.user_id) {
+                const { error: authError } = await supabase.auth.admin.updateUserById(
                     editingAffiliate.user_id,
-                    { password: newPassword.trim() }
+                    updateAuthData
                 );
-                if (passError) throw passError;
+                if (authError) {
+                    if (authError.message.includes('already registered')) {
+                        throw new Error('Este e-mail já está sendo usado por outro usuário.');
+                    }
+                    throw authError;
+                }
             }
 
             toast.success('Afiliado atualizado com sucesso!');
@@ -485,6 +519,7 @@ const AdminAffiliates: React.FC = () => {
                                                     <button
                                                         onClick={() => {
                                                             setEditingAffiliate(aff);
+                                                            setOriginalEmail(aff.email);
                                                             setNewPassword('');
                                                         }}
                                                         className="p-2.5 text-slate-300 hover:text-blue-600 hover:bg-white hover:shadow-sm rounded-xl transition-all"
@@ -650,12 +685,51 @@ const AdminAffiliates: React.FC = () => {
                                     />
                                 </div>
                                 <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">E-mail</label>
+                                    <input
+                                        type="email"
+                                        required
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                        value={editingAffiliate.email}
+                                        onChange={e => setEditingAffiliate({ ...editingAffiliate, email: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">WhatsApp</label>
                                     <input
                                         type="text"
                                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
                                         value={editingAffiliate.phone}
                                         onChange={e => setEditingAffiliate({ ...editingAffiliate, phone: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Tipo de Cadastro</label>
+                                    <select
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D] appearance-none"
+                                        value={editingAffiliate.registration_type}
+                                        onChange={e => setEditingAffiliate({ ...editingAffiliate, registration_type: e.target.value })}
+                                    >
+                                        <option value="individual">Pessoa Física (CPF)</option>
+                                        <option value="business">Pessoa Jurídica (CNPJ)</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">
+                                        {editingAffiliate.registration_type === 'individual' ? 'CPF' : 'CNPJ'}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm font-bold outline-none focus:border-[#FBC02D]"
+                                        value={editingAffiliate.registration_type === 'individual' ? editingAffiliate.cpf : editingAffiliate.cnpj}
+                                        onChange={e => {
+                                            if (editingAffiliate.registration_type === 'individual') {
+                                                setEditingAffiliate({ ...editingAffiliate, cpf: e.target.value });
+                                            } else {
+                                                setEditingAffiliate({ ...editingAffiliate, cnpj: e.target.value });
+                                            }
+                                        }}
+                                        placeholder={editingAffiliate.registration_type === 'individual' ? '000.000.000-00' : '00.000.000/0000-00'}
                                     />
                                 </div>
                                 <div className="space-y-2">

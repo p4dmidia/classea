@@ -58,7 +58,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     ];
 
     return (
-        <div className="min-h-screen bg-[#F0F2F5] flex overflow-x-hidden">
+        <div className="min-h-screen bg-[#F0F2F5]">
             {/* Sidebar Overlay */}
             {isSidebarOpen && (
                 <div
@@ -69,8 +69,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
             {/* Sidebar */}
             <aside className={`
-                w-72 bg-[#05080F] flex flex-col p-6 text-white shrink-0 fixed h-full z-50 transition-transform duration-300 lg:translate-x-0
-                ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:sticky'}
+                w-72 bg-[#05080F] flex flex-col p-6 text-white fixed inset-y-0 left-0 z-50 transition-transform duration-300 overflow-y-auto scrollbar-hide
+                ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
             `}>
                 <div className="mb-12 px-2 flex items-center gap-3">
                     <div className="w-10 h-10 bg-[#FBC02D] rounded-xl flex items-center justify-center">
@@ -112,7 +112,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             </aside>
 
             {/* Main Content Area */}
-            <div className="flex-grow">
+            <div className="lg:pl-72 min-h-screen flex flex-col transition-all duration-300">
                 {/* Topbar */}
                 <header className="h-20 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between sticky top-0 z-20">
                     <div className="flex items-center gap-4">
