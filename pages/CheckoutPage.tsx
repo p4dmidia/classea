@@ -85,6 +85,53 @@ const CheckoutPage: React.FC = () => {
             };
             fetchProfile();
         }
+
+        // Handle direct buy link
+        const params = new URLSearchParams(window.location.search);
+        const buyId = params.get('buy');
+        const varsEncoded = params.get('vars');
+
+        if (buyId) {
+            const processDirectBuy = async () => {
+                try {
+                    const { data: product, error } = await supabase
+                        .from('products')
+                        .select('*')
+                        .eq('id', buyId)
+                        .single();
+                    
+                    if (error || !product) return;
+
+                    let selectedVars = {};
+                    if (varsEncoded) {
+                        try {
+                            // Decode from base64
+                            selectedVars = JSON.parse(atob(varsEncoded));
+                        } catch (e) {
+                            console.error("Error parsing variations", e);
+                        }
+                    }
+
+                    // Pre-fill fields needed for addToCart if they are different in DB vs CartItem
+                    const images = (product.image_url || product.image || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+                    const formattedProduct = {
+                        ...product,
+                        image: images[0] || 'https://placehold.co/600x600?text=Classe+A'
+                    };
+
+                    addToCart(formattedProduct, selectedVars);
+                    
+                    // Clear params from URL to prevent re-adding on refresh
+                    const newUrl = window.location.pathname;
+                    window.history.replaceState({}, '', newUrl);
+                    
+                    toast.success(`${product.name} adicionado para compra rápida!`, { icon: '🛒' });
+                } catch (e) {
+                    console.error('Error processing direct buy:', e);
+                }
+            };
+            processDirectBuy();
+        }
     }, [user]);
 
     const isConsorcioInCart = cart.some(item => item.category === 'Consórcio' || item.name.includes('CONSÓRCIO'));

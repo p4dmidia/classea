@@ -57,7 +57,7 @@ const RegisterPage: React.FC = () => {
             const { data, error } = await supabase
                 .from('affiliates')
                 .select('full_name')
-                .eq('referral_code', code)
+                .ilike('referral_code', code)
                 .maybeSingle();
             
             if (data && data.full_name) {
@@ -100,6 +100,20 @@ const RegisterPage: React.FC = () => {
 
         setLoading(true);
         try {
+            // 1. Verificar se o login já existe para evitar erro de trigger
+            const { data: existingAff, error: checkError } = await supabase
+                .from('affiliates')
+                .select('id')
+                .ilike('referral_code', formData.login)
+                .eq('organization_id', ORGANIZATION_ID)
+                .maybeSingle();
+            
+            if (existingAff) {
+                setError('Este login já está em uso. Por favor, escolha outro.');
+                setLoading(false);
+                return;
+            }
+
             const { data, error: signUpError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: formData.senha,
@@ -121,6 +135,109 @@ const RegisterPage: React.FC = () => {
             if (signUpError) throw signUpError;
 
             if (data?.user) {
+                const newUser = data.user;
+                console.log('User created successfully:', newUser.id);
+
+                // Fallback de Segurança: Garantir que o perfil e o registro de afiliado existam
+                // Isso resolve o problema de "Conta não vinculada" se o Trigger do banco falhar ou demorar.
+                setTimeout(async () => {
+                    try {
+                        console.log('Iniciando verificação de integridade pós-cadastro...');
+                        
+                        // 1. Verificar se o registro de afiliado existe
+                        const { data: affCheck } = await supabase
+                            .from('affiliates')
+                            .select('id')
+                            .eq('user_id', newUser.id)
+                            .maybeSingle();
+                            
+                        if (!affCheck) {
+                            console.warn('Trigger do banco falhou para Affiliates. Criando registro manualmente...');
+                            
+                            // Buscar ID do patrocinador se houver código
+                            let sponsorId = null;
+                            if (sponsorCode) {
+                                const { data: sData } = await supabase
+                                    .from('affiliates')
+                                    .select('id')
+                                    .ilike('referral_code', sponsorCode)
+                                    .maybeSingle();
+                                sponsorId = sData?.id || null;
+                            }
+
+                            const { error: insErr } = await supabase
+                                .from('affiliates')
+                                .insert({
+                                    user_id: newUser.id,
+                                    email: formData.email,
+                                    full_name: `${formData.nome} ${formData.sobrenome}`.trim() || 'Afiliado',
+                                    referral_code: formData.login.toLowerCase(),
+                                    whatsapp: formData.whatsapp,
+                                    organization_id: ORGANIZATION_ID,
+                                    sponsor_id: sponsorId,
+                                    is_active: true,
+                                    is_verified: true
+                                });
+                                
+                            if (insErr) {
+                                console.error('Erro ao criar afiliado manualmente:', insErr);
+                                // Se for erro de duplicidade, tenta um login aleatório
+                                if (insErr.code === '23505') {
+                                    const randomSuffix = Math.random().toString(36).substring(2, 6);
+                                    await supabase.from('affiliates').insert({
+                                        user_id: newUser.id,
+                                        email: formData.email,
+                                        full_name: `${formData.nome} ${formData.sobrenome}`.trim() || 'Afiliado',
+                                        referral_code: `${formData.login.toLowerCase()}_${randomSuffix}`,
+                                        whatsapp: formData.whatsapp,
+                                        organization_id: ORGANIZATION_ID,
+                                        sponsor_id: sponsorId,
+                                        is_active: true,
+                                        is_verified: true
+                                    });
+                                }
+                            } else console.log('Registro de afiliado criado com sucesso via fallback.');
+                        } else {
+                            console.log('Registro de afiliado já existe (Trigger funcionou).');
+                        }
+
+                        // 2. Garantir que o user_profile tenha os dados básicos e o sponsor_id (user_id do sponsor)
+                        const { data: profCheck } = await supabase
+                            .from('user_profiles')
+                            .select('full_name, sponsor_id')
+                            .eq('id', newUser.id)
+                            .maybeSingle();
+
+                        if (profCheck && (!profCheck.full_name || !profCheck.sponsor_id)) {
+                            console.log('Atualizando perfil com dados faltantes...');
+                            
+                            let sponsorUserId = null;
+                            if (sponsorCode) {
+                                const { data: sUserData } = await supabase
+                                    .from('affiliates')
+                                    .select('user_id')
+                                    .ilike('referral_code', sponsorCode)
+                                    .maybeSingle();
+                                sponsorUserId = sUserData?.user_id || null;
+                            }
+
+                            await supabase
+                                .from('user_profiles')
+                                .update({
+                                    full_name: `${formData.nome} ${formData.sobrenome}`.trim(),
+                                    sponsor_id: sponsorUserId,
+                                    referrer_id: sponsorUserId,
+                                    whatsapp: formData.whatsapp,
+                                    login: formData.login.toLowerCase()
+                                })
+                                .eq('id', newUser.id);
+                        }
+
+                    } catch (fallbackErr) {
+                        console.error('Erro no fallback de cadastro:', fallbackErr);
+                    }
+                }, 2000);
+
                 toast.success('Cadastro realizado com sucesso! Bem-vindo à Classe A.', {
                     duration: 5000,
                     style: {
@@ -139,7 +256,7 @@ const RegisterPage: React.FC = () => {
                 // Redirecionar para login após um pequeno delay
                 setTimeout(() => {
                     navigate('/login');
-                }, 2000);
+                }, 3000);
             }
         } catch (err: any) {
             setError(err.message || 'Erro ao realizar cadastro.');

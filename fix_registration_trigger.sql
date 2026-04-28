@@ -45,7 +45,7 @@ BEGIN
     -- Apenas vincula se o patrocinador (referral_code) existir NA MESMA ORGANIZAÇÃO
     SELECT id INTO v_sponsor_id 
     FROM public.affiliates 
-    WHERE referral_code = v_sponsor_code 
+    WHERE LOWER(referral_code) = LOWER(v_sponsor_code) 
     AND organization_id = v_org_id 
     LIMIT 1;
     
@@ -63,7 +63,7 @@ BEGIN
     new.id,
     new.email,
     v_full_name,
-    new.raw_user_meta_data ->> 'login',
+    LOWER(new.raw_user_meta_data ->> 'login'),
     v_sponsor_id,
     v_org_id,
     new.created_at,

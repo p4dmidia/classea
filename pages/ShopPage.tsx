@@ -3,6 +3,7 @@ import { Search, Filter, ChevronDown, Grid, List, Star, ShoppingCart, Link, Chec
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useCart } from '../components/CartContext';
+import { useAuth } from '../components/AuthContext';
 import CategorySidebar from '../components/CategorySidebar';
 import toast from 'react-hot-toast';
 import { ORGANIZATION_ID } from '../lib/config';
@@ -21,6 +22,23 @@ const ShopPage: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1'));
     const [totalPages, setTotalPages] = useState(1);
     const productsPerPage = 20;
+
+    const { user } = useAuth();
+    const [referralCode, setReferralCode] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (user) {
+            const fetchReferral = async () => {
+                const { data } = await supabase
+                    .from('affiliates')
+                    .select('referral_code')
+                    .eq('user_id', user.id)
+                    .single();
+                if (data) setReferralCode(data.referral_code);
+            };
+            fetchReferral();
+        }
+    }, [user]);
 
     // New Filters
     const [minPrice, setMinPrice] = useState<string>(searchParams.get('min') || '');
@@ -220,11 +238,19 @@ const ShopPage: React.FC = () => {
 
     const handleCopyAffiliateLink = (e: React.MouseEvent, productId: any) => {
         e.stopPropagation();
-        const affiliateId = localStorage.getItem('affiliate_id') || 'unregistered';
-        const link = `${window.location.origin}/p/${productId}?ref=${affiliateId}`;
+        
+        if (!referralCode) {
+            toast.error('Código de indicação não disponível.');
+            return;
+        }
+
+        const domain = window.location.origin;
+        const targetPath = `/p/${productId}`;
+        const link = `${domain}/ref/${referralCode}?to=${encodeURIComponent(targetPath)}`;
+
         navigator.clipboard.writeText(link);
         setCopiedId(productId);
-        toast.success('Link de afiliado copiado!');
+        toast.success('Link de indicação direta copiado!');
         setTimeout(() => setCopiedId(null), 2000);
     };
 
@@ -326,33 +352,33 @@ const ShopPage: React.FC = () => {
                         </button>
                     </aside>
 
-                    <div className="flex-grow space-y-8">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                            <form onSubmit={handleSearch} className="relative max-w-sm w-full">
-                                <input
-                                    type="text"
-                                    placeholder="Pesquisar na loja..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full bg-slate-50 rounded-lg py-2.5 px-10 outline-none focus:ring-2 focus:ring-[#FBC02D]/50 text-sm border border-slate-100"
-                                />
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                            </form>
+                        <div className="flex-grow min-w-0 space-y-8">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                                <form onSubmit={handleSearch} className="relative max-w-sm w-full">
+                                    <input
+                                        type="text"
+                                        placeholder="Pesquisar na loja..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="w-full bg-slate-50 rounded-lg py-2.5 px-10 outline-none focus:ring-2 focus:ring-[#FBC02D]/50 text-sm border border-slate-100"
+                                    />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                                </form>
 
-                            <div className="flex items-center gap-4">
-                                <span className="text-sm text-slate-500 whitespace-nowrap">
-                                    Página <span className="font-bold text-[#0B1221]">{currentPage}</span> de <span className="font-bold text-[#0B1221]">{totalPages}</span>
-                                </span>
+                                <div className="flex items-center gap-4">
+                                    <span className="text-sm text-slate-500 whitespace-nowrap">
+                                        Página <span className="font-bold text-[#0B1221]">{currentPage}</span> de <span className="font-bold text-[#0B1221]">{totalPages}</span>
+                                    </span>
+                                </div>
                             </div>
-                        </div>
-                        {isLoading ? (
-                            <div className="flex flex-col items-center justify-center py-20 gap-4">
-                                <Loader2 className="w-10 h-10 text-[#FBC02D] animate-spin" />
-                                <p className="font-bold text-slate-400">Buscando produtos...</p>
-                            </div>
-                        ) : (
-                            <div className="flex-grow w-full">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-4 gap-6">
+                            {isLoading ? (
+                                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                    <Loader2 className="w-10 h-10 text-[#FBC02D] animate-spin" />
+                                    <p className="font-bold text-slate-400">Buscando produtos...</p>
+                                </div>
+                            ) : (
+                                <div className="w-full overflow-hidden">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                                     {products.map(product => (
                                         <div
                                             key={product.id}
@@ -395,9 +421,9 @@ const ShopPage: React.FC = () => {
                                             </div>
                                             <div className="p-6 flex flex-col flex-grow space-y-3">
                                                 <span className="text-[10px] uppercase tracking-widest font-bold text-slate-400">{product.category}</span>
-                                                <h3 className="font-bold text-[#0B1221] leading-tight group-hover:text-[#FBC02D] transition-colors line-clamp-2 min-h-[2.5rem]">{product.name}</h3>
+                                                <h3 className="font-bold text-[#0B1221] leading-tight group-hover:text-[#FBC02D] transition-colors line-clamp-2 min-h-[2.5rem] break-words">{product.name}</h3>
                                                 <p
-                                                    className="text-[11px] text-slate-500 line-clamp-2 min-h-[1.5rem] leading-snug mt-1"
+                                                    className="text-[11px] text-slate-500 line-clamp-2 min-h-[1.5rem] leading-snug mt-1 break-words"
                                                     dangerouslySetInnerHTML={{ __html: product.description || 'Qualidade e conforto.' }}
                                                 />
                                                 <div className="mt-auto pt-2">

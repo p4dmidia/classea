@@ -14,7 +14,9 @@ import {
 import { ORGANIZATION_ID } from '../lib/config';
 import { supabase } from '../lib/supabase';
 import { useCart } from '../components/CartContext';
+import { useAuth } from '../components/AuthContext';
 import toast from 'react-hot-toast';
+import { Copy, Link2 } from 'lucide-react';
 
 const ProductDetails: React.FC = () => {
     const { id } = useParams();
@@ -24,6 +26,22 @@ const ProductDetails: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [quantity, setQuantity] = useState(1);
     const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const { user } = useAuth();
+    const [referralCode, setReferralCode] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (user) {
+            const fetchReferral = async () => {
+                const { data } = await supabase
+                    .from('affiliates')
+                    .select('referral_code')
+                    .eq('user_id', user.id)
+                    .single();
+                if (data) setReferralCode(data.referral_code);
+            };
+            fetchReferral();
+        }
+    }, [user]);
 
     useEffect(() => {
         console.log("%c Classe A Product Details Version: 4.5.3 ", "background: #FBC02D; color: #0B1221; font-weight: bold; padding: 4px; border-radius: 4px;");
@@ -106,6 +124,33 @@ const ProductDetails: React.FC = () => {
 
         addToCart(product, selectedVariations);
         toast.success(`${product.name} adicionado ao carrinho!`);
+    };
+
+    const handleCopyReferralLink = () => {
+        if (!referralCode || !product) return;
+
+        // Verifica se todas as variações disponíveis foram selecionadas
+        const availableVariations = product.variations || {};
+        const missing = Object.keys(availableVariations).filter(key => 
+            availableVariations[key] && availableVariations[key].length > 0 && !selectedVariations[key]
+        );
+
+        if (missing.length > 0) {
+            toast.error("Selecione as variações antes de copiar o link!");
+            return;
+        }
+
+        const domain = window.location.origin;
+        // Codifica as variações em base64 para o link
+        const varsParam = Object.keys(selectedVariations).length > 0 
+            ? `&vars=${btoa(JSON.stringify(selectedVariations))}`
+            : '';
+        
+        const targetPath = `/p/${product.id}`;
+        const link = `${domain}/ref/${referralCode}?to=${encodeURIComponent(targetPath)}`;
+
+        navigator.clipboard.writeText(link);
+        toast.success("Link de indicação direta copiado!");
     };
 
     const renderVariationSelector = (key: string, label: string, options: string[]) => {
@@ -330,6 +375,16 @@ const ProductDetails: React.FC = () => {
                                 {(product.stock_quantity ?? 0) > 0 ? 'ADICIONAR AO CARRINHO' : 'ESGOTADO'}
                             </button>
 
+                            {user && referralCode && (
+                                <button
+                                    onClick={handleCopyReferralLink}
+                                    className="flex-grow font-black py-4 px-6 rounded-2xl border-2 border-[#0B1221] text-[#0B1221] hover:bg-slate-50 transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs"
+                                    title="Copiar link de indicação direta para checkout"
+                                >
+                                    <Link2 className="w-4 h-4" />
+                                    Indicação Rápida
+                                </button>
+                            )}
                         </div>
 
                         {/* Features */}

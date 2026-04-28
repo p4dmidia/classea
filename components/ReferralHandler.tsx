@@ -1,42 +1,46 @@
 import React, { useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import Cookies from 'js-cookie';
 
 const ReferralHandler: React.FC = () => {
     const { referralCode } = useParams<{ referralCode: string }>();
+    const [searchParams] = useSearchParams();
+    const location = useLocation();
     const navigate = useNavigate();
 
     useEffect(() => {
+        // Captura o código de indicação
         if (referralCode) {
-            console.log('Capturando código de indicação:', referralCode);
-
-            // Armazena o código de indicação em um cookie por 30 dias
-            // O cookie estará disponível em todo o domínio
-            Cookies.set('classea_ref', referralCode, {
+            const cleanCode = referralCode.toLowerCase();
+            Cookies.set('classea_ref', cleanCode, {
                 expires: 30,
                 path: '/',
                 sameSite: 'lax'
             });
         }
 
-        // Get redirect path from query string
-        const params = new URLSearchParams(window.location.search);
-        const redirectTo = params.get('to') || '/';
-        const targetPath = redirectTo.startsWith('/') ? redirectTo : `/${redirectTo}`;
+        // Tenta pegar o "to" de várias formas para garantir robustez
+        let redirectTo = searchParams.get('to');
+        
+        if (!redirectTo) {
+            const manualParams = new URLSearchParams(window.location.search);
+            redirectTo = manualParams.get('to');
+        }
 
-        // Redireciona para o alvo após capturar
+        if (!redirectTo) {
+            const match = location.search.match(/[?&]to=([^&]+)/);
+            if (match) redirectTo = decodeURIComponent(match[1]);
+        }
+
+        const finalTarget = redirectTo || '/';
+        const targetPath = finalTarget.startsWith('/') ? finalTarget : `/${finalTarget}`;
+        
+        // Redirecionamento instantâneo
         navigate(targetPath, { replace: true });
-    }, [referralCode, navigate]);
+    }, [referralCode, searchParams, navigate, location.search]);
 
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-white">
-            <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#FBC02D] mx-auto mb-4"></div>
-                <h2 className="text-xl font-black text-[#0B1221] uppercase tracking-widest">Processando Indicação...</h2>
-                <p className="text-slate-500 mt-2">Estamos preparando as melhores ofertas para você.</p>
-            </div>
-        </div>
-    );
+    // Retorna null para não mostrar nada durante o redirecionamento ultra-rápido
+    return null;
 };
 
 export default ReferralHandler;

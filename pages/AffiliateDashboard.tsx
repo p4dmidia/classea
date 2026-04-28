@@ -54,10 +54,14 @@ const AffiliateDashboard: React.FC = () => {
                 }
                 
                 const aff = affData?.[0] || null;
-                
                 if (!aff) {
-                    // Se não encontrar o afiliado para esta organização, algo está errado
-                    console.warn('Afiliado não encontrado para a organização atual.');
+                    // Se não encontrar o afiliado, tenta criar AUTOMATICAMENTE (Self-Healing)
+                    console.warn('Afiliado não encontrado. Tentando auto-vínculo...');
+                    const success = await handleAutoLink();
+                    if (success) {
+                        // Recarrega os dados após o vínculo automático
+                        return fetchDashboardData();
+                    }
                     setAffiliateData(null);
                 } else {
                     setAffiliateData(aff);
@@ -147,8 +151,68 @@ const AffiliateDashboard: React.FC = () => {
     };
 
     const handleSupportWhatsApp = () => {
-        const message = encodeURIComponent('Olá, preciso de suporte, pode me ajudar?');
+        const message = encodeURIComponent('Olá, preciso de suporte com minha conta de afiliado, não está vinculada.');
         window.open(`https://wa.me/554199670714?text=${message}`, '_blank');
+    };
+
+    const handleAutoLink = async () => {
+        if (!user) return false;
+        try {
+            // 1. Buscar o patrocinador do perfil do usuário
+            let sponsorAffId = null;
+            
+            // Tenta pegar o perfil atualizado
+            const { data: currentProfile } = await supabase
+                .from('user_profiles')
+                .select('full_name, sponsor_id, login')
+                .eq('id', user.id)
+                .maybeSingle();
+
+            if (currentProfile?.sponsor_id) {
+                const { data: sAff } = await supabase
+                    .from('affiliates')
+                    .select('id')
+                    .eq('user_id', currentProfile.sponsor_id)
+                    .eq('organization_id', ORGANIZATION_ID)
+                    .maybeSingle();
+                sponsorAffId = sAff?.id || null;
+            }
+
+            // Se não houver patrocinador no perfil, tenta o root
+            if (!sponsorAffId) {
+                const { data: rootAff } = await supabase
+                    .from('affiliates')
+                    .select('id')
+                    .eq('organization_id', ORGANIZATION_ID)
+                    .order('created_at', { ascending: true })
+                    .limit(1)
+                    .maybeSingle();
+                sponsorAffId = rootAff?.id || null;
+            }
+
+            const login = currentProfile?.login || user.email?.split('@')[0] || 'afiliado';
+            const randomSuffix = Math.random().toString(36).substring(2, 6);
+
+            const { error: insErr } = await supabase
+                .from('affiliates')
+                .insert({
+                    user_id: user.id,
+                    email: user.email,
+                    full_name: currentProfile?.full_name || profile?.full_name || 'Afiliado',
+                    referral_code: `${login}_${randomSuffix}`.toLowerCase(),
+                    organization_id: ORGANIZATION_ID,
+                    sponsor_id: sponsorAffId,
+                    is_active: true,
+                    is_verified: true
+                });
+
+            if (insErr) throw insErr;
+            console.log('Auto-vínculo realizado com sucesso.');
+            return true;
+        } catch (err: any) {
+            console.error('Erro no auto-vínculo:', err);
+            return false;
+        }
     };
 
     const formatCurrency = (value: number) => {
@@ -203,12 +267,20 @@ const AffiliateDashboard: React.FC = () => {
                         <h2 className="text-2xl font-black text-[#0B1221]">Conta não vinculada</h2>
                         <p className="text-slate-500 mt-2 max-w-md">Seu perfil de afiliado não foi encontrado nesta loja. Se você acredita que isso é um erro, por favor entre em contato com o suporte.</p>
                     </div>
-                    <button 
-                        onClick={() => navigate('/')}
-                        className="bg-[#0B1221] text-white px-8 py-3 rounded-2xl font-bold hover:bg-slate-800 transition-all"
-                    >
-                        VOLTAR PARA A LOJA
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <button 
+                            onClick={() => window.location.reload()}
+                            className="bg-[#FBC02D] text-[#0B1221] px-8 py-3 rounded-2xl font-black hover:bg-[#ffc947] transition-all uppercase text-xs tracking-widest shadow-lg shadow-amber-200"
+                        >
+                            Tentar Novamente
+                        </button>
+                        <button 
+                            onClick={handleSupportWhatsApp}
+                            className="bg-[#0B1221] text-white px-8 py-3 rounded-2xl font-black hover:bg-slate-800 transition-all uppercase text-xs tracking-widest"
+                        >
+                            Falar com Suporte
+                        </button>
+                    </div>
                 </div>
             </AffiliateLayout>
         );
