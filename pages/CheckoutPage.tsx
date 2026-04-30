@@ -157,12 +157,36 @@ const CheckoutPage: React.FC = () => {
         setSelectedShipping(null);
 
         try {
+            // Isenção de Frete Específica (MEIA)
+            const freeShippingProductIds = ['0c53e1fe-6660-485f-84c1-f13a0550229a'];
+            const itemsToCalculate = cart.filter(item => 
+                !freeShippingProductIds.includes(item.id) && 
+                !item.name.toLowerCase().includes('meia')
+            );
+
+            // Se sobrar apenas itens com frete grátis
+            if (itemsToCalculate.length === 0 && cart.length > 0) {
+                const freeOption = {
+                    id: 'fixed-delivery',
+                    name: 'Frete Grátis',
+                    price: '0.00',
+                    delivery_time: 15,
+                    company: { 
+                        name: 'Classe A Logística', 
+                        picture: 'https://clnuievcdnbwqbyqhwys.supabase.co/storage/v1/object/public/logos/classea-icon.png' 
+                    }
+                };
+                setShippingOptions([freeOption]);
+                setSelectedShipping(freeOption);
+                toast.success('Seu pedido possui frete grátis!');
+                return;
+            }
+
             const { data, error } = await supabase.functions.invoke('calculate-shipping', {
                 body: {
                     zip: customerInfo.cep,
-                    items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+                    items: itemsToCalculate.map(item => ({ id: item.id, quantity: item.quantity })),
                     organization_id: ORGANIZATION_ID
-
                 }
             });
 

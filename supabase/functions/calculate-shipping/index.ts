@@ -73,7 +73,11 @@ serve(async (req) => {
             
             const normalizedCat = categoryName.toLowerCase()
             const normalizedName = productName.toLowerCase()
-            
+
+            // Isenção de Frete Específica (MEIA)
+            const isFreeShipping = isClasseA && (normalizedName === 'meia' || p.id === '0c53e1fe-6660-485f-84c1-f13a0550229a')
+            if (isFreeShipping) return
+
             const isConsorcio = normalizedCat.includes('consórcio') || normalizedName.includes('consórcio')
 
             if (isClasseA && !isConsorcio) {
@@ -114,7 +118,7 @@ serve(async (req) => {
             return new Response(
                 JSON.stringify([{
                     id: 'fixed-delivery',
-                    name: 'Transportadora Parceira',
+                    name: fixedShippingTotal === 0 ? 'Frete Grátis' : 'Transportadora Parceira',
                     price: fixedShippingTotal.toFixed(2),
                     delivery_time: 15,
                     company: { 
