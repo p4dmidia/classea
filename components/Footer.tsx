@@ -73,7 +73,7 @@ const Footer: React.FC = () => {
                   Dúvidas sobre o sistema? Nossa equipe está pronta para te ajudar via WhatsApp.
                 </p>
                 <a 
-                  href="https://api.whatsapp.com/send/?phone=554199670714&text=Ol%C3%A1%2C+preciso+de+suporte%2C+pode+me+ajudar%3F&type=phone_number&app_absent=0"
+                  href="https://api.whatsapp.com/send/?phone=5541996285667&text=Ol%C3%A1%2C+preciso+de+suporte%2C+pode+me+ajudar%3F&type=phone_number&app_absent=0"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block w-full bg-white text-[#0B1221] text-center py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#0B1221] hover:text-white transition-all shadow-sm"

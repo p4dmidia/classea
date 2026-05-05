@@ -171,8 +171,8 @@ const AdminAffiliates: React.FC = () => {
                     whatsapp: editingAffiliate.phone,
                     is_active: editingAffiliate.raw_status,
                     is_verified: editingAffiliate.raw_verified,
-                    cpf: editingAffiliate.cpf,
-                    cnpj: editingAffiliate.cnpj,
+                    cpf: editingAffiliate.cpf?.trim() || null,
+                    cnpj: editingAffiliate.cnpj?.trim() || null,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', editingAffiliate.id)
@@ -189,8 +189,8 @@ const AdminAffiliates: React.FC = () => {
                         email: editingAffiliate.email,
                         whatsapp: editingAffiliate.phone,
                         registration_type: editingAffiliate.registration_type,
-                        cpf: editingAffiliate.cpf,
-                        cnpj: editingAffiliate.cnpj,
+                        cpf: editingAffiliate.cpf?.trim() || null,
+                        cnpj: editingAffiliate.cnpj?.trim() || null,
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', editingAffiliate.user_id);
@@ -206,10 +206,11 @@ const AdminAffiliates: React.FC = () => {
             if (editingAffiliate.email !== originalEmail) updateAuthData.email = editingAffiliate.email;
 
             if (Object.keys(updateAuthData).length > 0 && editingAffiliate.user_id) {
-                const { error: authError } = await supabase.auth.admin.updateUserById(
-                    editingAffiliate.user_id,
-                    updateAuthData
-                );
+                const { error: authError } = await supabase.rpc('admin_update_user_auth', {
+                    p_user_id: editingAffiliate.user_id,
+                    p_email: updateAuthData.email || null,
+                    p_password: updateAuthData.password || null
+                });
                 if (authError) {
                     if (authError.message.includes('already registered')) {
                         throw new Error('Este e-mail já está sendo usado por outro usuário.');
