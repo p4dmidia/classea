@@ -1,0 +1,21 @@
+<USER_REQUEST>
+por que está dando erro ao tentar subir esse arquivo no banco de dados, fala :
+
+Preview data to be imported
+
+Data incompatible
+
+A total of 1.094 rows will be added to the table "products"
+
+Here is a preview of the data that will be added (up to the first 20 columns and first 20 rows).
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-10-13T11:03:28-03:00.
+
+The user's current state is as follows:
+Active Document: c:\Users\eu\Documents\P4D\Projetos\Classe A\init_database.sql (LANGUAGE_UNSPECIFIED)
+Cursor is on line: 1760
+Other open documents:
+- c:\Users\eu\Documents\P4D\Projetos\Classe A\init_database.sql (LANGUAGE_UNSPECIFIED)
+- c:\Users\eu\Documents\P4D\Projetos\Classe A\.env.local (LANGUAGE_UNSPECIFIED)
+</ADDITIONAL_METADATA>
