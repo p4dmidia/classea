@@ -173,7 +173,7 @@ const CheckoutPage: React.FC = () => {
                     delivery_time: 15,
                     company: { 
                         name: 'Classe A Logística', 
-                        picture: 'https://clnuievcdnbwqbyqhwys.supabase.co/storage/v1/object/public/logos/classea-icon.png' 
+                        picture: '/assets/logo.png' 
                     }
                 };
                 setShippingOptions([freeOption]);

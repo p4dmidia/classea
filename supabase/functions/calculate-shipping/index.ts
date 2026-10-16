@@ -123,7 +123,7 @@ serve(async (req) => {
                     delivery_time: 15,
                     company: { 
                         name: 'Classe A Logística', 
-                        picture: 'https://clnuievcdnbwqbyqhwys.supabase.co/storage/v1/object/public/logos/classea-icon.png' 
+                        picture: 'https://classeafaria.com.br/wp-content/uploads/sites/7538/2025/09/cropped-LOGO-CLASSE-A.png' 
                     },
                     custom_delivery_time: 15
                 }]),
